@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
-const connectDB = require('./config/db');
-const apiRoutes = require('./routes/allRoute'); 
+const connectDB = require('./src/configs/db');
+const apiRoutes = require('./src/routes'); 
 connectDB();
 
 app.use(express.json());
