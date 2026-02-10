@@ -1,1 +1,27 @@
 /e-trade_server/node_modules
+
+node_modules/
+jspm_packages/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+.env
+.env.test
+.env.local
+
+# MacOS system files
+.DS_Store
+
+# IDEs/Editors
+.vscode/
+.idea/
+
+dist/
+build/
+
+# Logs
+logs
+*.log
