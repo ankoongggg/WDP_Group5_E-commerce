@@ -1,7 +1,7 @@
 {
   "name": "back-end",
   "version": "1.0.0",
-  "description": "RESTFul API Application - Given",
+  "description": "WDP Group 5 E-commerce Back-end Server",
   "main": "server.js",
   "scripts": {
     "start": "nodemon server"
@@ -11,7 +11,7 @@
     "restful",
     "api"
   ],
-  "author": "FPTU HN",
+  "author": "WDP Group 5",
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^3.0.2",
