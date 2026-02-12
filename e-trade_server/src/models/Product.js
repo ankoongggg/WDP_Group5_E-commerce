@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const Store = require('./Store');
+const Category = require('./Category');
 
 const productSchema = new mongoose.Schema({
     store_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true },

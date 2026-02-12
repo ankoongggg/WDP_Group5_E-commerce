@@ -1,4 +1,7 @@
 const mongoose = require('mongoose');
+const Product = require('./Product');
+const User = require('./User');
+const Order = require('./Order');
 
 const reviewProductSchema = new mongoose.Schema({
     product_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
