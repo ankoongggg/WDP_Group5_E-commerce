@@ -28,6 +28,8 @@ const userSchema = new mongoose.Schema({
     status: String,
     ban_reason: String,
     banned_until: Date,
+    created_at: { type: Date, default: Date.now },
+    updated_at: { type: Date, default: Date.now },
 });
 
 module.exports = mongoose.model('User', userSchema);

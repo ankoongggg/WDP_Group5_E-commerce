@@ -9,6 +9,8 @@ const storeSchema = new mongoose.Schema({
   total_sales: Number,
   shop_name: { type: String, required: true },
   status: String,
+  created_at: { type: Date, default: Date.now },
+  updated_at: { type: Date, default: Date.now },
 });
 
 module.exports = mongoose.model('Store', storeSchema);
