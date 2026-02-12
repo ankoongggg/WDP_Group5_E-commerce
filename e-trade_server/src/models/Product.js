@@ -21,6 +21,8 @@ const productSchema = new mongoose.Schema({
     condition: String,
     status: String,
     rejection_reason: String,
+    created_at: { type: Date, default: Date.now },
+    updated_at: { type: Date, default: Date.now },
 });
 
 module.exports = mongoose.model('Product', productSchema);
