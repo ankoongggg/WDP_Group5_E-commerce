@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const Product = require('./Product');
+const User = require('./User');
 
 const voucherSchema = new mongoose.Schema({
     product_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },

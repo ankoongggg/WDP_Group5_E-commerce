@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const User = require('./User');
+const Conversation = require('./Conversation');
 
 const messageSchema = new mongoose.Schema({
     conversation_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Conversation', required: true },

@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const User = require('./User');
+const Administration = require('./Administration');
 
 const notificationSchema = new mongoose.Schema({
     from_user_id: {
