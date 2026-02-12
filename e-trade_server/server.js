@@ -1,26 +1,35 @@
-const express = require('express');
+require("dotenv").config();
+
+const express = require("express");
 const app = express();
-const connectDB = require('./src/configs/db');
+const connectDB = require("./src/configs/db");
 const cors = require("cors");
+
+// routes
+const userRoutes = require("./src/routes/user.routes");
+const devRoutes = require("./src/routes/dev.routes");
 
 connectDB();
 
+// middleware
 app.use(express.json());
 
-app.get('/', async (req, res) => {
-    try {
-        res.send({ message: 'Welcome to Practical Exam!' });
-    } catch (error) {
-        res.send({ error: error.message });
-    }
+// CORS (đặt trước routes)
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
+
+// test route
+app.get("/", (req, res) => {
+  res.json({ message: "Welcome to Practical Exam!" });
 });
 
-// Cấu hình CORS
-const corsOptions = {
-    origin: 'http://localhost:3000',
-    credentials: true,
-};
-app.use(cors(corsOptions));
+// mount routes
+app.use("/api/users", userRoutes);
+app.use("/api/dev", devRoutes);
 
 const PORT = process.env.PORT || 9999;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
