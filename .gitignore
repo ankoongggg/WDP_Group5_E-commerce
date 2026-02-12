@@ -25,3 +25,6 @@ build/
 # Logs
 logs
 *.log
+*.sst
+/e-trade_client/.next/dev/cache/turbopack
+/e-trade_client/.next

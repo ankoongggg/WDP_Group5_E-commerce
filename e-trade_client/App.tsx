@@ -1,17 +1,17 @@
 import React from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
-import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
-import SecurityOtp from './pages/auth/SecurityOtp';
-import Home from './pages/shop/Home';
-import ProductList from './pages/shop/ProductList';
-import ProductDetail from './pages/shop/ProductDetail';
-import Cart from './pages/shop/Cart';
-import Checkout from './pages/shop/Checkout';
-import Profile from './pages/account/Profile';
-import Orders from './pages/account/Orders';
-import OrderDetail from './pages/account/OrderDetail';
-import Settings from './pages/account/Settings';
+import Login from './src/pages/auth/Login';
+import Register from './src/pages/auth/Register';
+import SecurityOtp from './src/pages/auth/SecurityOtp';
+import Home from './src/pages/shop/Home';
+import ProductList from './src/pages/shop/ProductList';
+import ProductDetail from './src/pages/shop/ProductDetail';
+import Cart from './src/pages/shop/Cart';
+import Checkout from './src/pages/shop/Checkout';
+import Profile from './src/pages/account/Profile';
+import Orders from './src/pages/account/Orders';
+import OrderDetail from './src/pages/account/OrderDetail';
+import Settings from './src/pages/account/Settings';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
