@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, useLocation,BrowserRouter } from 'react-router-dom';
 import Login from './src/pages/auth/Login';
 import Register from './src/pages/auth/Register';
 import SecurityOtp from './src/pages/auth/SecurityOtp';
@@ -23,7 +23,7 @@ const ScrollToTop = () => {
 
 const App: React.FC = () => {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <ScrollToTop />
       <Routes>
         {/* Auth Routes */}
@@ -44,7 +44,7 @@ const App: React.FC = () => {
         <Route path="/account/orders/:id" element={<OrderDetail />} />
         <Route path="/account/settings" element={<Settings />} />
       </Routes>
-    </HashRouter>
+    </BrowserRouter>
   );
 };
 

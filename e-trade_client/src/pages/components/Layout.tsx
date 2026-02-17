@@ -9,7 +9,7 @@ export const Navbar: React.FC = () => {
           <div class="w-8 h-8 bg-primary rounded flex items-center justify-center text-white">
             <span class="material-symbols-outlined">shopping_bag</span>
           </div>
-          <h2 class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase italic">ShopModern</h2>
+          <h2 class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase italic">E-Shop Trading</h2>
         </Link>
         
         <div class="flex-1 max-w-xl hidden md:block">
