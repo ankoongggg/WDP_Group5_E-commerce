@@ -5,10 +5,13 @@ export interface Product {
   price: number;
   original_price?: number; // Backend trả về original_price
   main_image: string; // Backend trả về main_image
-  category_id?: { _id: string; name: string };
+  // category_id hiện được lưu dưới dạng mảng trong schema
+  category_id?: Array<{ _id: string; name: string }> | string;
   description?: string;
   rating?: number; // Nếu có
   sold?: number; // Nếu có
+  created_at?: string; // Nếu có
+  updated_at?: string; // Nếu có
 }
 
 export interface Category {

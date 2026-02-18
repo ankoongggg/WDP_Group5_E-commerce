@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useSearch } from '../../hooks/useLayout';
 
 export const Navbar: React.FC = () => {
-  const { search, setSearch, suggestions, showSuggestions, handleSearch, handleKeyDown, handleSelectSuggestion, handleFocus, handleBlur } = useSearch();
+  const { search, setSearch, suggestions, showSuggestions, setShowSuggestions, handleSearch, handleKeyDown, handleSelectSuggestion, handleFocus, handleBlur } = useSearch();
   return (
     <header class="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md">
       <div class="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between gap-8">
@@ -22,7 +22,10 @@ export const Navbar: React.FC = () => {
               placeholder="Search for products..." 
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                  setSearch(e.target.value);
+                  setShowSuggestions(true);
+              }}
               onKeyDown={handleKeyDown}
               onFocus={handleFocus}
               onBlur={handleBlur}
@@ -41,6 +44,7 @@ export const Navbar: React.FC = () => {
               {suggestions.map((suggestion, index) => (
                 <div
                   key={index}
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleSelectSuggestion(suggestion)}
                   class="px-4 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-b-0 flex items-center gap-2 text-slate-900 dark:text-white"
                 >

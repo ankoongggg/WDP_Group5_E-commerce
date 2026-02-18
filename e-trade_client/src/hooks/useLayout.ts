@@ -1,108 +1,102 @@
-import { useState, useEffect } from 'react';
+// src/hooks/useLayout.ts
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import React from 'react';
 import { ProductService } from '../services/productService';
-
+import { removeVietnameseTones } from '../utils/format'; // Import hàm mới
+import React from 'react';
 export const useSearch = () => {
     const [search, setSearch] = useState('');
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [allProducts, setAllProducts] = useState<any[]>([]);
-    const [isFocused, setIsFocused] = useState(false);
+    
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
 
-    // Sync search input với URL keyword param
+    // Đồng bộ URL -> Input
     useEffect(() => {
         const urlKeyword = searchParams.get('keyword') || '';
         setSearch(urlKeyword);
-    }, [searchParams, location]);
+    }, [searchParams]);
 
-    // Fetch tất cả products lần đầu
+    // Fetch data cho suggestion
     useEffect(() => {
         const fetchProducts = async () => {
             try {
                 const res = await ProductService.getAll({ limit: 1000 });
                 setAllProducts(res.data || []);
             } catch (error) {
-                console.error('Failed to fetch products', error);
+                console.error(error);
             }
         };
         fetchProducts();
     }, []);
 
-    // Lọc gợi ý từ khóa khi người dùng nhập
+    // Logic gợi ý (Dùng removeVietnameseTones)
     useEffect(() => {
-        if (isFocused && search.trim().length > 0) {
-            const keyword = search.toLowerCase();
+        if (showSuggestions && search.trim().length > 0) {
+            const keywordRaw = search.toLowerCase();
+            const keywordNoTone = removeVietnameseTones(keywordRaw); // Xóa dấu keyword
             const uniqueSuggestions = new Set<string>();
 
             allProducts.forEach((product: any) => {
                 const productName = product.name?.toLowerCase() || '';
-                if (productName.includes(keyword)) {
+                const productNameNoTone = removeVietnameseTones(productName); // Xóa dấu tên SP
+
+                // So sánh không dấu
+                if (productNameNoTone.includes(keywordNoTone)) {
                     uniqueSuggestions.add(product.name);
                 }
             });
 
-            setSuggestions(Array.from(uniqueSuggestions).slice(0, 8));
-            setShowSuggestions(true);
+            setSuggestions(Array.from(uniqueSuggestions).slice(0, 5));
         } else {
             setSuggestions([]);
-            setShowSuggestions(false);
         }
-    }, [search, allProducts, isFocused]);
+    }, [search, showSuggestions, allProducts]);
 
-    const handleSearch = (keyword?: string) => {
-        const finalKeyword = keyword || search.trim();
-        if (finalKeyword) {
-            const isOnProductPage = location.pathname === '/products';
-            
-            if (isOnProductPage) {
-                // (không reload page)
-                setSearchParams({ keyword: finalKeyword });
-            } else {
-                // Nếu chưa ở ProductList, navigate tới ProductList
-                navigate(`/products?keyword=${encodeURIComponent(finalKeyword)}`);
+    const handleSearch = (keywordOverride?: string) => {
+        const finalKeyword = keywordOverride !== undefined ? keywordOverride : search.trim();
+        setShowSuggestions(false);
+
+        if (location.pathname === '/products') {
+            // If on product page, update params accordingly
+            setSearchParams(prev => {
+                if (finalKeyword) {
+                    prev.set('keyword', finalKeyword);
+                } else {
+                    prev.delete('keyword');
+                }
+                prev.delete('page');
+                return prev;
+            });
+            if (!finalKeyword && location.pathname !== '/products') {
+                navigate('/products');
             }
-            
-            // Ẩn gợi ý sau khi tìm kiếm
-            setShowSuggestions(false);
-            setIsFocused(false);
+        } else {
+            // not on product page
+            if (finalKeyword) {
+                navigate(`/products?keyword=${encodeURIComponent(finalKeyword)}`);
+            } else {
+                navigate('/products');
+            }
         }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            handleSearch();
-        }
+        if (e.key === 'Enter') handleSearch();
     };
 
     const handleSelectSuggestion = (suggestion: string) => {
-        setSearch(suggestion);
-        const isOnProductPage = location.pathname === '/products';
-        
-        if (isOnProductPage) {
-            setSearchParams({ keyword: suggestion });
-        } else {
-            navigate(`/products?keyword=${encodeURIComponent(suggestion)}`);
-        }
-        
-        setShowSuggestions(false);
-        setIsFocused(false);
+        setSearch(suggestion); // Cập nhật input ngay lập tức
+        handleSearch(suggestion); // Gọi search
     };
 
-    const handleFocus = () => {
-        setIsFocused(true);
+    return { 
+        search, setSearch, suggestions, showSuggestions, setShowSuggestions,
+        handleSearch, handleKeyDown, handleSelectSuggestion, 
+        handleFocus: () => setShowSuggestions(true), 
+        handleBlur: () => setTimeout(() => setShowSuggestions(false), 200) 
     };
-
-    const handleBlur = () => {
-        // Delay để user kịp click vào suggestion
-        setTimeout(() => {
-            setIsFocused(false);
-            setShowSuggestions(false);
-        }, 200);
-    };
-
-    return { search, setSearch, suggestions, showSuggestions, handleSearch, handleKeyDown, handleSelectSuggestion, handleFocus, handleBlur };
 };
