@@ -1,7 +1,9 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useSearch } from '../../hooks/useLayout';
 
 export const Navbar: React.FC = () => {
+  const { search, setSearch, suggestions, showSuggestions, handleSearch, handleKeyDown, handleSelectSuggestion, handleFocus, handleBlur } = useSearch();
   return (
     <header class="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md">
       <div class="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between gap-8">
@@ -12,11 +14,42 @@ export const Navbar: React.FC = () => {
           <h2 class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase italic">E-Shop Trading</h2>
         </Link>
         
-        <div class="flex-1 max-w-xl hidden md:block">
+        <div class="flex-1 max-w-xl hidden md:block relative">
           <label class="relative flex items-center">
             <span class="absolute left-3 text-slate-400 material-symbols-outlined">search</span>
-            <input class="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/50 transition-all outline-none" placeholder="Search for products..." type="text"/>
+            <input 
+              class="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl py-2 pl-10 pr-12 text-sm focus:ring-2 focus:ring-primary/50 transition-all outline-none" 
+              placeholder="Search for products..." 
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+            />
+            <button
+              onClick={() => handleSearch()}
+              class="absolute right-2 p-2 text-slate-400 hover:text-primary transition-colors"
+            >
+              <span class="material-symbols-outlined text-xl">search</span>
+            </button>
           </label>
+
+          {/* Dropdown gợi ý */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div class="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg z-10">
+              {suggestions.map((suggestion, index) => (
+                <div
+                  key={index}
+                  onClick={() => handleSelectSuggestion(suggestion)}
+                  class="px-4 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-b-0 flex items-center gap-2 text-slate-900 dark:text-white"
+                >
+                  <span class="material-symbols-outlined text-sm">search</span>
+                  <span class="text-sm">{suggestion}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div class="flex items-center gap-4">

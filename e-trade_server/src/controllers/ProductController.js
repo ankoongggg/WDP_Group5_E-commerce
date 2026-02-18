@@ -124,8 +124,8 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
 
         // console.log(`Found ${allProducts.length} potential products.`);
 
-        // 4. Tính toán % giảm giá cho từng sản phẩm bằng Javascript
-        // Công thức: (Gốc - Bán) / Gốc * 100
+        // Tính toán % giảm giá cho từng sản phẩm bằng Javascript
+        // (Gốc - Bán) / Gốc * 100
         const productsWithDiscount = allProducts.map(p => {
            
             const original = p.original_price || 0;

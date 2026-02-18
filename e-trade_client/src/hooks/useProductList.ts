@@ -18,30 +18,38 @@ export const useProductList = () => {
   const category = searchParams.get('category') || '';
   const keyword = searchParams.get('keyword') || '';
 
+  // Fetch categories chỉ 1 lần
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const categoriesRes = await CategoryService.getAll({});
+        
+        if (Array.isArray(categoriesRes)) {
+          setCategories(categoriesRes);
+        } else if (categoriesRes?.data && Array.isArray(categoriesRes.data)) {
+          setCategories(categoriesRes.data);
+        } else {
+          setCategories([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch categories', error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // Fetch products khi page/category/keyword thay đổi
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         const res = await ProductService.getAll({ 
           page, 
-          limit: 12, // Grid 3x4 hoặc 4x3
+          limit: 12,
           category,
           keyword 
         });
         setProducts(res.data);
-
-        const categoriesRes = await CategoryService.getAll({
-                });
-        
-                // Handle different response formats
-                if (Array.isArray(categoriesRes)) {
-                  setCategories(categoriesRes);
-                } else if (categoriesRes?.data && Array.isArray(categoriesRes.data)) {
-                  setCategories(categoriesRes.data);
-                } else {
-                  setCategories([]);
-                }
-
         setTotalPages(res.total_pages);
       } catch (error) {
         console.error(error);
@@ -50,7 +58,7 @@ export const useProductList = () => {
       }
     };
     fetchData();
-  }, [page, category, keyword]); // Chạy lại khi params thay đổi
+  }, [page, category, keyword]);
 
   // Hàm chuyển trang
   const goToPage = (newPage: number) => {
@@ -58,7 +66,6 @@ export const useProductList = () => {
       prev.set('page', newPage.toString());
       return prev;
     });
-    // Scroll lên đầu
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
