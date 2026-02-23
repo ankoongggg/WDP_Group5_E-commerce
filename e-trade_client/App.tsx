@@ -1,8 +1,13 @@
 import React from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { AuthProvider } from './src/context/AuthContext';
+import { ToastProvider } from './src/context/ToastContext';
+import ProtectedRoute from './src/components/ProtectedRoute';
 import Login from './src/pages/auth/Login';
 import Register from './src/pages/auth/Register';
 import SecurityOtp from './src/pages/auth/SecurityOtp';
+import ForgotPassword from './src/pages/auth/ForgotPassword';
+import ResetPassword from './src/pages/auth/ResetPassword';
 import Home from './src/pages/shop/Home';
 import ProductList from './src/pages/shop/ProductList';
 import ProductDetail from './src/pages/shop/ProductDetail';
@@ -21,29 +26,41 @@ const ScrollToTop = () => {
   return null;
 };
 
-const App: React.FC = () => {
+const AppRoutes: React.FC = () => {
   return (
-    <HashRouter>
+    <AuthProvider>
       <ScrollToTop />
       <Routes>
         {/* Auth Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/security" element={<SecurityOtp />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Shop Routes */}
+        {/* Shop Routes (public) */}
         <Route path="/" element={<Home />} />
         <Route path="/products" element={<ProductList />} />
         <Route path="/product/:id" element={<ProductDetail />} />
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/checkout" element={<Checkout />} />
 
-        {/* Account Routes */}
-        <Route path="/account" element={<Profile />} />
-        <Route path="/account/orders" element={<Orders />} />
-        <Route path="/account/orders/:id" element={<OrderDetail />} />
-        <Route path="/account/settings" element={<Settings />} />
+        {/* Protected Routes */}
+        <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+        <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+        <Route path="/account" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/account/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+        <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
+        <Route path="/account/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       </Routes>
+    </AuthProvider>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <HashRouter>
+      <ToastProvider>
+        <AppRoutes />
+      </ToastProvider>
     </HashRouter>
   );
 };
