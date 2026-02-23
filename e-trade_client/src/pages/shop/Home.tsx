@@ -1,8 +1,12 @@
 import React from 'react';
-import { Layout } from '../../../components/Layout';
+import { Layout } from '../components/Layout';
 import { Link } from 'react-router-dom';
+import { ProductCard } from '../components/common/ProductCard';
+import { useHomeProducts } from '../../hooks/useHomeProducts';
 
 const Home: React.FC = () => {
+  const { products, biggestDiscount, categories ,saleProducts, loading } = useHomeProducts();
+
   return (
     <Layout>
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-12">
@@ -21,63 +25,117 @@ const Home: React.FC = () => {
            </div>
         </section>
 
-        {/* Flash Sale */}
-        <section class="bg-primary/5 dark:bg-primary/10 rounded-2xl p-6 border border-primary/10">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-            <div class="space-y-1">
-               <div class="flex items-center gap-2 text-primary font-bold">
-                 <span class="material-symbols-outlined">bolt</span>
-                 <h3 class="text-2xl">FLASH SALE</h3>
-               </div>
-               <p class="text-slate-500 dark:text-slate-400">Hurry up! These deals won't last forever.</p>
+        {/* Sale  row */}
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Deep Sale Column */}
+          <div class="bg-primary/5 dark:bg-primary/10 rounded-2xl p-6 border border-primary/10">
+            <div class="space-y-1 mb-6">
+              <div class="flex items-center gap-2 text-primary font-bold">
+                <span class="material-symbols-outlined">bolt</span>
+                <h3 class="text-2xl">DEEP SALE</h3>
+              </div>
+              <p class="text-slate-500 dark:text-slate-400">Giảm giá siêu sâu lên tới <span className="font-bold text-primary">{biggestDiscount}%</span> </p>
             </div>
-            <div class="flex gap-3">
-               {[["02", "Hours"], ["45", "Min"], ["12", "Sec"]].map(([val, label]) => (
-                  <div key={label} class="flex flex-col items-center">
-                    <div class="bg-primary text-white w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold shadow-lg shadow-primary/20">{val}</div>
-                    <span class="text-[10px] uppercase font-bold mt-1 tracking-wider opacity-60">{label}</span>
-                  </div>
-               ))}
+            
+            <div class="grid grid-cols-2 gap-4">
+              {/* Deep Sale Products */}
+              {saleProducts.slice(0, Math.ceil(saleProducts.length / 2)).map((item) => (
+                <ProductCard key={item._id} product={item} />
+              ))}
+            </div>
+            <div class="mt-6 text-center">
+              <Link 
+                to="/products?sale=deep" 
+                class="inline-block bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-full font-bold transition-colors"
+              >
+                Mở rộng
+              </Link>
             </div>
           </div>
-          
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-             {/* Products */}
-             {[
-               { name: "Premium Wireless Headphones", price: 199, old: 299, img: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80", off: "40%" },
-               { name: "Minimalist Silver Watch", price: 149, old: 199, img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80", off: "25%" },
-               { name: "V-Series Running Shoes", price: 60, old: 120, img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80", off: "50%" },
-               { name: "Instant Film Camera", price: 85, old: 99, img: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&q=80", off: "15%" }
-             ].map((item, i) => (
-               <Link to={`/product/${i}`} key={i} class="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 hover:shadow-xl transition-shadow group relative block">
-                  <span class="absolute top-2 left-2 z-10 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded">-{item.off}</span>
-                  <div class="aspect-square rounded-lg bg-slate-100 dark:bg-slate-900 mb-3 overflow-hidden">
-                    <img src={item.img} alt={item.name} class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                  </div>
-                  <h4 class="font-medium text-sm truncate dark:text-white">{item.name}</h4>
-                  <div class="mt-1 flex items-baseline gap-2">
-                    <span class="text-primary font-bold">${item.price}.00</span>
-                    <span class="text-slate-400 text-xs line-through">${item.old}.00</span>
-                  </div>
-               </Link>
-             ))}
+
+          {/* Flash Sale Column */}
+          <div class="bg-primary/5 dark:bg-primary/10 rounded-2xl p-6 border border-primary/10">
+            <div class="space-y-1 mb-6">
+              <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2 text-primary font-bold">
+                  <span class="material-symbols-outlined">local_fire_department</span>
+                  <h3 class="text-2xl">FLASH SALE</h3>
+                </div>
+                <div class="flex gap-2">
+                  {[["02", "Hours"], ["45", "Min"], ["12", "Sec"]].map(([val, label]) => (
+                    <div key={label} class="flex flex-col items-center">
+                      <div class="bg-primary text-white w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold shadow-lg shadow-primary/20">{val}</div>
+                      <span class="text-[8px] uppercase font-bold mt-0.5 tracking-wider opacity-60 text-center">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <p class="text-slate-500 dark:text-slate-400">Giới hạn thời gian - nhanh tay mua sắm</p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+              {/* Flash Sale Products */}
+              {saleProducts.slice(Math.ceil(saleProducts.length / 2)).map((item) => (
+                <ProductCard key={item._id} product={item} />
+              ))}
+            </div>
+            <div class="mt-6 text-center">
+              <Link 
+                to="/products?sale=flash" 
+                class="inline-block bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-full font-bold transition-colors"
+              >
+                Mở rộng
+              </Link>
+            </div>
           </div>
         </section>
 
         {/* Categories */}
         <section>
            <h3 class="text-2xl font-bold mb-8 dark:text-white">Shop by Category</h3>
-           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
-             {["devices", "apparel", "chair", "fitness_center", "face", "headphones"].map((icon, i) => (
-                <div key={i} class="group cursor-pointer">
-                   <div class="aspect-square bg-slate-100 dark:bg-primary/5 rounded-2xl flex items-center justify-center mb-3 group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                     <span class="material-symbols-outlined text-4xl">{icon}</span>
-                   </div>
-                   <p class="text-center font-bold text-sm dark:text-slate-300">Category {i+1}</p>
+           <div class="flex items-center justify-center gap-6 flex-wrap">
+             {categories.map((item) => ( 
+                <div key={item._id} class="group cursor-pointer items-center justify-center rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col bg-white dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-orange-500 hover:text-white hover:shadow-lg transition-all">
+                   {/* <div class="aspect-square bg-slate-100 dark:bg-primary/5 rounded-2xl flex items-center justify-center mb-3 group-hover:bg-primary group-hover:text-white transition-all duration-300">
+                     <span class="material-symbols-outlined text-4xl">{item.name}</span>
+                   </div> */}
+                   <p class="text-center font-bold text-sm">{item.name}</p>
                 </div>
              ))}
            </div>
         </section>
+      </div>
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 text-center ">
+       {/* Products Section */}
+        <section>
+          <div className="flex justify-between items-end mb-6">
+            <h3 className="text-2xl font-bold dark:text-white">Trending Now</h3>
+            <Link to="/products" className="text-primary font-bold text-sm hover:underline flex items-center gap-1">
+              View All <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="text-center py-10">Loading products...</div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {products.map((product) => (
+                <ProductCard key={product._id} product={product} />
+              ))}
+            </div>
+          )}
+
+          {/* Nút Xem Thêm chuyển trang */}
+          <div className="mt-8 text-center">
+             <Link 
+               to="/products" 
+               className="inline-block bg-white border border-slate-200 text-slate-700 px-6 py-2 rounded-full font-bold hover:bg-slate-50 transition-colors"
+             >
+               View More Products
+             </Link>
+          </div>
+        </section>
+
       </div>
     </Layout>
   );
