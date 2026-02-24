@@ -15,7 +15,10 @@ const app = express();
 // Kết nối Database
 connectDB();
 
-// Cấu hình CORS (Gộp theo cách linh hoạt của Bách)
+const productRoutes = require('./src/routes/productRoutes');
+const storeRoutes = require('./src/routes/storeRoutes');
+
+// Cấu hình CORS
 const corsOptions = {
     origin: process.env.CLIENT_URL || "http://localhost:3000",
     credentials: true,
@@ -44,6 +47,8 @@ app.use('/api/categories', categoryRoutes);
 
 // Dự phòng route cũ của Thắng để không lỗi Frontend cũ
 app.use('/product', productRoutes);
+// Use store routes
+app.use('/store', storeRoutes);
 
 const PORT = process.env.PORT || 9999;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

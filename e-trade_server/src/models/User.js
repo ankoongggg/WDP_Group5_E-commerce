@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Product = require('./Product');
+const Store = require('./Store');
 
 const userSchema = new mongoose.Schema({
     avatar: String,
@@ -19,6 +20,7 @@ const userSchema = new mongoose.Schema({
     gender: String,
     phone: String,
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
+    following_stores: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Store' }],
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
     email: { type: String, required: true, unique: true },
