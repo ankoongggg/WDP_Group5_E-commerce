@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Layout } from '../../../components/Layout';
+import { Layout } from '../components/Layout';
 import ProductCard from './ProductCard';
 
 // --- Interfaces ---
@@ -88,7 +88,7 @@ const StoreDetail: React.FC = () => {
       if (!id) return;
       setLoadingStore(true);
       try {
-        const response = await axios.get<StoreDetailsResponse>(`http://localhost:9999/store/${id}`);
+        const response = await axios.get<StoreDetailsResponse>(`http://localhost:9999/api/store/${id}`);
         setStoreDetails(response.data);
       } catch (err) {
         setError('Không thể tải thông tin cửa hàng.');
@@ -115,7 +115,7 @@ const StoreDetail: React.FC = () => {
         if (debouncedMinPrice) params.append('minPrice', debouncedMinPrice);
         if (debouncedMaxPrice) params.append('maxPrice', debouncedMaxPrice);
 
-        const response = await axios.get<StoreProductsResponse>(`http://localhost:9999/store/${id}/products`, { params });
+        const response = await axios.get<StoreProductsResponse>(`http://localhost:9999/api/store/${id}/products`, { params });
         
         setProducts(prev => page === 1 ? response.data.products : [...prev, ...response.data.products]);
         setTotalPages(response.data.totalPages);

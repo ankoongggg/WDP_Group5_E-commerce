@@ -19,7 +19,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     : 0;
 
   return (
-    <Link to={`/product/${product._id}`} className="group block overflow-hidden rounded-lg border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-lg transition-shadow duration-300">
+    <Link to={`/products/${product._id}`} className="group block overflow-hidden rounded-lg border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-lg transition-shadow duration-300">
       <div className="relative aspect-[4/3] overflow-hidden bg-slate-100 dark:bg-white/5">
         <img
           src={product.main_image || 'https://via.placeholder.com/400x300'}

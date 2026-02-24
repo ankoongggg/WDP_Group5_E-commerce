@@ -48,7 +48,7 @@ const AppRoutes: React.FC = () => {
         {/* Shop Routes (Public) */}
         <Route path="/" element={<Home />} />
         <Route path="/products" element={<ProductList />} />
-        <Route path="/product/:id" element={<ProductDetail />} />
+        <Route path="/products/:id" element={<ProductDetail />} />
         <Route path="/store/:id" element={<StoreDetail />} />
 
         {/* Protected Routes (Phải đăng nhập mới vào được) */}

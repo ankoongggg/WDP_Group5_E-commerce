@@ -80,7 +80,7 @@ const ProductDetail: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await axios.get<ProductDetailsResponse>(`http://localhost:9999/product/${id}`);
+        const response = await axios.get<ProductDetailsResponse>(`http://localhost:9999/api/products/${id}`);
         setDetails(response.data);
         const product = response.data.product;
         setActiveImage(product.main_image || (product.display_files.length > 0 ? product.display_files[0] : ''));
@@ -129,7 +129,7 @@ const ProductDetail: React.FC = () => {
         }
 
         const response = await axios.get<ReviewsResponse>(
-          `http://localhost:9999/product/${id}/reviews`,
+          `http://localhost:9999/api/products/${id}/reviews`,
           { params }
         );
 
