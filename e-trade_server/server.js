@@ -1,48 +1,48 @@
 require("dotenv").config();
-
 const express = require("express");
-const app = express();
-
-const connectDB = require("./src/configs/db");
 const cors = require("cors");
+const connectDB = require("./src/configs/db");
 
-// Import routes (Ann)
-const userRoutes = require("./src/routes/user.routes");
-const devRoutes = require("./src/routes/dev.routes");
+// Import routes
+const authRoutes = require('./src/routes/authRoutes'); // Của Bách
+const userRoutes = require("./src/routes/user.routes"); // Của Ann
+const devRoutes = require("./src/routes/dev.routes"); // Của Ann
+const productRoutes = require('./src/routes/productRoutes'); // Của Thắng
+const categoryRoutes = require('./src/routes/categoryRoutes'); // Của Tú
 
-// Import product routes (Thắng)
-const productRoutes = require('./src/routes/productRoutes');
+const app = express();
 
 // Kết nối Database
 connectDB();
 
-// Middleware
-app.use(express.json());
-
-// CORS (đặt trước routes)
-app.use(
-  cors({
-    origin: "http://localhost:3000",
+// Cấu hình CORS (Gộp theo cách linh hoạt của Bách)
+const corsOptions = {
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
     credentials: true,
-  })
-);
+};
+app.use(cors(corsOptions));
+app.use(express.json());
 
 // Test route
 app.get("/", (req, res) => {
-  res.json({ message: "Welcome to Practical Exam!" });
+    res.json({ message: "E-Trade API is running - Welcome to Practical Exam!" });
 });
 
-// Mount routes của Ann (User Profile)
+// --- MOUNT ROUTES ---
+
+// Route Auth (Bách)
+app.use('/api/auth', authRoutes);
+
+// Route User & Dev (Ann)
 app.use("/api/users", userRoutes);
 app.use("/api/dev", devRoutes);
 
-// Mount routes của Tu (Searching)
-// ⚠️ LƯU Ý: Đang dùng 'ProductRoutes' viết hoa chữ P. Cần check lại xem tên file thật là gì.
-app.use('/api/products', require('./src/routes/productRoutes'));
-app.use('/api/categories', require('./src/routes/categoryRoutes'));
+// Route Products (Tú & Thắng)
+// Thống nhất dùng tiền tố /api/products cho chuẩn RESTful
+app.use('/api/products', productRoutes); 
+app.use('/api/categories', categoryRoutes);
 
-// Use product routes của Thắng
-// ⚠️ LƯU Ý: Cần bàn lại với Tú xem nên gộp '/product' và '/api/products' lại thành 1 route không nhé.
+// Dự phòng route cũ của Thắng để không lỗi Frontend cũ
 app.use('/product', productRoutes);
 
 const PORT = process.env.PORT || 9999;
