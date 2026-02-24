@@ -16,8 +16,10 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Xác định trang trước đó người dùng đang truy cập (mặc định là trang chủ)
   const from = (location.state as any)?.from?.pathname || '/';
 
+  // Nếu đã đăng nhập rồi thì tự động đẩy về trang cũ hoặc trang chủ
   React.useEffect(() => {
     if (isAuthenticated) navigate(from, { replace: true });
   }, [isAuthenticated, navigate, from]);
@@ -26,6 +28,7 @@ const Login: React.FC = () => {
     e.preventDefault();
     setError('');
 
+    // Kiểm tra đầu vào
     if (!email || !password) {
       toast.warning('Please fill in all fields');
       return;
@@ -33,6 +36,7 @@ const Login: React.FC = () => {
 
     setIsLoading(true);
     try {
+      // Gọi hàm login từ AuthContext của Bách
       await login(email, password);
       toast.success('Welcome back! Login successful.');
       navigate(from, { replace: true });
@@ -52,7 +56,7 @@ const Login: React.FC = () => {
           <div className="size-8 bg-primary rounded-lg flex items-center justify-center text-white">
             <span className="material-symbols-outlined">shopping_bag</span>
           </div>
-          <h2 className="text-xl font-bold tracking-tight text-background-dark dark:text-white">ShopModern</h2>
+          <h2 className="text-xl font-bold tracking-tight text-background-dark dark:text-white uppercase italic">E-Shop Trading</h2>
         </Link>
       </header>
       
@@ -85,6 +89,7 @@ const Login: React.FC = () => {
                   />
                 </div>
               </div>
+
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-semibold text-background-dark dark:text-white/90 px-1">Password</label>
                 <div className="relative group">
@@ -105,6 +110,7 @@ const Login: React.FC = () => {
                   </button>
                 </div>
               </div>
+
               <div className="flex items-center justify-between py-1">
                 <label className="flex items-center gap-2 cursor-pointer group">
                    <div className="relative flex items-center">
@@ -120,6 +126,7 @@ const Login: React.FC = () => {
                 </label>
                 <Link to="/forgot-password" className="text-sm font-semibold text-primary hover:text-primary/80">Forgot password?</Link>
               </div>
+
               <button
                 type="submit"
                 disabled={isLoading}
@@ -161,7 +168,7 @@ const Login: React.FC = () => {
           <div className="text-center flex flex-col gap-6">
              <p className="text-background-dark/60 dark:text-white/60">Don't have an account?</p>
              <Link to="/register" className="w-full py-3.5 border-2 border-primary text-primary font-bold rounded-lg hover:bg-primary hover:text-white transition-all text-center">
-               Create New Account
+                Create New Account
              </Link>
           </div>
         </div>

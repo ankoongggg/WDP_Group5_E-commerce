@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Layout } from '../../../components/Layout';
+import { Layout } from '../components/Layout';
 
 // Define interfaces for the data structure from the API
 interface ProductType {

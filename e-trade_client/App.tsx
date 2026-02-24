@@ -3,16 +3,22 @@ import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './src/context/AuthContext';
 import { ToastProvider } from './src/context/ToastContext';
 import ProtectedRoute from './src/components/ProtectedRoute';
+
+// Auth Pages
 import Login from './src/pages/auth/Login';
 import Register from './src/pages/auth/Register';
 import SecurityOtp from './src/pages/auth/SecurityOtp';
 import ForgotPassword from './src/pages/auth/ForgotPassword';
 import ResetPassword from './src/pages/auth/ResetPassword';
+
+// Shop Pages
 import Home from './src/pages/shop/Home';
 import ProductList from './src/pages/shop/ProductList';
 import ProductDetail from './src/pages/shop/ProductDetail';
 import Cart from './src/pages/shop/Cart';
 import Checkout from './src/pages/shop/Checkout';
+
+// Account Pages
 import Profile from './src/pages/account/Profile';
 import Orders from './src/pages/account/Orders';
 import OrderDetail from './src/pages/account/OrderDetail';
@@ -39,13 +45,13 @@ const AppRoutes: React.FC = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Shop Routes (public) */}
+        {/* Shop Routes (Public) */}
         <Route path="/" element={<Home />} />
         <Route path="/products" element={<ProductList />} />
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/store/:id" element={<StoreDetail />} />
 
-        {/* Protected Routes */}
+        {/* Protected Routes (Phải đăng nhập mới vào được) */}
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
         <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
         <Route path="/account" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

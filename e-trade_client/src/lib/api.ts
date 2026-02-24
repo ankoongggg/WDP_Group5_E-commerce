@@ -90,18 +90,25 @@ export const api = async <T = any>(endpoint: string, options: ApiOptions = {}): 
 
 export const authApi = {
     login: async (email: string, password: string) => {
-        const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+        const data = await api('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password }),
+        });
         if (data.accessToken) setTokens(data.accessToken, data.refreshToken || '');
         return data;
     },
-    
-    // Đã trả lại hàm register để bạn tạo tài khoản mượt mà
     register: (name: string, email: string, password: string) =>
-        api('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
-        
+        api('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({ name, email, password }),
+        }),
     getProfile: () => api('/users/me', { requireAuth: true }),
-    
-    updateProfile: (payload: any) => api('/users/me', { method: 'PUT', requireAuth: true, body: JSON.stringify(payload) }),
-    
+    // Hàm update đã được đồng bộ hóa
+    updateProfile: (payload: any) =>
+        api('/users/me', {
+            method: 'PUT',
+            requireAuth: true,
+            body: JSON.stringify(payload),
+        }),
     logout: () => api('/auth/logout', { method: 'POST', requireAuth: true }),
 };

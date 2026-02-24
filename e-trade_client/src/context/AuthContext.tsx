@@ -2,13 +2,18 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useNavigate } from 'react-router-dom';
 import { authApi, clearTokens, setOnTokenRefreshFailed } from '../services/api';
 
+// 1. CẬP NHẬT INTERFACE: Đã thêm đầy đủ các trường dữ liệu bị thiếu
 interface User {
     _id: string;
-    name: string;
+    name?: string;
+    full_name?: string;
     email: string;
     role: string[];
     avatar?: string;
     phone?: string;
+    gender?: string;
+    dob?: string;
+    addresses?: any[];
     status: string;
 }
 
@@ -18,6 +23,7 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<void>;
     register: (name: string, email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
+    refreshUser: () => Promise<void>; // 2. BỔ SUNG HÀM refreshUser
     isAuthenticated: boolean;
 }
 
@@ -46,11 +52,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setOnTokenRefreshFailed(handleSessionExpired);
     }, [handleSessionExpired]);
 
+    // 3. THÊM HÀM NÀY: Để Profile.tsx gọi mỗi khi nhấn Save
+    const refreshUser = async () => {
+        try {
+            const res: any = await authApi.getProfile();
+            // Lấy đúng cục "data" từ backend trả về
+            setUser(res.data || res.user || res);
+        } catch (error) {
+            console.error("Failed to refresh user:", error);
+        }
+    };
+
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         if (token) {
             authApi.getProfile()
-                .then(setUser)
+                .then((res: any) => {
+                    // 4. FIX LỖI CẤU TRÚC: Phải lấy res.data thay vì ôm nguyên cục res
+                    setUser(res.data || res.user || res);
+                })
                 .catch(() => {
                     clearTokens();
                     setUser(null);
@@ -87,7 +107,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, register, logout, isAuthenticated: !!user }}>
+        // Nhớ export refreshUser ra để các file khác dùng được
+        <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser, isAuthenticated: !!user }}>
             {children}
         </AuthContext.Provider>
     );

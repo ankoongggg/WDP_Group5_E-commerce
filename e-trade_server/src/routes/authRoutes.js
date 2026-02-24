@@ -1,15 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, refreshToken, getProfile, logout, changePassword, forgotPassword, resetPassword } = require('../controllers/authController');
-const { verifyToken } = require('../middleware/auth');
+const { register, login, logout } = require('../controllers/authController');
+const { protect } = require('../middlewares/auth');
 
 router.post('/register', register);
 router.post('/login', login);
-router.post('/refresh-token', refreshToken);
-router.get('/profile', verifyToken, getProfile);
-router.post('/logout', verifyToken, logout);
-router.put('/change-password', verifyToken, changePassword);
-router.post('/forgot-password', forgotPassword);
-router.post('/reset-password', resetPassword);
+router.post('/logout', protect, logout); // Dòng 9: Đã có đủ protect và logout
 
 module.exports = router;
