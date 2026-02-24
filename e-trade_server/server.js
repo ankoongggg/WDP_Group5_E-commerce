@@ -5,6 +5,8 @@ const cors = require("cors");
 
 connectDB();
 
+const productRoutes = require('./src/routes/productRoutes');
+
 app.use(express.json());
 
 app.get('/', async (req, res) => {
@@ -21,6 +23,9 @@ const corsOptions = {
     credentials: true,
 };
 app.use(cors(corsOptions));
+
+// Use product routes
+app.use('/product', productRoutes);
 
 const PORT = process.env.PORT || 9999;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
