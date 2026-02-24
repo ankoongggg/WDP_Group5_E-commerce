@@ -1,28 +1,29 @@
 const express = require('express');
-const app = express();
+const cors = require('cors');
+require('dotenv').config();
+
 const connectDB = require('./src/configs/db');
-const cors = require("cors");
+const authRoutes = require('./src/routes/authRoutes');
+
+const app = express();
 
 connectDB();
 
 const productRoutes = require('./src/routes/productRoutes');
 
-app.use(express.json());
-
-app.get('/', async (req, res) => {
-    try {
-        res.send({ message: 'Welcome to Practical Exam!' });
-    } catch (error) {
-        res.send({ error: error.message });
-    }
-});
-
 // Cấu hình CORS
 const corsOptions = {
-    origin: 'http://localhost:3000',
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
     credentials: true,
 };
 app.use(cors(corsOptions));
+app.use(express.json());
+
+app.get('/', (req, res) => {
+    res.json({ message: 'E-Trade API is running' });
+});
+
+app.use('/api/auth', authRoutes);
 
 // Use product routes
 app.use('/product', productRoutes);
