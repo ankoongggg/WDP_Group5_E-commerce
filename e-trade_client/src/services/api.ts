@@ -5,10 +5,7 @@ interface ApiOptions extends RequestInit {
 }
 
 let onTokenRefreshFailed: (() => void) | null = null;
-
-export const setOnTokenRefreshFailed = (callback: () => void) => {
-    onTokenRefreshFailed = callback;
-};
+export const setOnTokenRefreshFailed = (callback: () => void) => { onTokenRefreshFailed = callback; };
 
 const getAccessToken = () => localStorage.getItem('accessToken');
 const getRefreshToken = () => localStorage.getItem('refreshToken');
@@ -38,27 +35,21 @@ const addRefreshSubscriber = (cb: (token: string) => void) => {
 const tryRefreshToken = async (): Promise<string | null> => {
     const refreshToken = getRefreshToken();
     if (!refreshToken) return null;
-
     try {
         const response = await fetch(`${API_BASE}/auth/refresh-token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken }),
         });
-
         if (!response.ok) return null;
-
         const data = await response.json();
         setTokens(data.accessToken, data.refreshToken);
         return data.accessToken;
-    } catch {
-        return null;
-    }
+    } catch { return null; }
 };
 
 export const api = async <T = any>(endpoint: string, options: ApiOptions = {}): Promise<T> => {
     const { requireAuth = false, headers: customHeaders, ...rest } = options;
-
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         ...customHeaders as Record<string, string>,
@@ -66,9 +57,7 @@ export const api = async <T = any>(endpoint: string, options: ApiOptions = {}): 
 
     if (requireAuth) {
         const token = getAccessToken();
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
+        if (token) headers['Authorization'] = `Bearer ${token}`;
     }
 
     let response = await fetch(`${API_BASE}${endpoint}`, { ...rest, headers });
@@ -78,7 +67,6 @@ export const api = async <T = any>(endpoint: string, options: ApiOptions = {}): 
             isRefreshing = true;
             const newToken = await tryRefreshToken();
             isRefreshing = false;
-
             if (newToken) {
                 onRefreshed(newToken);
                 headers['Authorization'] = `Bearer ${newToken}`;
@@ -89,58 +77,31 @@ export const api = async <T = any>(endpoint: string, options: ApiOptions = {}): 
                 throw new Error('Session expired');
             }
         } else {
-            const newToken = await new Promise<string>(resolve => {
-                addRefreshSubscriber(resolve);
-            });
+            const newToken = await new Promise<string>(resolve => addRefreshSubscriber(resolve));
             headers['Authorization'] = `Bearer ${newToken}`;
             response = await fetch(`${API_BASE}${endpoint}`, { ...rest, headers });
         }
     }
 
     const data = await response.json();
-
-    if (!response.ok) {
-        throw { status: response.status, ...data };
-    }
-
+    if (!response.ok) throw { status: response.status, ...data };
     return data;
 };
 
 export const authApi = {
-    login: (email: string, password: string) =>
-        api('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ email, password }),
-        }),
-
+    login: async (email: string, password: string) => {
+        const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+        if (data.accessToken) setTokens(data.accessToken, data.refreshToken || '');
+        return data;
+    },
+    
+    // Đã trả lại hàm register để bạn tạo tài khoản mượt mà
     register: (name: string, email: string, password: string) =>
-        api('/auth/register', {
-            method: 'POST',
-            body: JSON.stringify({ name, email, password }),
-        }),
-
-    getProfile: () =>
-        api('/auth/profile', { requireAuth: true }),
-
-    logout: () =>
-        api('/auth/logout', { method: 'POST', requireAuth: true }),
-
-    changePassword: (currentPassword: string, newPassword: string) =>
-        api('/auth/change-password', {
-            method: 'PUT',
-            requireAuth: true,
-            body: JSON.stringify({ currentPassword, newPassword }),
-        }),
-
-    forgotPassword: (email: string) =>
-        api('/auth/forgot-password', {
-            method: 'POST',
-            body: JSON.stringify({ email }),
-        }),
-
-    resetPassword: (token: string, password: string, confirmPassword: string) =>
-        api('/auth/reset-password', {
-            method: 'POST',
-            body: JSON.stringify({ token, password, confirmPassword }),
-        }),
+        api('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
+        
+    getProfile: () => api('/users/me', { requireAuth: true }),
+    
+    updateProfile: (payload: any) => api('/users/me', { method: 'PUT', requireAuth: true, body: JSON.stringify(payload) }),
+    
+    logout: () => api('/auth/logout', { method: 'POST', requireAuth: true }),
 };
