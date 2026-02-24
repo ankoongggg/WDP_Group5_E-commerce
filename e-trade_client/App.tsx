@@ -17,6 +17,7 @@ import Profile from './src/pages/account/Profile';
 import Orders from './src/pages/account/Orders';
 import OrderDetail from './src/pages/account/OrderDetail';
 import Settings from './src/pages/account/Settings';
+import StoreDetail from './src/pages/shop/StoreDetail';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -42,6 +43,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/" element={<Home />} />
         <Route path="/products" element={<ProductList />} />
         <Route path="/product/:id" element={<ProductDetail />} />
+        <Route path="/store/:id" element={<StoreDetail />} />
 
         {/* Protected Routes */}
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />

@@ -10,6 +10,7 @@ const app = express();
 connectDB();
 
 const productRoutes = require('./src/routes/productRoutes');
+const storeRoutes = require('./src/routes/storeRoutes');
 
 // Cấu hình CORS
 const corsOptions = {
@@ -27,6 +28,8 @@ app.use('/api/auth', authRoutes);
 
 // Use product routes
 app.use('/product', productRoutes);
+// Use store routes
+app.use('/store', storeRoutes);
 
 const PORT = process.env.PORT || 9999;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
