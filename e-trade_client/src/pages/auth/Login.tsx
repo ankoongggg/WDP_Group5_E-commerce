@@ -14,19 +14,28 @@ const Login: React.FC = () => {
     setError("");
 
     try {
-      // gọi dev token (backend của m)
-      const data = await api<{ access_token: string }>("/dev/token", {
+      // 1. Gọi API lấy token
+      const data = await api<any>("/dev/token", {
         method: "POST",
         body: JSON.stringify({ email }),
       });
 
-      // 👉 LƯU TOKEN
-      tokenStore.set(data.access_token);
+      // 2. Trích xuất token an toàn (phòng trường hợp data bị bọc 2 lớp)
+      const actualToken = data?.access_token || data?.data?.access_token;
 
-      // 👉 chuyển sang profile
+      if (!actualToken) {
+        setError("Lỗi: Server không trả về token. Vui lòng kiểm tra lại backend!");
+        setLoading(false);
+        return;
+      }
+
+      // 3. Lưu token chuẩn
+      tokenStore.set(actualToken);
+
+      // 4. Chuyển sang profile
       navigate("/account");
     } catch (e: any) {
-      setError(e.message || "Login failed");
+      setError(e.message || "Login failed (Email có thể không tồn tại trong DB)");
     } finally {
       setLoading(false);
     }
@@ -37,11 +46,11 @@ const Login: React.FC = () => {
       <div className="w-[350px] bg-white p-6 rounded-xl shadow">
         <h1 className="text-xl font-bold mb-4">Login</h1>
 
-        {error && <p className="text-red-500 mb-2">{error}</p>}
+        {error && <p className="text-red-500 mb-2 font-semibold text-sm">{error}</p>}
 
         <input
           className="w-full border px-3 py-2 rounded mb-3"
-          placeholder="Email"
+          placeholder="Nhập email của user (VD: user@example.com)"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -49,9 +58,9 @@ const Login: React.FC = () => {
         <button
           onClick={handleLogin}
           disabled={loading}
-          className="w-full bg-orange-500 text-white py-2 rounded"
+          className="w-full bg-orange-500 text-white py-2 rounded font-bold"
         >
-          {loading ? "Loading..." : "Login"}
+          {loading ? "Đang xử lý..." : "Đăng nhập"}
         </button>
       </div>
     </div>

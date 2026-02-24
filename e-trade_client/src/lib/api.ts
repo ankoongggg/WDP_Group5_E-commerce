@@ -18,6 +18,10 @@ export async function api<T>(
 ): Promise<T> {
   const token = tokenStore.get();
 
+  // 👉 MÁY PHÁT HIỆN LỖI: In token ra xem có bị sai không
+  console.log(`[Đang gọi API] ${path}`);
+  console.log(`[Token gửi lên]`, token ? token : "KHÔNG CÓ TOKEN");
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {

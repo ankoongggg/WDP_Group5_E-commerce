@@ -10,6 +10,9 @@ const cors = require("cors");
 const userRoutes = require("./src/routes/user.routes");
 const devRoutes = require("./src/routes/dev.routes");
 
+// Import product routes (Thắng)
+const productRoutes = require('./src/routes/productRoutes');
+
 // Kết nối Database
 connectDB();
 
@@ -34,8 +37,13 @@ app.use("/api/users", userRoutes);
 app.use("/api/dev", devRoutes);
 
 // Mount routes của Tu (Searching)
-app.use('/api/products', require('./src/routes/ProductRoutes'));
+// ⚠️ LƯU Ý: Đang dùng 'ProductRoutes' viết hoa chữ P. Cần check lại xem tên file thật là gì.
+app.use('/api/products', require('./src/routes/productRoutes'));
 app.use('/api/categories', require('./src/routes/categoryRoutes'));
+
+// Use product routes của Thắng
+// ⚠️ LƯU Ý: Cần bàn lại với Tú xem nên gộp '/product' và '/api/products' lại thành 1 route không nhé.
+app.use('/product', productRoutes);
 
 const PORT = process.env.PORT || 9999;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

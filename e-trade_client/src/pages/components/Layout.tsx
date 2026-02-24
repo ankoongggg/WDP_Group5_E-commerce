@@ -16,7 +16,7 @@ export const Navbar: React.FC = () => {
         
         <div class="flex-1 max-w-xl hidden md:block relative">
           <label class="relative flex items-center">
-            <span class="absolute left-3 text-slate-400 material-symbols-outlined">search</span>
+
             <input 
               class="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl py-2 pl-10 pr-12 text-sm focus:ring-2 focus:ring-primary/50 transition-all outline-none" 
               placeholder="Search for products..." 
