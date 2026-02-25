@@ -3,7 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { useSearch } from '../../hooks/useLayout';
 
 export const Navbar: React.FC = () => {
-  const { search, setSearch, suggestions, showSuggestions, setShowSuggestions, handleSearch, handleKeyDown, handleSelectSuggestion, handleFocus, handleBlur } = useSearch();
+  const { search, setSearch, suggestions, showSuggestions, setShowSuggestions, handleSearch, handleKeyDown,
+     handleSelectSuggestion, handleFocus, handleBlur } = useSearch();
   return (
     <header class="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md">
       <div class="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between gap-8">

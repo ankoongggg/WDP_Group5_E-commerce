@@ -61,7 +61,6 @@ const ProductList: React.FC = () => {
       
       let newCats;
       if (currentCats.includes(id)) {
-        // Nếu đã có -> Xóa đi (Uncheck)
         newCats = currentCats.filter(c => c !== id);
       } else {
         // Nếu chưa có -> Thêm vào (Check)
@@ -80,7 +79,6 @@ const ProductList: React.FC = () => {
     });
   };
 
-  // ... (Giữ nguyên các hàm applyPriceRange, etc.)
 
   return (
     <Layout>

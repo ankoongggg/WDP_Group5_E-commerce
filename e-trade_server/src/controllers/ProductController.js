@@ -108,18 +108,18 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
         // 2. if keyword, thêm điều kiện tìm kiếm
         if (keyword) {
             //$or gộp contain trong seach name && question
-            //%regex để tìm kiếm gần đúng, i để ignore case
+            //%regex để tìm kiếm gần đúng, i để ignore lower upper case
             query.$or = [
                 { name: { $regex: keyword, $options: 'i' } },
                 { description: { $regex: keyword, $options: 'i' } }
             ];
         }
 
-        // 3. Lấy TOÀN BỘ sản phẩm thỏa mãn điều kiện về (hoặc giới hạn 500 để ko bị nặng)
+        // Lấy TOÀN BỘ sản phẩm thỏa mãn điều kiện về (hoặc giới hạn 500 để ko bị nặng)
         // Populate luôn store để lấy thông tin shop
         const allProducts = await Product.find(query)
             .populate('store_id')
-            .limit(500) 
+            .limit(300)
             .lean(); // .lean() giúp trả về object JS thuần, chạy nhanh hơn
 
         // console.log(`Found ${allProducts.length} potential products.`);

@@ -21,6 +21,11 @@ export const ProductService = {
     return res.data;
   }
 
+  //total Ordered product lấy từ tổng order service. 
+  //get flashsale product lấy từ pool hoặc chia ra 2 phần cho chủ trung tâm mua sắm,
+  // lấy product cho vào pool không nhét vô database
+  
+
   
 };
 

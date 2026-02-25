@@ -5,30 +5,37 @@ import { ProductService } from '../services/productService';
 import { getInterests } from '../utils/tracker';
 import {CategoryService} from '../services/categoryService';
 export const useHomeProducts = () => {
-    const [saleProducts, setSaleProducts] = useState<Product[]>([]);
+  const [saleProducts, setSaleProducts] = useState<Product[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [biggestDiscount, setBiggestDiscount] = useState<number>(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [flashSaleProducts, setFlashSaleProducts] = useState<Product[]>();
+
 
   useEffect(() => {
     const fetchHomeData = async () => {
       try {
         setLoading(true);
-        // 1. Lấy keyword từ lịch sử xem
+        // Lấy keyword từ lịch sử xem
         const interests = getInterests();
         
+        //get flashsale product from pool // 
         
 
-        const saleRes = await ProductService.getSaleProducts();
+        const saleRes = await ProductService.getSaleProducts({ limit: 4 });
+        
+        // Tính discount lớn nhất trước khi set state
+        let maxDiscount = 0;
         saleRes.data.forEach((product: Product) => {
           if(product.original_price && product.original_price > product.price){
             const discount = Math.round(((product.original_price - product.price) / product.original_price) * 100);
-            if(discount > biggestDiscount){
-              setBiggestDiscount(discount);
+            if(discount > maxDiscount){
+              maxDiscount = discount;
             }
           }
         });
+        setBiggestDiscount(maxDiscount);
         setSaleProducts(saleRes.data);
         const categoriesRes = await CategoryService.getAll({
           limit: 6

@@ -39,7 +39,7 @@ const Home: React.FC = () => {
             
             <div class="grid grid-cols-2 gap-4">
               {/* Deep Sale Products */}
-              {saleProducts.slice(0, Math.ceil(saleProducts.length / 2)).map((item) => (
+              {saleProducts.slice(0, Math.ceil(saleProducts.length)).map((item) => (
                 <ProductCard key={item._id} product={item} />
               ))}
             </div>
@@ -75,9 +75,9 @@ const Home: React.FC = () => {
             
             <div class="grid grid-cols-2 gap-4">
               {/* Flash Sale Products */}
-              {saleProducts.slice(Math.ceil(saleProducts.length / 2)).map((item) => (
+              {/* {saleProducts.slice(Math.ceil(saleProducts.length / 2)).map((item) => (
                 <ProductCard key={item._id} product={item} />
-              ))}
+              ))} */}
             </div>
             <div class="mt-6 text-center">
               <Link 
@@ -95,12 +95,16 @@ const Home: React.FC = () => {
            <h3 class="text-2xl font-bold mb-8 dark:text-white">Shop by Category</h3>
            <div class="flex items-center justify-center gap-6 flex-wrap">
              {categories.map((item) => ( 
-                <div key={item._id} class="group cursor-pointer items-center justify-center rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col bg-white dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-orange-500 hover:text-white hover:shadow-lg transition-all">
+                <Link 
+                  key={item._id} 
+                  to={`/products?category=${item._id}`}
+                  class="group cursor-pointer items-center justify-center rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col bg-white dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-primary hover:text-white hover:shadow-lg transition-all"
+                >
                    {/* <div class="aspect-square bg-slate-100 dark:bg-primary/5 rounded-2xl flex items-center justify-center mb-3 group-hover:bg-primary group-hover:text-white transition-all duration-300">
                      <span class="material-symbols-outlined text-4xl">{item.name}</span>
                    </div> */}
                    <p class="text-center font-bold text-sm">{item.name}</p>
-                </div>
+                </Link>
              ))}
            </div>
         </section>
