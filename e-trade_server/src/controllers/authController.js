@@ -29,6 +29,7 @@ const register = async (req, res) => {
                 label: 'Home',
                 is_default: true
             }],
+            address: `${street}, ${district}, ${city}`,
             role: ['customer'],
             status: 'active'
         });

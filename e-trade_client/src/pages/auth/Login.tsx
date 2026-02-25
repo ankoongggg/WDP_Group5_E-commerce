@@ -15,6 +15,28 @@ const Login: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+
+  const validateEmail = (value: string): true | string => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(value) ? true : 'Please enter a valid email address';
+  };
+
+  const validatePassword = (value: string) => {
+    if (!value) return 'Password is required';
+    if (value.length < 6) return 'Password must be at least 6 characters';
+    return '';
+  };
+
+  const handleBlur = (field: 'email' | 'password') => {
+    const emailErr = !email ? 'Email is required' : (validateEmail(email) === true ? '' : validateEmail(email));
+    const passwordErr = validatePassword(password);
+    setFieldErrors((prev) => ({
+      ...prev,
+      email: field === 'email' ? (emailErr || undefined) : prev.email,
+      password: field === 'password' ? (passwordErr || undefined) : prev.password,
+    }));
+  };
 
   // Xác định trang trước đó người dùng đang truy cập (mặc định là trang chủ)
   const from = (location.state as any)?.from?.pathname || '/';
@@ -27,10 +49,17 @@ const Login: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
 
-    // Kiểm tra đầu vào
-    if (!email || !password) {
-      toast.warning('Please fill in all fields');
+    const emailErr = !email ? 'Email is required' : (validateEmail(email) === true ? '' : validateEmail(email));
+    const passwordErr = validatePassword(password);
+
+    if (emailErr || passwordErr) {
+      setFieldErrors({
+        ...(emailErr && { email: emailErr }),
+        ...(passwordErr && { password: passwordErr }),
+      });
+      toast.warning(emailErr || passwordErr);
       return;
     }
 
@@ -77,28 +106,50 @@ const Login: React.FC = () => {
 
             <form onSubmit={handleLogin} className="flex flex-col gap-5">
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-semibold text-background-dark dark:text-white/90 px-1">Email</label>
+                <label className="text-sm font-semibold text-background-dark dark:text-white/90 px-1">Email <span className="text-red-500">*</span></label>
                 <div className="relative group">
                   <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-background-dark/40 dark:text-white/30 group-focus-within:text-primary transition-colors">mail</span>
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3.5 rounded-lg border border-primary/20 dark:border-white/10 bg-background-light/50 dark:bg-background-dark/40 text-background-dark dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                    }}
+                    onBlur={() => handleBlur('email')}
+                    className={`w-full pl-12 pr-4 py-3.5 rounded-lg border bg-background-light/50 dark:bg-background-dark/40 text-background-dark dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all ${
+                      fieldErrors.email
+                        ? 'border-red-500 dark:border-red-500'
+                        : 'border-primary/20 dark:border-white/10'
+                    }`}
                     placeholder="name@example.com"
                   />
                 </div>
+                {fieldErrors.email && (
+                  <p className="text-xs text-red-500 dark:text-red-400 px-1 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">error</span>
+                    {fieldErrors.email}
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-semibold text-background-dark dark:text-white/90 px-1">Password</label>
+                <label className="text-sm font-semibold text-background-dark dark:text-white/90 px-1">Password <span className="text-red-500">*</span></label>
                 <div className="relative group">
                   <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-background-dark/40 dark:text-white/30 group-focus-within:text-primary transition-colors">lock</span>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-12 py-3.5 rounded-lg border border-primary/20 dark:border-white/10 bg-background-light/50 dark:bg-background-dark/40 text-background-dark dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                    }}
+                    onBlur={() => handleBlur('password')}
+                    className={`w-full pl-12 pr-12 py-3.5 rounded-lg border bg-background-light/50 dark:bg-background-dark/40 text-background-dark dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all ${
+                      fieldErrors.password
+                        ? 'border-red-500 dark:border-red-500'
+                        : 'border-primary/20 dark:border-white/10'
+                    }`}
                     placeholder="••••••••"
                   />
                   <button
@@ -109,6 +160,12 @@ const Login: React.FC = () => {
                     <span className="material-symbols-outlined">{showPassword ? 'visibility_off' : 'visibility'}</span>
                   </button>
                 </div>
+                {fieldErrors.password && (
+                  <p className="text-xs text-red-500 dark:text-red-400 px-1 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">error</span>
+                    {fieldErrors.password}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-between py-1">

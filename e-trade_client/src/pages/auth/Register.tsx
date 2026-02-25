@@ -47,6 +47,31 @@ const Register: React.FC = () => {
     return '';
   };
 
+  const validateName = (value: string) => {
+    if (!value.trim()) return 'Full name is required';
+    if (value.trim().length < 2) return 'Name must be at least 2 characters';
+    return '';
+  };
+
+  const handleBlur = (field: 'name' | 'email' | 'password' | 'phone' | 'street' | 'district' | 'city' | 'agreeTerms') => {
+    if (field === 'agreeTerms') {
+      setFieldErrors((prev) => ({ ...prev, agreeTerms: !agreeTerms ? 'You must agree to the Terms of Service' : undefined }));
+      return;
+    }
+    let err = '';
+    if (field === 'name') err = validateName(name);
+    else if (field === 'email') {
+      const v = validateEmail(email);
+      err = !email ? 'Email is required' : (v === true ? '' : v);
+    }
+    else if (field === 'password') err = validatePassword(password);
+    else if (field === 'phone') err = validatePhone(phone);
+    else if (field === 'street') err = !street.trim() ? 'Street/Address is required' : '';
+    else if (field === 'district') err = !district.trim() ? 'District is required' : '';
+    else if (field === 'city') err = !city.trim() ? 'City is required' : '';
+    setFieldErrors((prev) => ({ ...prev, [field]: err || undefined }));
+  };
+
   React.useEffect(() => {
     if (isAuthenticated) navigate('/', { replace: true });
   }, [isAuthenticated, navigate]);
@@ -72,7 +97,7 @@ const Register: React.FC = () => {
     setError('');
     setFieldErrors({});
 
-    const nameErr = !name.trim() ? 'Full name is required' : (name.trim().length < 2 ? 'Name must be at least 2 characters' : '');
+    const nameErr = validateName(name);
     const emailErr = !email ? 'Email is required' : (validateEmail(email) === true ? '' : validateEmail(email));
     const passwordErr = validatePassword(password);
     const phoneErr = validatePhone(phone);
@@ -153,7 +178,7 @@ const Register: React.FC = () => {
             
             <form onSubmit={handleRegister} className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Full Name</label>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Full Name <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">person</span>
                   <input
@@ -163,6 +188,7 @@ const Register: React.FC = () => {
                       setName(e.target.value);
                       if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
                     }}
+                    onBlur={() => handleBlur('name')}
                     className={`w-full pl-10 pr-4 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
                       fieldErrors.name ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
                     }`}
@@ -178,7 +204,7 @@ const Register: React.FC = () => {
               </div>
               
                <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Phone</label>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Phone <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">phone</span>
                   <input
@@ -188,6 +214,7 @@ const Register: React.FC = () => {
                       setPhone(e.target.value);
                       if (fieldErrors.phone) setFieldErrors((prev) => ({ ...prev, phone: undefined }));
                     }}
+                    onBlur={() => handleBlur('phone')}
                     className={`w-full pl-10 pr-4 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
                       fieldErrors.phone ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
                     }`}
@@ -203,7 +230,7 @@ const Register: React.FC = () => {
               </div>
 
                <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Email</label>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Email <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">mail</span>
                   <input
@@ -213,6 +240,7 @@ const Register: React.FC = () => {
                       setEmail(e.target.value);
                       if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
                     }}
+                    onBlur={() => handleBlur('email')}
                     className={`w-full pl-10 pr-4 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
                       fieldErrors.email ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
                     }`}
@@ -228,7 +256,7 @@ const Register: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Address</label>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Address <span className="text-red-500">*</span></label>
                 <div>
                   <input
                     type="text"
@@ -237,6 +265,7 @@ const Register: React.FC = () => {
                       setStreet(e.target.value);
                       if (fieldErrors.street) setFieldErrors((prev) => ({ ...prev, street: undefined }));
                     }}
+                    onBlur={() => handleBlur('street')}
                     className={`w-full px-4 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
                       fieldErrors.street ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
                     }`}
@@ -258,6 +287,7 @@ const Register: React.FC = () => {
                         setDistrict(e.target.value);
                         if (fieldErrors.district) setFieldErrors((prev) => ({ ...prev, district: undefined }));
                       }}
+                      onBlur={() => handleBlur('district')}
                       className={`w-full px-4 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
                         fieldErrors.district ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
                       }`}
@@ -278,6 +308,7 @@ const Register: React.FC = () => {
                         setCity(e.target.value);
                         if (fieldErrors.city) setFieldErrors((prev) => ({ ...prev, city: undefined }));
                       }}
+                      onBlur={() => handleBlur('city')}
                       className={`w-full px-4 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
                         fieldErrors.city ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
                       }`}
@@ -294,7 +325,7 @@ const Register: React.FC = () => {
               </div>
 
                <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Password</label>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Password <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">lock</span>
                   <input
@@ -304,6 +335,7 @@ const Register: React.FC = () => {
                       setPassword(e.target.value);
                       if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
                     }}
+                    onBlur={() => handleBlur('password')}
                     className={`w-full pl-10 pr-12 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
                       fieldErrors.password ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
                     }`}
@@ -333,12 +365,14 @@ const Register: React.FC = () => {
                    type="checkbox"
                    checked={agreeTerms}
                    onChange={(e) => {
-                     setAgreeTerms(e.target.checked);
-                     if (fieldErrors.agreeTerms) setFieldErrors((prev) => ({ ...prev, agreeTerms: undefined }));
+                     const checked = e.target.checked;
+                     setAgreeTerms(checked);
+                     setFieldErrors((prev) => ({ ...prev, agreeTerms: !checked ? 'You must agree to the Terms of Service' : undefined }));
                    }}
+                   onBlur={() => handleBlur('agreeTerms')}
                    className="h-5 w-5 rounded border-slate-300 text-primary focus:ring-primary mt-0.5"
                  />
-                 <label className="text-sm font-medium text-slate-600 dark:text-slate-400">I agree to the Terms of Service and Privacy Policy</label>
+                 <label className="text-sm font-medium text-slate-600 dark:text-slate-400">I agree to the Terms of Service and Privacy Policy <span className="text-red-500">*</span></label>
               </div>
               {fieldErrors.agreeTerms && (
                 <p className="text-xs text-red-500 dark:text-red-400 -mt-2 flex items-center gap-1">

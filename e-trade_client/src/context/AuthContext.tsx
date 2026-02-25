@@ -21,7 +21,7 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     login: (email: string, password: string) => Promise<void>;
-    register: (name: string, email: string, password: string) => Promise<void>;
+    register: (name: string, email: string, password: string, phone: string, street: string, district: string, city: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>; // 2. BỔ SUNG HÀM refreshUser
     isAuthenticated: boolean;
@@ -88,8 +88,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(data.user);
     };
 
-    const register = async (name: string, email: string, password: string) => {
-        const data = await authApi.register(name, email, password);
+    const register = async (name: string, email: string, password: string, phone: string, street: string, district: string, city: string) => {
+        const data = await authApi.register(name, email, password, phone, street, district, city);
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
         setUser(data.user);
