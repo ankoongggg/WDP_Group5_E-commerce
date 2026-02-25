@@ -96,8 +96,8 @@ export const authApi = {
     },
     
     // Đã trả lại hàm register để bạn tạo tài khoản mượt mà
-    register: (name: string, email: string, password: string) =>
-        api('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
+    register: (name: string, email: string, password: string, phone: string, street: string, district: string, city: string) =>
+        api('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, phone, street, district, city }) }),
         
     getProfile: () => api('/users/me', { requireAuth: true }),
     

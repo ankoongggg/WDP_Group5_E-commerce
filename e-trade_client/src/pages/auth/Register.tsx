@@ -11,9 +11,41 @@ const Register: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [street, setStreet] = useState('');
+  const [district, setDistrict] = useState('');
+  const [city, setCity] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string;
+    email?: string;
+    password?: string;
+    phone?: string;
+    street?: string;
+    district?: string;
+    city?: string;
+    agreeTerms?: string;
+  }>({});
+
+  const validateEmail = (value: string): true | string => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(value) ? true : 'Please enter a valid email address';
+  };
+
+  const validatePassword = (value: string) => {
+    if (!value) return 'Password is required';
+    if (value.length < 6) return 'Password must be at least 6 characters';
+    return '';
+  };
+
+  const validatePhone = (value: string) => {
+    const re = /^[0-9]{10,11}$/;
+    if (!value) return 'Phone number is required';
+    if (!re.test(value.replace(/\s/g, ''))) return 'Please enter a valid phone number (10-11 digits)';
+    return '';
+  };
 
   React.useEffect(() => {
     if (isAuthenticated) navigate('/', { replace: true });
@@ -38,23 +70,35 @@ const Register: React.FC = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
 
-    if (!name || !email || !password) {
-      toast.warning('Please fill in all fields');
-      return;
-    }
-    if (password.length < 6) {
-      toast.warning('Password must be at least 6 characters');
-      return;
-    }
-    if (!agreeTerms) {
-      toast.warning('You must agree to the Terms of Service');
+    const nameErr = !name.trim() ? 'Full name is required' : (name.trim().length < 2 ? 'Name must be at least 2 characters' : '');
+    const emailErr = !email ? 'Email is required' : (validateEmail(email) === true ? '' : validateEmail(email));
+    const passwordErr = validatePassword(password);
+    const phoneErr = validatePhone(phone);
+    const streetErr = !street.trim() ? 'Street/Address is required' : '';
+    const districtErr = !district.trim() ? 'District is required' : '';
+    const cityErr = !city.trim() ? 'City is required' : '';
+    const termsErr = !agreeTerms ? 'You must agree to the Terms of Service' : '';
+
+    if (nameErr || emailErr || passwordErr || phoneErr || streetErr || districtErr || cityErr || termsErr) {
+      setFieldErrors({
+        ...(nameErr && { name: nameErr }),
+        ...(emailErr && { email: emailErr }),
+        ...(passwordErr && { password: passwordErr }),
+        ...(phoneErr && { phone: phoneErr }),
+        ...(streetErr && { street: streetErr }),
+        ...(districtErr && { district: districtErr }),
+        ...(cityErr && { city: cityErr }),
+        ...(termsErr && { agreeTerms: termsErr }),
+      });
+      toast.warning(nameErr || emailErr || passwordErr || phoneErr || streetErr || districtErr || cityErr || termsErr);
       return;
     }
 
     setIsLoading(true);
     try {
-      await register(name, email, password);
+      await register(name, email, password, phone.trim(), street.trim(), district.trim(), city.trim());
       toast.success('Account created successfully! Welcome aboard.');
       navigate('/', { replace: true });
     } catch (err: any) {
@@ -115,13 +159,49 @@ const Register: React.FC = () => {
                   <input
                     type="text"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white"
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
+                    }}
+                    className={`w-full pl-10 pr-4 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
+                      fieldErrors.name ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
+                    }`}
                     placeholder="John Doe"
                   />
                 </div>
+                {fieldErrors.name && (
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-1 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">error</span>
+                    {fieldErrors.name}
+                  </p>
+                )}
               </div>
               
+               <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Phone</label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">phone</span>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => {
+                      setPhone(e.target.value);
+                      if (fieldErrors.phone) setFieldErrors((prev) => ({ ...prev, phone: undefined }));
+                    }}
+                    className={`w-full pl-10 pr-4 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
+                      fieldErrors.phone ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
+                    }`}
+                    placeholder="0901234567"
+                  />
+                </div>
+                {fieldErrors.phone && (
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-1 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">error</span>
+                    {fieldErrors.phone}
+                  </p>
+                )}
+              </div>
+
                <div>
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Email</label>
                 <div className="relative">
@@ -129,10 +209,87 @@ const Register: React.FC = () => {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white"
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                    }}
+                    className={`w-full pl-10 pr-4 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
+                      fieldErrors.email ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
+                    }`}
                     placeholder="you@example.com"
                   />
+                </div>
+                {fieldErrors.email && (
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-1 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">error</span>
+                    {fieldErrors.email}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Address</label>
+                <div>
+                  <input
+                    type="text"
+                    value={street}
+                    onChange={(e) => {
+                      setStreet(e.target.value);
+                      if (fieldErrors.street) setFieldErrors((prev) => ({ ...prev, street: undefined }));
+                    }}
+                    className={`w-full px-4 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
+                      fieldErrors.street ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
+                    }`}
+                    placeholder="Street, Ward..."
+                  />
+                  {fieldErrors.street && (
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-1 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">error</span>
+                      {fieldErrors.street}
+                    </p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="text"
+                      value={district}
+                      onChange={(e) => {
+                        setDistrict(e.target.value);
+                        if (fieldErrors.district) setFieldErrors((prev) => ({ ...prev, district: undefined }));
+                      }}
+                      className={`w-full px-4 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
+                        fieldErrors.district ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
+                      }`}
+                      placeholder="District"
+                    />
+                    {fieldErrors.district && (
+                      <p className="text-xs text-red-500 dark:text-red-400 mt-1 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">error</span>
+                        {fieldErrors.district}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={city}
+                      onChange={(e) => {
+                        setCity(e.target.value);
+                        if (fieldErrors.city) setFieldErrors((prev) => ({ ...prev, city: undefined }));
+                      }}
+                      className={`w-full px-4 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
+                        fieldErrors.city ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
+                      }`}
+                      placeholder="City"
+                    />
+                    {fieldErrors.city && (
+                      <p className="text-xs text-red-500 dark:text-red-400 mt-1 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">error</span>
+                        {fieldErrors.city}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -143,12 +300,23 @@ const Register: React.FC = () => {
                   <input
                     type="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-12 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white"
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                    }}
+                    className={`w-full pl-10 pr-12 py-3 rounded-lg border bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white ${
+                      fieldErrors.password ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700'
+                    }`}
                     placeholder="••••••••"
                   />
                 </div>
-                {password && (
+                {fieldErrors.password && (
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-1 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">error</span>
+                    {fieldErrors.password}
+                  </p>
+                )}
+                {password && !fieldErrors.password && (
                   <>
                     <div className="mt-2 flex gap-1 h-1 w-full">
                       <div className={`flex-1 rounded-full ${strength.level >= 1 ? strength.color : 'bg-slate-200 dark:bg-slate-700'}`}></div>
@@ -164,11 +332,20 @@ const Register: React.FC = () => {
                  <input
                    type="checkbox"
                    checked={agreeTerms}
-                   onChange={(e) => setAgreeTerms(e.target.checked)}
+                   onChange={(e) => {
+                     setAgreeTerms(e.target.checked);
+                     if (fieldErrors.agreeTerms) setFieldErrors((prev) => ({ ...prev, agreeTerms: undefined }));
+                   }}
                    className="h-5 w-5 rounded border-slate-300 text-primary focus:ring-primary mt-0.5"
                  />
                  <label className="text-sm font-medium text-slate-600 dark:text-slate-400">I agree to the Terms of Service and Privacy Policy</label>
               </div>
+              {fieldErrors.agreeTerms && (
+                <p className="text-xs text-red-500 dark:text-red-400 -mt-2 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm">error</span>
+                  {fieldErrors.agreeTerms}
+                </p>
+              )}
 
               <button
                 type="submit"

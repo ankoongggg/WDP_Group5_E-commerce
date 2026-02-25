@@ -9,14 +9,28 @@ const generateAccessToken = (user) => jwt.sign(
 
 const register = async (req, res) => {
     try {
-        const { name, email, password } = req.body;
+        const { name, email, password, phone, street, district, city } = req.body;
+        if (!phone?.trim() || !street?.trim() || !district?.trim() || !city?.trim()) {
+            return res.status(400).json({ success: false, message: 'Phone and address (street, district, city) are required' });
+        }
         const hashedPassword = await bcrypt.hash(password, 12);
         const user = await User.create({
-            full_name: name, // Đồng bộ với schema
+            full_name: name,
             account_name: name,
             email: email.toLowerCase(),
             password: hashedPassword,
-            role: ['customer'], status: 'active'
+            phone: phone || '',
+            addresses: [{
+                street: street || '',
+                district: district || '',
+                city: city || '',
+                phone: phone || '',
+                recipient_name: name,
+                label: 'Home',
+                is_default: true
+            }],
+            role: ['customer'],
+            status: 'active'
         });
         res.status(201).json({ success: true, message: 'OK', user });
     } catch (error) { res.status(500).json({ success: false, message: error.message }); }

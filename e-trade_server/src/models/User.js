@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema({
     dob: Date,
     gender: String,
     phone: String,
+    address: String,
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
     following_stores: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Store' }],
     created_at: { type: Date, default: Date.now },
