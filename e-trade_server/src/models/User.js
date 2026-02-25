@@ -27,7 +27,9 @@ const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     full_name: { type: String, required: true },
     account_name: { type: String, required: true },
-    password: { type: String, required: true },
+    password: { type: String, required: false }, // Optional for Google OAuth users
+    provider: { type: String, default: null },   // 'google' | null
+    providerId: { type: String, default: null }, // Google sub/id
     role: [String],
     status: String,
     ban_reason: String,
