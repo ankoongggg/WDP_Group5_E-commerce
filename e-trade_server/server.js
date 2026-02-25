@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const connectDB = require("./src/configs/db");
+require("./src/configs/passport");
 
 // Import routes
 const authRoutes = require('./src/routes/authRoutes'); // Của Bách
