@@ -4,13 +4,14 @@ import { useSearch } from '../../hooks/useLayout';
 // Sửa lại đường dẫn import cho đúng cấu trúc thư mục của bạn
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-
+import { useCurrency, CurrencyType } from '../../context/CurrencyContext';
 export const Navbar: React.FC = () => {
     // Gộp Hooks: useSearch của Tú và useAuth/Toast của Bách
     const { search, setSearch, suggestions, showSuggestions, setShowSuggestions, handleSearch, handleKeyDown, handleSelectSuggestion, handleFocus, handleBlur } = useSearch();
     const { user, isAuthenticated, logout, loading } = useAuth();
     const { toast } = useToast();
-    
+    const { currency, setCurrency } = useCurrency();
+
     const [showDropdown, setShowDropdown] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -48,7 +49,7 @@ export const Navbar: React.FC = () => {
                                 setSearch(e.target.value);
                                 setShowSuggestions(true);
                             }}
-                            onKeyDown={handleKeyDown}
+onKeyDown={handleKeyDown}
                             onFocus={handleFocus}
                             onBlur={handleBlur}
                         />
@@ -80,6 +81,23 @@ export const Navbar: React.FC = () => {
 
                 {/* Auth & Cart Section (Của Bách) */}
                 <div className="flex items-center gap-3">
+
+                    {/* BỘ CHỌN TIỀN TỆ (Currency Selector) */}
+                    <div className="relative flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-1.5 mr-2">
+                        <select
+                            value={currency}
+                            onChange={(e) => setCurrency(e.target.value as CurrencyType)}
+                            className="bg-transparent border-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-pointer focus:ring-0 outline-none p-0 pr-4 appearance-none"
+                            style={{ backgroundImage: "none" }} // Tắt mũi tên mặc định để trông gọn hơn
+                        >
+                            <option value="VND" className="text-slate-900 dark:text-white">VND ₫</option>
+                            <option value="USD" className="text-slate-900 dark:text-white">USD $</option>
+                        </select>
+                        <span className="material-symbols-outlined text-slate-400 text-xs absolute right-1 pointer-events-none">expand_more</span>
+                    </div>
+{/* Dấu gạch dọc chia cách */}
+                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block mr-1"></div>
+
                     {!loading && isAuthenticated ? (
                         <>
                             <Link to="/account/orders" className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors relative">
@@ -113,7 +131,7 @@ export const Navbar: React.FC = () => {
                                 {showDropdown && (
                                     <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-zinc-900 rounded-xl shadow-xl shadow-black/10 border border-slate-200 dark:border-white/10 py-2 z-50">
                                         <div className="px-4 py-3 border-b border-slate-100 dark:border-white/10">
-                                            <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{user?.name}</p>
+<p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{user?.name}</p>
                                             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
                                         </div>
                                         <Link to="/account" onClick={() => setShowDropdown(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
@@ -146,7 +164,7 @@ export const Navbar: React.FC = () => {
                             <Link to="/login" className="px-5 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-primary transition-colors">
                                 Log In
                             </Link>
-                            <Link to="/register" className="px-5 py-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-lg transition-all shadow-md shadow-primary/20">
+<Link to="/register" className="px-5 py-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-lg transition-all shadow-md shadow-primary/20">
                                 Sign Up
                             </Link>
                         </>
@@ -199,7 +217,6 @@ export const Footer: React.FC = () => {
         </footer>
     );
 };
-
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return (
         <div className="flex flex-col min-h-screen">

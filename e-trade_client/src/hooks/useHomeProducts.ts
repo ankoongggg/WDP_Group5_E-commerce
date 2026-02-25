@@ -18,17 +18,22 @@ export const useHomeProducts = () => {
         // 1. Lấy keyword từ lịch sử xem
         const interests = getInterests();
         
-        
+      
 
-        const saleRes = await ProductService.getSaleProducts();
+        const saleRes = await ProductService.getSaleProducts({ limit: 4 });
+        // calculate the largest discount without relying on state inside loop
+        let maxDiscount = 0;
         saleRes.data.forEach((product: Product) => {
-          if(product.original_price && product.original_price > product.price){
-            const discount = Math.round(((product.original_price - product.price) / product.original_price) * 100);
-            if(discount > biggestDiscount){
-              setBiggestDiscount(discount);
+          if (product.original_price && product.original_price > product.price) {
+            const discount = Math.round(
+              ((product.original_price - product.price) / product.original_price) * 100
+            );
+            if (discount > maxDiscount) {
+              maxDiscount = discount;
             }
           }
         });
+        setBiggestDiscount(maxDiscount);
         setSaleProducts(saleRes.data);
         const categoriesRes = await CategoryService.getAll({
           limit: 6
@@ -66,4 +71,3 @@ export const useHomeProducts = () => {
 
   return { products, biggestDiscount, categories, loading, saleProducts };
 } ;
-

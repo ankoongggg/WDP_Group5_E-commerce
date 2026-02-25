@@ -3,12 +3,14 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Product } from '../../../types/home';
 import { trackInterest } from '../../../utils/tracker';
-
+import { useCurrency} from '../../../context/CurrencyContext';
 export const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
   // Tính % giảm giá
   const discount = product.original_price && product.original_price > product.price
     ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
     : 0;
+
+  const { formatPrice } = useCurrency();
 
   const handleClick = () => {
     // Logic: Khi click vào sản phẩm -> Lưu tên hoặc category vào lịch sử quan tâm
@@ -40,9 +42,9 @@ export const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
           {product.name}
         </h4>
         <div className="mt-auto flex items-baseline gap-2">
-          <span className="text-primary font-bold">{product.price.toLocaleString()} VND</span>
-          {product.original_price && (
-            <span className="text-slate-400 text-xs line-through">{product.original_price.toLocaleString()} VND</span>
+          <span className="text-primary font-bold">{formatPrice(product.price)}</span>
+          {formatPrice(product.original_price) && (
+            <span className="text-slate-400 text-xs line-through">{formatPrice(product.original_price)}</span>
           )}
         </div>
       </div>

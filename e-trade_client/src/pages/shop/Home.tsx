@@ -39,7 +39,7 @@ const Home: React.FC = () => {
             
             <div class="grid grid-cols-2 gap-4">
               {/* Deep Sale Products */}
-              {saleProducts.slice(0, Math.ceil(saleProducts.length / 2)).map((item) => (
+              {saleProducts.map((item) => (
                 <ProductCard key={item._id} product={item} />
               ))}
             </div>
@@ -74,10 +74,10 @@ const Home: React.FC = () => {
             </div>
             
             <div class="grid grid-cols-2 gap-4">
-              {/* Flash Sale Products */}
+              {/* Flash Sale Products
               {saleProducts.slice(Math.ceil(saleProducts.length / 2)).map((item) => (
                 <ProductCard key={item._id} product={item} />
-              ))}
+              ))} */}
             </div>
             <div class="mt-6 text-center">
               <Link 

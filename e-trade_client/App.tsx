@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './src/context/AuthContext';
 import { ToastProvider } from './src/context/ToastContext';
 import ProtectedRoute from './src/components/ProtectedRoute';
+import { CurrencyProvider } from './src/context/CurrencyContext';
 
 // Auth Pages
 import Login from './src/pages/auth/Login';
@@ -66,7 +67,10 @@ const App: React.FC = () => {
   return (
     <HashRouter>
       <ToastProvider>
+        <CurrencyProvider>
+          
         <AppRoutes />
+        </CurrencyProvider>
       </ToastProvider>
     </HashRouter>
   );
