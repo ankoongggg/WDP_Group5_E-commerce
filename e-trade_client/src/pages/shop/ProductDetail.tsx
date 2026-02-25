@@ -438,20 +438,55 @@ const ProductDetail: React.FC = () => {
                       <>
                         <div className="space-y-0">
                           {reviews.map((review) => (
-                            <div key={review._id} className="flex gap-4 py-6 border-b border-slate-200 dark:border-white/10 last:border-b-0">
+                            <div
+                              key={review._id}
+                              className="flex gap-4 py-6 border-b border-slate-200 dark:border-white/10 last:border-b-0"
+                            >
                               <img
-                                src={review.user_id.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.user_id.account_name)}&background=random&color=fff`}
+                                src={
+                                  review.user_id.avatar ||
+                                  `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                    review.user_id.account_name
+                                  )}&background=random&color=fff`
+                                }
                                 alt={review.user_id.account_name}
                                 className="w-10 h-10 rounded-full object-cover bg-slate-200"
                               />
+
                               <div className="flex-1">
                                 <div className="flex justify-between items-center">
-                                  <h4 className="font-bold dark:text-white">{review.user_id.account_name}</h4>
-                                  <span className="text-xs text-slate-400">{new Date(review.created_at).toLocaleDateString('vi-VN')}</span>
+                                  <h4 className="font-bold dark:text-white">
+                                    {review.user_id.account_name}
+                                  </h4>
+                                  <span className="text-xs text-slate-400">
+                                    {new Date(review.created_at).toLocaleDateString("vi-VN")}
+                                  </span>
                                 </div>
-                                <div className="flex text-amber-400 my-1">{renderStars(review.rating, 'text-sm')}</div>
-                                <p className="text-sm text-slate-600 dark:text-slate-300">{review.comment}</p>
-                                {/* Image uploads would go here */}
+
+                                <div className="flex text-amber-400 my-1">
+                                  {renderStars(review.rating, "text-sm")}
+                                </div>
+
+                                <p className="text-sm text-slate-600 dark:text-slate-300">
+                                  {review.comment}
+                                </p>
+
+                                {/* Images */}
+                                <div className="flex gap-2 mt-2">
+                                  {review.fileUploads &&
+                                    review.fileUploads.map((file, i) => (
+                                      <div
+                                        key={i}
+                                        className="w-16 h-16 rounded-lg overflow-hidden bg-slate-100 dark:bg-white/10"
+                                      >
+                                        <img
+                                          src={file}
+                                          alt={`Review Image ${i + 1}`}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    ))}
+                                </div>
                               </div>
                             </div>
                           ))}
