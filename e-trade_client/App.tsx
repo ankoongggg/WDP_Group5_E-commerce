@@ -10,6 +10,7 @@ import Register from './src/pages/auth/Register';
 import SecurityOtp from './src/pages/auth/SecurityOtp';
 import ForgotPassword from './src/pages/auth/ForgotPassword';
 import ResetPassword from './src/pages/auth/ResetPassword';
+import GoogleCallback from './src/pages/auth/GoogleCallback';
 
 // Shop Pages
 import Home from './src/pages/shop/Home';
@@ -44,6 +45,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/security" element={<SecurityOtp />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/auth/google-callback" element={<GoogleCallback />} />
 
         {/* Shop Routes (Public) */}
         <Route path="/" element={<Home />} />

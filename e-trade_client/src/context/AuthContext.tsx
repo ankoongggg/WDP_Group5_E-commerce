@@ -53,15 +53,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [handleSessionExpired]);
 
     // 3. THÊM HÀM NÀY: Để Profile.tsx gọi mỗi khi nhấn Save
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         try {
             const res: any = await authApi.getProfile();
-            // Lấy đúng cục "data" từ backend trả về
             setUser(res.data || res.user || res);
         } catch (error) {
             console.error("Failed to refresh user:", error);
         }
-    };
+    }, []);
 
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
