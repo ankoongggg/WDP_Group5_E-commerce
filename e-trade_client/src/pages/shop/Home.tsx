@@ -62,7 +62,7 @@ const Home: React.FC = () => {
                   <h3 class="text-2xl">FLASH SALE</h3>
                 </div>
                 <div class="flex gap-2">
-                  {[["02", "Hours"], ["45", "Min"], ["12", "Sec"]].map(([val, label]) => (
+                  {[["00", "Hours"], ["00", "Min"], ["00", "Sec"]].map(([val, label]) => (
                     <div key={label} class="flex flex-col items-center">
                       <div class="bg-primary text-white w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold shadow-lg shadow-primary/20">{val}</div>
                       <span class="text-[8px] uppercase font-bold mt-0.5 tracking-wider opacity-60 text-center">{label}</span>
@@ -95,12 +95,17 @@ const Home: React.FC = () => {
            <h3 class="text-2xl font-bold mb-8 dark:text-white">Shop by Category</h3>
            <div class="flex items-center justify-center gap-6 flex-wrap">
              {categories.map((item) => ( 
-                <div key={item._id} class="group cursor-pointer items-center justify-center rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col bg-white dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-orange-500 hover:text-white hover:shadow-lg transition-all">
+                <Link
+                  key={item._id}
+                  to={`/products?category=${item._id}`} 
+                  class="group cursor-pointer items-center justify-center rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col bg-white dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-orange-500 hover:text-white hover:shadow-lg transition-all"
+                  style={{ textDecoration: 'none' }}
+                >
                    {/* <div class="aspect-square bg-slate-100 dark:bg-primary/5 rounded-2xl flex items-center justify-center mb-3 group-hover:bg-primary group-hover:text-white transition-all duration-300">
                      <span class="material-symbols-outlined text-4xl">{item.name}</span>
                    </div> */}
                    <p class="text-center font-bold text-sm">{item.name}</p>
-                </div>
+                </Link>
              ))}
            </div>
         </section>

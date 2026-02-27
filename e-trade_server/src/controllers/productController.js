@@ -104,7 +104,7 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
         let query = { 
             status: 'active',
             // ĐÃ FIX: Comment lại dòng condition: 'New' để lấy cả hàng Used
-            // condition: 'New', 
+             condition: 'New', 
             original_price: { $gt: 0 } 
         };
 

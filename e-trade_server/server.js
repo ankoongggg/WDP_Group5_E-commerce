@@ -9,6 +9,7 @@ const userRoutes = require("./src/routes/user.routes"); // Của Ann
 const devRoutes = require("./src/routes/dev.routes"); // Của Ann
 const productRoutes = require('./src/routes/productRoutes'); // Của Thắng
 const categoryRoutes = require('./src/routes/categoryRoutes'); // Của Tú
+const shopRoutes = require('./src/routes/shopRoutes'); // Của Ann - Order, Payment
 
 const app = express();
 
@@ -36,6 +37,9 @@ app.use('/api/auth', authRoutes);
 // Route User & Dev (Ann)
 app.use("/api/users", userRoutes);
 app.use("/api/dev", devRoutes);
+
+// Route Shop - Orders & Payments (Ann)
+app.use('/api/shop', shopRoutes);
 
 // Route Products (Tú & Thắng)
 // Thống nhất dùng tiền tố /api/products cho chuẩn RESTful
