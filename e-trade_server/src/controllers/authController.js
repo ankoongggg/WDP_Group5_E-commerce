@@ -57,7 +57,14 @@ const login = async (req, res) => {
 const logout = async (req, res) => { res.json({ success: true, message: 'Logged out' }); };
 
 const googleAuth = (req, res, next) => {
-    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+    // Kiểm tra xem đã cấu hình Google Client ID chưa trước khi gọi passport
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+        // Nếu là request từ trình duyệt, redirect về trang login kèm lỗi
+        return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3000'}/#/login?error=google_config_missing`);
+    }
+    
+    // Nếu đã cấu hình thì mới gọi passport
+    passport.authenticate('google', { scope: ['profile', 'email'], session: false })(req, res, next);
 };
 
 const googleCallback = async (req, res, next) => {
@@ -78,6 +85,8 @@ const googleCallback = async (req, res, next) => {
                     providerId: googleUser.providerId,
                     password: await bcrypt.hash('google_oauth_' + Date.now(), 12),
                     role: ['customer'],
+                    phone: '', // Thêm trường này để đồng bộ với Schema
+                    addresses: [], // Khởi tạo mảng rỗng để tránh lỗi khi truy cập profile
                     status: 'active',
                 });
             } else if (!user.provider) {

@@ -106,3 +106,30 @@ export const authApi = {
     
     logout: () => api('/auth/logout', { method: 'POST', requireAuth: true }),
 };
+
+export const shopApi = {
+    // Lấy danh sách payment methods
+    getPaymentMethods: () => api('/shop/payment-methods'),
+    
+    // Tạo order từ cart
+    createOrder: (orderData: any) => 
+        api('/shop/orders', { 
+            method: 'POST', 
+            requireAuth: true, 
+            body: JSON.stringify(orderData) 
+        }),
+    
+    // Gửi payment request
+    submitPayment: (orderId: string, paymentData: any) => 
+        api(`/shop/orders/${orderId}/payment`, { 
+            method: 'POST', 
+            requireAuth: true, 
+            body: JSON.stringify(paymentData) 
+        }),
+    
+    // Lấy danh sách orders của user
+    getMyOrders: () => api('/shop/orders', { requireAuth: true }),
+    
+    // Lấy chi tiết order
+    getOrderDetail: (orderId: string) => api(`/shop/orders/${orderId}`, { requireAuth: true }),
+};

@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Layout } from '../components/Layout';
+import { useToast } from '../../context/ToastContext';
+
 
 // Define interfaces for the data structure from the API
 interface ProductType {
@@ -28,7 +30,8 @@ interface Product {
   store_id: {
     _id: string;
     shop_name: string;
-  }
+  };
+  stock?: number; // Fallback stock
 }
 
 interface ProductDetailsResponse {
@@ -60,6 +63,8 @@ interface Review {
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [details, setDetails] = useState<ProductDetailsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -177,6 +182,36 @@ const ProductDetail: React.FC = () => {
     } else {
       setQuantity(numValue < 1 ? 1 : numValue);
     }
+  };
+
+  const addToCart = (isBuyNow: boolean = false) => {
+    if (!product) return;
+
+    const cartItem = {
+      productId: product._id,
+      productName: product.name,
+      price: product.price,
+      quantity: quantity,
+      image: activeImage || product.main_image,
+      type: 'default',
+      storeId: product.store_id._id,
+      storeName: product.store_id.shop_name
+    };
+
+    const savedCart = localStorage.getItem('cart');
+    let cart = savedCart ? JSON.parse(savedCart) : [];
+
+    const existingItemIndex = cart.findIndex((item: any) => item.productId === cartItem.productId);
+    if (existingItemIndex > -1) {
+      cart[existingItemIndex].quantity += quantity;
+    } else {
+      cart.push(cartItem);
+    }
+
+    localStorage.setItem('cart', JSON.stringify(cart));
+
+    if (isBuyNow) navigate('/cart');
+    else toast.success('Đã thêm vào giỏ hàng!');
   };
 
   const renderStars = (rating: number, sizeClass: string = '') => {
@@ -325,10 +360,16 @@ const ProductDetail: React.FC = () => {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4">
-                <button className="flex-1 flex items-center justify-center gap-2 px-8 py-4 border-2 border-primary text-primary font-bold rounded-xl hover:bg-primary/5 transition-all">
+                <button
+                  onClick={() => addToCart(false)}
+                  className="flex-1 flex items-center justify-center gap-2 px-8 py-4 border-2 border-primary text-primary font-bold rounded-xl hover:bg-primary/5 transition-all"
+                >
                   <span className="material-symbols-outlined">shopping_cart</span> Thêm vào giỏ hàng
                 </button>
-                <button className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
+                <button
+                  onClick={() => addToCart(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
+                >
                   <span className="material-symbols-outlined">bolt</span> Mua ngay
                 </button>
               </div>

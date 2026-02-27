@@ -66,7 +66,7 @@ export const useProductList = () => {
       // --- FILTER 1: CATEGORY (Sửa lỗi selected category, hỗ trợ mảng) ---
       if (selectedCategories.length > 0) {
         result = result.filter(p => {
-            // category_id có thể là string, object hoặc mảng object
+            // category_id
             let catIds: string[] = [];
             if (Array.isArray(p.category_id)) {
                 catIds = p.category_id.map(c => typeof c === 'object' ? c._id : String(c));
@@ -89,8 +89,6 @@ export const useProductList = () => {
             return nameNoTone.includes(keywordNoTone);
         });
       }
-
-      // --- LOGIC FALLBACK (Yêu cầu số 3) ---
       // Nếu kết quả rỗng VÀ đang filter theo Category -> Tìm sp cùng category (bỏ qua keyword)
       if (result.length === 0 && selectedCategories.length > 0) {
           setIsFallback(true);
