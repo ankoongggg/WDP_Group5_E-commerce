@@ -21,7 +21,7 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     login: (email: string, password: string) => Promise<void>;
-    register: (name: string, email: string, password: string) => Promise<void>;
+    register: (name: string, email: string, password: string, phone: string, street: string, district: string, city: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>; // 2. BỔ SUNG HÀM refreshUser
     isAuthenticated: boolean;
@@ -53,15 +53,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [handleSessionExpired]);
 
     // 3. THÊM HÀM NÀY: Để Profile.tsx gọi mỗi khi nhấn Save
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         try {
             const res: any = await authApi.getProfile();
-            // Lấy đúng cục "data" từ backend trả về
             setUser(res.data || res.user || res);
         } catch (error) {
             console.error("Failed to refresh user:", error);
         }
-    };
+    }, []);
 
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
@@ -88,8 +87,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(data.user);
     };
 
-    const register = async (name: string, email: string, password: string) => {
-        const data = await authApi.register(name, email, password);
+    const register = async (name: string, email: string, password: string, phone: string, street: string, district: string, city: string) => {
+        const data = await authApi.register(name, email, password, phone, street, district, city);
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
         setUser(data.user);

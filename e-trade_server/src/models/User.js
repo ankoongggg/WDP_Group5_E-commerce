@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Product = require('./Product');
+const Store = require('./Store');
 
 const userSchema = new mongoose.Schema({
     avatar: String,
@@ -18,13 +19,17 @@ const userSchema = new mongoose.Schema({
     dob: Date,
     gender: String,
     phone: String,
+    address: String,
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
+    following_stores: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Store' }],
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
     email: { type: String, required: true, unique: true },
     full_name: { type: String, required: true },
     account_name: { type: String, required: true },
-    password: { type: String, required: true },
+    password: { type: String, required: false }, // Optional for Google OAuth users
+    provider: { type: String, default: null },   // 'google' | null
+    providerId: { type: String, default: null }, // Google sub/id
     role: [String],
     status: String,
     ban_reason: String,

@@ -2,12 +2,14 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const connectDB = require("./src/configs/db");
+require("./src/configs/passport");
 
 // Import routes
 const authRoutes = require('./src/routes/authRoutes'); // Của Bách
 const userRoutes = require("./src/routes/user.routes"); // Của Ann
 const devRoutes = require("./src/routes/dev.routes"); // Của Ann
 const productRoutes = require('./src/routes/productRoutes'); // Của Thắng
+const storeRoutes = require('./src/routes/storeRoutes'); // Của Thắng
 const categoryRoutes = require('./src/routes/categoryRoutes'); // Của Tú
 const shopRoutes = require('./src/routes/shopRoutes'); // Của Ann - Order, Payment
 
@@ -16,7 +18,7 @@ const app = express();
 // Kết nối Database
 connectDB();
 
-// Cấu hình CORS (Gộp theo cách linh hoạt của Bách)
+// Cấu hình CORS
 const corsOptions = {
     origin: process.env.CLIENT_URL || "http://localhost:3000",
     credentials: true,
@@ -46,8 +48,8 @@ app.use('/api/shop', shopRoutes);
 app.use('/api/products', productRoutes); 
 app.use('/api/categories', categoryRoutes);
 
-// Dự phòng route cũ của Thắng để không lỗi Frontend cũ
-app.use('/product', productRoutes);
+// Use store routes
+app.use('/api/store', storeRoutes);
 
 const PORT = process.env.PORT || 9999;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

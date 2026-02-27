@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const User = require('../models/User');
 const Store = require('../models/Store');
 const Product = require('../models/Product');
@@ -11,7 +12,7 @@ const getProductsByShop = async (req, res) => {
     // Đang chờ code
 }
 
-const filterProductsBySearch = async (req,res) => {
+const filterProductsBySearch = async (req, res) => {
     // Đang chờ code
 }
 
@@ -24,7 +25,7 @@ exports.getProducts = async (req, res) => {
     try {
         const { keyword, page = 1, limit = 12 } = req.query;
         const skip = (page - 1) * limit;
-        
+
         // Query cơ bản: Chỉ lấy sản phẩm đang active
         let matchStage = { status: 'active' };
 
@@ -47,12 +48,12 @@ exports.getProducts = async (req, res) => {
                 $addFields: {
                     relevance: {
                         $cond: {
-                            if: { 
-                                $regexMatch: { 
-                                    input: "$name", 
-                                    regex: keyword, 
-                                    options: "i" 
-                                } 
+                            if: {
+                                $regexMatch: {
+                                    input: "$name",
+                                    regex: keyword,
+                                    options: "i"
+                                }
                             },
                             then: 1, // Nếu tên chứa keyword -> 1 điểm
                             else: 0  // Không chứa -> 0 điểm
@@ -101,11 +102,11 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
         const { keyword, limit = 10 } = req.query;
 
         // query cơ bản
-        let query = { 
+        let query = {
             status: 'active',
             // ĐÃ FIX: Comment lại dòng condition: 'New' để lấy cả hàng Used
-             condition: 'New', 
-            original_price: { $gt: 0 } 
+            // condition: 'New', 
+            original_price: { $gt: 0 }
         };
 
         // 2. if keyword, thêm điều kiện tìm kiếm
@@ -122,16 +123,16 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
         // Populate luôn store để lấy thông tin shop
         const allProducts = await Product.find(query)
             .populate('store_id')
-            .limit(500) 
+            .limit(500)
             .lean(); // .lean() giúp trả về object JS thuần, chạy nhanh hơn
 
         // Tính toán % giảm giá cho từng sản phẩm bằng Javascript
         // (Gốc - Bán) / Gốc * 100
         const productsWithDiscount = allProducts.map(p => {
-            
+
             const original = p.original_price || 0;
             const price = p.price || 0;
-            
+
             let discountPercent = 0;
             if (original > 0 && original > price) {
                 discountPercent = ((original - price) / original) * 100;
@@ -155,13 +156,13 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
         if (deepSaleProducts.length > 0 && deepSaleProducts.length >= 50) {
             // Có hàng giảm sâu 
             strategyUsed = 'random_deep_sale';
-            
+
             // Xáo trộn mảng (Shuffle) để lấy ngẫu nhiên
             for (let i = deepSaleProducts.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [deepSaleProducts[i], deepSaleProducts[j]] = [deepSaleProducts[j], deepSaleProducts[i]];
             }
-            
+
             // Cắt lấy số lượng limit
             finalResult = deepSaleProducts.slice(0, parseInt(limit));
 
@@ -184,10 +185,10 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
 
     } catch (err) {
         console.error("Simple Logic Error:", err);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Server Error + error: ' + err.message , 
-            error: err.message 
+        res.status(500).json({
+            success: false,
+            message: 'Server Error + error: ' + err.message,
+            error: err.message
         });
     }
 };
@@ -213,39 +214,65 @@ exports.getProductById = async (req, res) => {
 // CÁC HÀM CỦA THẮNG (Chi tiết sản phẩm, đánh giá)
 // ==========================================
 
-// Controller: Get product details (Của Thắng)
+// Controller: Get product details
 exports.getProductDetails = async (req, res) => {
     try {
         const productId = req.params.id;
 
-        // Fetch product details
+        // 1. Fetch product details
         const product = await Product.findById(productId)
             .select("_id store_id category_id name description main_image display_files price original_price product_type condition status rejection_reason")
             .populate('store_id', 'shop_name description')
             .populate('category_id', 'name description');
 
         if (!product) {
-            return res.status(404).json({ message: 'Product not found' });
+            return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
         }
 
-        // Fetch reviews for the product
-        const reviews = await Review.find({ product_id: productId })
-            .select("_id user_id rating fileUploads comment created_at")
-            .populate('user_id', 'name');
+        // 2. Use aggregation to get all review stats efficiently
+        const statsResult = await Review.aggregate([
+            { $match: { product_id: new mongoose.Types.ObjectId(productId) } },
+            {
+                $facet: {
+                    overall: [
+                        {
+                            $group: {
+                                _id: null,
+                                averageRating: { $avg: "$rating" },
+                                totalReviews: { $sum: 1 }
+                            }
+                        }
+                    ],
+                    countsPerRating: [
+                        { $group: { _id: "$rating", count: { $sum: 1 } } },
+                        { $project: { rating: "$_id", count: 1, _id: 0 } }
+                    ]
+                }
+            }
+        ]);
 
-        // Compute average rating
-        const averageRating = reviews.length
-            ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length)
-            : 0;
+        // 3. Process the aggregation result
+        const overallStats = statsResult[0].overall[0] || { averageRating: 0, totalReviews: 0 };
+        const countsPerRatingRaw = statsResult[0].countsPerRating || [];
+
+        // Create a clean object for rating counts, ensuring all ratings from 1-5 are present with a default of 0
+        const ratingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        countsPerRatingRaw.forEach(item => {
+            if (item.rating >= 1 && item.rating <= 5) {
+                ratingCounts[item.rating] = item.count;
+            }
+        });
 
         res.status(200).json({
             product,
-            totalReviews: reviews.length,
-            averageRating
+            totalReviews: overallStats.totalReviews,
+            // Ensure averageRating is a number and fixed to one decimal place
+            averageRating: overallStats.averageRating ? parseFloat(overallStats.averageRating.toFixed(1)) : 0,
+            ratingCounts // This is the new data
         });
     } catch (error) {
         console.error('Error fetching product details:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
     }
 };
 
@@ -255,6 +282,7 @@ exports.getProductReviews = async (req, res) => {
         const productId = req.params.id;
         const page = parseInt(req.query.page, 10) || 1;
         const limit = parseInt(req.query.limit, 10) || 10;
+        const rating = parseInt(req.query.rating, 10);
         const skip = (page - 1) * limit;
 
         // Optional: Check if product exists
@@ -263,15 +291,21 @@ exports.getProductReviews = async (req, res) => {
             return res.status(404).json({ message: 'Product not found' });
         }
 
+        // Xây dựng bộ lọc
+        const filter = { product_id: productId };
+        if (rating && rating >= 1 && rating <= 5) {
+            filter.rating = rating;
+        }
+
         // Fetch reviews with pagination
-        const reviews = await Review.find({ product_id: productId })
+        const reviews = await Review.find(filter)
             .populate('user_id', 'account_name avatar') // Populate user's name and avatar
             .sort({ created_at: -1 }) // Sort by newest first
             .skip(skip)
             .limit(limit);
 
         // Get total number of reviews for pagination
-        const totalReviews = await Review.countDocuments({ product_id: productId });
+        const totalReviews = await Review.countDocuments(filter);
 
         res.status(200).json({
             reviews,

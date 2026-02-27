@@ -1,4 +1,5 @@
 const API_BASE = 'http://localhost:9999/api';
+export const getGoogleAuthUrl = () => `${API_BASE}/auth/google`;
 
 interface ApiOptions extends RequestInit {
     requireAuth?: boolean;
@@ -10,7 +11,7 @@ export const setOnTokenRefreshFailed = (callback: () => void) => { onTokenRefres
 const getAccessToken = () => localStorage.getItem('accessToken');
 const getRefreshToken = () => localStorage.getItem('refreshToken');
 
-const setTokens = (accessToken: string, refreshToken: string) => {
+export const setTokens = (accessToken: string, refreshToken: string) => {
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
 };
@@ -96,8 +97,8 @@ export const authApi = {
     },
     
     // Đã trả lại hàm register để bạn tạo tài khoản mượt mà
-    register: (name: string, email: string, password: string) =>
-        api('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
+    register: (name: string, email: string, password: string, phone: string, street: string, district: string, city: string) =>
+        api('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, phone, street, district, city }) }),
         
     getProfile: () => api('/users/me', { requireAuth: true }),
     
