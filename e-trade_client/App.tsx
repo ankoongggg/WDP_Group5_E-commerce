@@ -28,6 +28,9 @@ import Settings from './src/pages/account/Settings';
 
 // Admin Pages
 import AdminDashboard from './src/pages/admin/Dashboard';
+import {AdminUsers} from './src/pages/admin/Accounts';
+import {AdminProducts} from './src/pages/admin/Products';
+import {AdminReports} from './src/pages/admin/Reports';
 // import UserManagement from './src/pages/admin/UserManagement';
 
 const ScrollToTop = () => {
@@ -52,7 +55,10 @@ const AppRoutes: React.FC = () => {
 
         {/* Admin Routes */}
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
-
+        <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/admin/products" element={<AdminProducts />} />
+        <Route path="/admin/reports" element={<AdminReports />} />
+        
         {/* Shop Routes (Public) */}
         <Route path="/" element={<Home />} />
         <Route path="/products" element={<ProductList />} />

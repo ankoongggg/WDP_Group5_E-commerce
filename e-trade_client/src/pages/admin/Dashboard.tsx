@@ -85,7 +85,7 @@ const AdminDashboard: React.FC = () => {
                 <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
                         <span className="material-symbols-outlined text-amber-500">pending_actions</span>
-                        Sản phẩm cần duyệt gấp
+                        Sản phẩm chứa từ khóa cấm cần kiểm duyệt
                     </h3>
                     <Link to="/admin/products" className="text-primary text-sm font-medium hover:underline">Xem tất cả</Link>
                 </div>
