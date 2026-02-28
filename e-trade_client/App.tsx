@@ -25,6 +25,11 @@ import Orders from './src/pages/account/Orders';
 import OrderDetail from './src/pages/account/OrderDetail';
 import Settings from './src/pages/account/Settings';
 
+
+// Admin Pages
+import AdminDashboard from './src/pages/admin/Dashboard';
+// import UserManagement from './src/pages/admin/UserManagement';
+
 const ScrollToTop = () => {
   const { pathname } = useLocation();
   React.useEffect(() => {
@@ -44,6 +49,9 @@ const AppRoutes: React.FC = () => {
         <Route path="/security" element={<SecurityOtp />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* Admin Routes */}
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
         {/* Shop Routes (Public) */}
         <Route path="/" element={<Home />} />

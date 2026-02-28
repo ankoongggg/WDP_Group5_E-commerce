@@ -1,19 +1,15 @@
 const User = require('../models/User');
 const Store = require('../models/Store');
 const Product = require('../models/Product');
-const Review = require('../models/ReviewProduct'); // Thêm import Review của Thắng
-
-// ==========================================
-// CÁC HÀM CỦA TÚ (Quản lý tìm kiếm, lọc)
-// ==========================================
 
 const getProductsByShop = async (req, res) => {
-    // Đang chờ code
+
 }
 
 const filterProductsBySearch = async (req,res) => {
-    // Đang chờ code
+
 }
+
 
 // GET /api/products
 // Query params: 
@@ -103,8 +99,9 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
         // query cơ bản
         let query = { 
             status: 'active',
-            // ĐÃ FIX: Comment lại dòng condition: 'New' để lấy cả hàng Used
-            // condition: 'New', 
+            // Chỉ lấy sp có giá gốc > 0 để tránh lỗi chia cho 0
+            // gt: greater than
+            condition: 'New',
             original_price: { $gt: 0 } 
         };
 
@@ -125,10 +122,12 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
             .limit(500) 
             .lean(); // .lean() giúp trả về object JS thuần, chạy nhanh hơn
 
+        // console.log(`Found ${allProducts.length} potential products.`);
+
         // Tính toán % giảm giá cho từng sản phẩm bằng Javascript
         // (Gốc - Bán) / Gốc * 100
         const productsWithDiscount = allProducts.map(p => {
-            
+           
             const original = p.original_price || 0;
             const price = p.price || 0;
             
@@ -157,12 +156,14 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
             strategyUsed = 'random_deep_sale';
             
             // Xáo trộn mảng (Shuffle) để lấy ngẫu nhiên
+            // Thuật toán Fisher-Yates shuffle đơn giản
             for (let i = deepSaleProducts.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [deepSaleProducts[i], deepSaleProducts[j]] = [deepSaleProducts[j], deepSaleProducts[i]];
             }
             
             // Cắt lấy số lượng limit
+            //slide: lấy phần tử đầu đến limit là 10
             finalResult = deepSaleProducts.slice(0, parseInt(limit));
 
         } else {
@@ -191,8 +192,7 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
         });
     }
 };
-
-// GET /api/products/:id (Để xem chi tiết - Của Tú)
+// GET /api/products/:id (Để xem chi tiết)
 exports.getProductById = async (req, res) => {
     try {
         const product = await Product.findById(req.params.id)
@@ -206,81 +206,5 @@ exports.getProductById = async (req, res) => {
         res.json({ success: true, data: product });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server Error' });
-    }
-};
-
-// ==========================================
-// CÁC HÀM CỦA THẮNG (Chi tiết sản phẩm, đánh giá)
-// ==========================================
-
-// Controller: Get product details (Của Thắng)
-exports.getProductDetails = async (req, res) => {
-    try {
-        const productId = req.params.id;
-
-        // Fetch product details
-        const product = await Product.findById(productId)
-            .select("_id store_id category_id name description main_image display_files price original_price product_type condition status rejection_reason")
-            .populate('store_id', 'shop_name description')
-            .populate('category_id', 'name description');
-
-        if (!product) {
-            return res.status(404).json({ message: 'Product not found' });
-        }
-
-        // Fetch reviews for the product
-        const reviews = await Review.find({ product_id: productId })
-            .select("_id user_id rating fileUploads comment created_at")
-            .populate('user_id', 'name');
-
-        // Compute average rating
-        const averageRating = reviews.length
-            ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length)
-            : 0;
-
-        res.status(200).json({
-            product,
-            totalReviews: reviews.length,
-            averageRating
-        });
-    } catch (error) {
-        console.error('Error fetching product details:', error);
-        res.status(500).json({ message: 'Internal server error' });
-    }
-};
-
-// Controller: Get all reviews for a product with pagination
-exports.getProductReviews = async (req, res) => {
-    try {
-        const productId = req.params.id;
-        const page = parseInt(req.query.page, 10) || 1;
-        const limit = parseInt(req.query.limit, 10) || 10;
-        const skip = (page - 1) * limit;
-
-        // Optional: Check if product exists
-        const productExists = await Product.findById(productId).select('_id');
-        if (!productExists) {
-            return res.status(404).json({ message: 'Product not found' });
-        }
-
-        // Fetch reviews with pagination
-        const reviews = await Review.find({ product_id: productId })
-            .populate('user_id', 'account_name avatar') // Populate user's name and avatar
-            .sort({ created_at: -1 }) // Sort by newest first
-            .skip(skip)
-            .limit(limit);
-
-        // Get total number of reviews for pagination
-        const totalReviews = await Review.countDocuments({ product_id: productId });
-
-        res.status(200).json({
-            reviews,
-            currentPage: page,
-            totalPages: Math.ceil(totalReviews / limit),
-            totalReviews,
-        });
-    } catch (error) {
-        console.error('Error fetching product reviews:', error);
-        res.status(500).json({ message: 'Internal server error' });
     }
 };
