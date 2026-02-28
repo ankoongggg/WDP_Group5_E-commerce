@@ -100,80 +100,82 @@ exports.getProducts = async (req, res) => {
 exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
     try {
         const { keyword, limit = 10 } = req.query;
+        const limitNum = parseInt(limit);
 
-        // query cơ bản
-        let query = {
-            status: 'active',
-            // ĐÃ FIX: Comment lại dòng condition: 'New' để lấy cả hàng Used
-            // condition: 'New', 
-            original_price: { $gt: 0 }
-        };
+        // Pipeline xử lý logic "xịn" bằng Aggregation
+        let pipeline = [
+            { 
+                $match: { 
+                    status: 'active', 
+                    original_price: { $gt: 0 } 
+                } 
+            }
+        ];
 
-        // 2. if keyword, thêm điều kiện tìm kiếm
+        // 1. Filter by keyword nếu có
         if (keyword) {
-            //$or gộp contain trong seach name && question
-            //%regex để tìm kiếm gần đúng, i để ignore case
-            query.$or = [
-                { name: { $regex: keyword, $options: 'i' } },
-                { description: { $regex: keyword, $options: 'i' } }
-            ];
+            pipeline.push({
+                $match: {
+                    $or: [
+                        { name: { $regex: keyword, $options: 'i' } },
+                        { description: { $regex: keyword, $options: 'i' } }
+                    ]
+                }
+            });
         }
 
-        // 3. Lấy TOÀN BỘ sản phẩm thỏa mãn điều kiện về (hoặc giới hạn 500 để ko bị nặng)
-        // Populate luôn store để lấy thông tin shop
-        const allProducts = await Product.find(query)
-            .populate('store_id')
-            .limit(500)
-            .lean(); // .lean() giúp trả về object JS thuần, chạy nhanh hơn
-
-        // Tính toán % giảm giá cho từng sản phẩm bằng Javascript
-        // (Gốc - Bán) / Gốc * 100
-        const productsWithDiscount = allProducts.map(p => {
-
-            const original = p.original_price || 0;
-            const price = p.price || 0;
-
-            let discountPercent = 0;
-            if (original > 0 && original > price) {
-                discountPercent = ((original - price) / original) * 100;
+        // 2. Tính toán % giảm giá trực tiếp trong DB (Nhanh hơn JS thuần)
+        pipeline.push({
+            $addFields: {
+                discount_numeric: {
+                    $multiply: [
+                        { $divide: [{ $subtract: ["$original_price", "$price"] }, "$original_price"] },
+                        100
+                    ]
+                }
             }
-
-            return {
-                ...p,
-                discount_numeric: discountPercent, // Lưu số để sort
-                discount_percentage: Math.round(discountPercent) + '%' // Lưu chuỗi để hiển thị
-            };
         });
 
-        //sản phẩm giảm > 50%
-        let deepSaleProducts = productsWithDiscount.filter(p => p.discount_numeric > 50);
+        // 3. Lọc sản phẩm có giảm giá > 0
+        pipeline.push({ $match: { discount_numeric: { $gt: 0 } } });
+
+        // 4. Chiến lược lấy dữ liệu: Ưu tiên giảm sâu (>50%), nếu không có thì lấy giảm nhiều nhất
+        pipeline.push({
+            $facet: {
+                deepSale: [
+                    { $match: { discount_numeric: { $gt: 50 } } },
+                    { $sample: { size: limitNum } } // Random lấy limit
+                ],
+                topSale: [
+                    { $sort: { discount_numeric: -1 } }, // Sắp xếp giảm dần
+                    { $limit: limitNum }
+                ]
+            }
+        });
+
+        const result = await Product.aggregate(pipeline);
+        const deepSale = result[0].deepSale;
+        const topSale = result[0].topSale;
 
         let finalResult = [];
         let strategyUsed = '';
 
-        //>50% 
-        // gth: greater than 
-        if (deepSaleProducts.length > 0 && deepSaleProducts.length >= 50) {
-            // Có hàng giảm sâu 
+        if (deepSale.length > 0) {
             strategyUsed = 'random_deep_sale';
-
-            // Xáo trộn mảng (Shuffle) để lấy ngẫu nhiên
-            for (let i = deepSaleProducts.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [deepSaleProducts[i], deepSaleProducts[j]] = [deepSaleProducts[j], deepSaleProducts[i]];
-            }
-
-            // Cắt lấy số lượng limit
-            finalResult = deepSaleProducts.slice(0, parseInt(limit));
-
+            finalResult = deepSale;
         } else {
-            //Không có, lấy giảm giá cao nhất ---
             strategyUsed = 'highest_available';
-            // Sắp xếp giảm dần theo %
-            productsWithDiscount.sort((a, b) => b.discount_numeric - a.discount_numeric);
-            // Cắt lấy top
-            finalResult = productsWithDiscount.slice(0, parseInt(limit));
+            finalResult = topSale;
         }
+
+        // Populate store info thủ công (vì aggregate $lookup phức tạp hơn ở bước này)
+        await Product.populate(finalResult, { path: 'store_id', select: 'shop_name' });
+
+        // Format lại dữ liệu trả về
+        finalResult = finalResult.map(p => ({
+            ...p,
+            discount_percentage: Math.round(p.discount_numeric) + '%'
+        }));
 
         // 6. Trả về kết quả
         res.status(200).json({
@@ -184,10 +186,10 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
         });
 
     } catch (err) {
-        console.error("Simple Logic Error:", err);
+        console.error("Sale Logic Error:", err);
         res.status(500).json({
             success: false,
-            message: 'Server Error + error: ' + err.message,
+            message: 'Server Error',
             error: err.message
         });
     }

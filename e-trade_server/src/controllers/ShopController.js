@@ -77,8 +77,15 @@ const createOrder = async (req, res) => {
         let orderItems = [];
         let sellerId = null;
 
+        // OPTIMIZATION: Fetch tất cả sản phẩm 1 lần thay vì loop query (N+1 problem fix)
+        const productIds = items.map(item => item.productId);
+        const products = await Product.find({ _id: { $in: productIds } });
+        
+        // Tạo Map để tra cứu nhanh O(1)
+        const productMap = new Map(products.map(p => [p._id.toString(), p]));
+
         for (const item of items) {
-            const product = await Product.findById(item.productId);
+            const product = productMap.get(item.productId);
             
             if (!product) {
                 return res.status(404).json({ 
