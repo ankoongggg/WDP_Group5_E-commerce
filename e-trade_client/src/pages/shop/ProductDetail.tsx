@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Layout } from '../components/Layout';
 import { useToast } from '../../context/ToastContext';
+import { useCurrency } from '@/src/context/CurrencyContext';
 
 
 // Define interfaces for the data structure from the API
@@ -78,7 +79,7 @@ const ProductDetail: React.FC = () => {
   const [ratingFilter, setRatingFilter] = useState<number | null>(null); // null = All
   const [reviewPage, setReviewPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-
+  const { formatPrice } = useCurrency();
   useEffect(() => {
     const fetchProductDetails = async () => {
       if (!id) return;
@@ -301,12 +302,12 @@ const ProductDetail: React.FC = () => {
             </div>
 
             <div className="flex items-baseline gap-4">
-              <span className="text-4xl font-black text-primary">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(finalPrice)}</span>
+              <span className="text-4xl font-black text-primary">{formatPrice(finalPrice)}</span>
               {product.original_price > finalPrice && (
                 <>
-                  <span className="text-xl text-slate-400 line-through font-medium">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.original_price)}</span>
+                  <span className="text-xl text-slate-400 line-through font-medium">{formatPrice(product.original_price)}</span>
                   {discount > 0 && (
-                    <span className="text-sm font-bold text-green-600 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">Tiết kiệm {discount}%</span>
+                    <span className="text-sm font-bold text-green-600 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">Giảm {discount}%</span>
                   )}
                 </>
               )}

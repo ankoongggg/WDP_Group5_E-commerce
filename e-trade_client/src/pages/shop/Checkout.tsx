@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { shopApi } from '../../services/api';
-
+import { useCurrency } from '@/src/context/CurrencyContext';
 interface CartItem {
   productId: string;
   productName: string;
@@ -32,6 +32,7 @@ const Checkout: React.FC = () => {
   // =====================================================
   
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const { formatPrice } = useCurrency();
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   
   // Form state
@@ -117,7 +118,7 @@ const Checkout: React.FC = () => {
   // =====================================================
 
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const shippingFee = shippingMethod === 'express' ? 25 : 12;
+  const shippingFee = shippingMethod === 'express' ? 400000 : 260000;
   const total = subtotal + shippingFee;
   // =====================================================
   // HANDLERS
@@ -406,7 +407,7 @@ const Checkout: React.FC = () => {
                     <span className="block text-sm font-bold text-slate-900 dark:text-white">Standard Delivery</span>
                     <span className="text-xs text-slate-500 mt-1">Arriving in 3-5 days</span>
                   </span>
-                  <span className="text-sm font-bold text-primary">$12.00</span>
+                  <span className="text-sm font-bold text-primary">{formatPrice(260000)}</span>
                 </label>
                 <label className={`relative flex cursor-pointer rounded-xl border p-4 ring-2 transition-all ${
                   shippingMethod === 'express' ? 'ring-primary border-primary bg-primary/5' : 'ring-0 border-slate-200 dark:border-primary/20'
@@ -423,7 +424,7 @@ const Checkout: React.FC = () => {
                     <span className="block text-sm font-bold text-slate-900 dark:text-white">Express Delivery</span>
                     <span className="text-xs text-slate-500 mt-1">Arriving in 1-2 days</span>
                   </span>
-                  <span className="text-sm font-bold text-slate-900 dark:text-white">$25.00</span>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">{formatPrice(400000)}</span>
                 </label>
               </div>
             </section>
@@ -536,12 +537,13 @@ const Checkout: React.FC = () => {
             <div className="bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/20 p-6 shadow-lg sticky top-24">
               <h2 className="text-lg font-bold mb-6 dark:text-white">Order Summary</h2>
 
+
               {/* Items List */}
               <div className="space-y-2 mb-6 max-h-48 overflow-y-auto">
                 {cartItems.map((item, idx) => (
                   <div key={idx} className="flex justify-between text-sm dark:text-slate-300">
                     <span>{item.productName} x {item.quantity}</span>
-                    <span className="font-bold">${(item.price * item.quantity).toFixed(2)}</span>
+                    <span className="font-bold">{formatPrice(item.price * item.quantity)}</span>
                   </div>
                 ))}
               </div>
@@ -549,17 +551,17 @@ const Checkout: React.FC = () => {
               <div className="space-y-4 text-sm border-b border-slate-100 dark:border-primary/10 pb-4 mb-4">
                 <div className="flex justify-between text-slate-600 dark:text-slate-400">
                   <span>Subtotal</span>
-                  <span className="font-bold">${subtotal.toFixed(2)}</span>
+                  <span className="font-bold">{formatPrice(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-slate-600 dark:text-slate-400">
                   <span>Shipping</span>
-                  <span className="font-bold">${shippingFee.toFixed(2)}</span>
+                  <span className="font-bold">{formatPrice(shippingFee)}</span>
                 </div>
               </div>
 
               <div className="flex justify-between items-end mb-8">
                 <span className="text-base font-bold dark:text-white">Total Amount</span>
-                <span className="text-2xl font-black text-primary">${total.toFixed(2)}</span>
+                <span className="text-2xl font-black text-primary">{formatPrice(total)}</span>
               </div>
 
               <button 

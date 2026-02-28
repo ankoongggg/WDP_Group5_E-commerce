@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../../context/ToastContext';
-
+import { useCurrency } from '@/src/context/CurrencyContext';
 interface CartItem {
   productId: string;
   productName: string;
@@ -19,7 +19,7 @@ const Cart: React.FC = () => {
   const { toast } = useToast();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-
+  const { formatPrice } = useCurrency();
   // Load cart from localStorage on mount
   useEffect(() => {
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
@@ -195,7 +195,7 @@ const Cart: React.FC = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-6 font-medium">${item.price.toFixed(2)}</td>
+                        <td className="px-6 py-6 font-medium">{formatPrice(item.price)}</td>
                         <td className="px-6 py-6">
                           <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg w-max">
                             <button 
@@ -213,7 +213,7 @@ const Cart: React.FC = () => {
                             </button>
                           </div>
                         </td>
-                        <td className="px-6 py-6 font-bold">${(item.price * item.quantity).toFixed(2)}</td>
+                        <td className="px-6 py-6 font-bold">{formatPrice(item.price * item.quantity)}</td>
                         <td className="px-6 py-6">
                           <button 
                             onClick={() => removeItem(idx)}
@@ -238,7 +238,7 @@ const Cart: React.FC = () => {
               <div className="space-y-4 text-sm mb-6">
                 <div className="flex justify-between text-slate-500 dark:text-slate-400">
                   <span>Subtotal ({selectedCount} items)</span>
-                  <span className="font-bold text-slate-900 dark:text-white">${subtotal.toFixed(2)}</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{formatPrice(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-slate-500 dark:text-slate-400">
                   <span>Shipping</span>
@@ -248,7 +248,7 @@ const Cart: React.FC = () => {
 
               <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800 mb-6">
                 <span className="text-lg font-bold dark:text-white">Total</span>
-                <span className="text-2xl font-black text-primary">${total.toFixed(2)}</span>
+                <span className="text-2xl font-black text-primary">{formatPrice(total)}</span>
               </div>
 
               <button 
