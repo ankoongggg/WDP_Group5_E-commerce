@@ -2,16 +2,38 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { authApi } from '../../services/api';
+import { authApi, storeApi } from '../../services/api';
+import { CategoryService } from '../../services/categoryService';
 
 const Profile: React.FC = () => {
+        const [categories, setCategories] = useState<Array<{_id: string, name: string}>>([]);
     const { user, logout, refreshUser } = useAuth();
     const { toast } = useToast();
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [showSellerModal, setShowSellerModal] = useState(false);
+    const [sellerRegistrationStatus, setSellerRegistrationStatus] = useState<any>(null);
+    const [submittingSellerForm, setSubmittingSellerForm] = useState(false);
 
     const [form, setForm] = useState({ name: "", phone: "", gender: "", dob: "", avatar: "" });
     const [addr, setAddr] = useState({ label: "Home", street: "", district: "", city: "", is_default: true });
+    const [sellerForm, setSellerForm] = useState({
+        shop_name: "",
+        shop_description: "",
+        identity_card: "",
+        identity_card_image: "",
+        pickup_address: "",
+        phone: "",
+        business_category: ""
+    });
+
+    useEffect(() => {
+        if (showSellerModal) {
+            CategoryService.getAll().then((data) => {
+                setCategories(data);
+            });
+        }
+    }, [showSellerModal]);
 
     useEffect(() => {
         if (user) {
@@ -34,7 +56,19 @@ const Profile: React.FC = () => {
                 });
             }
         }
+        // Load seller registration status
+        checkSellerRegistrationStatus();
     }, [user, editing]);
+
+    const checkSellerRegistrationStatus = async () => {
+        try {
+            const status = await storeApi.getSellerRegistrationStatus();
+            setSellerRegistrationStatus(status);
+        } catch (e: any) {
+            // User chưa gửi đơn đăng kí
+            setSellerRegistrationStatus(null);
+        }
+    };
 
     const onSave = async () => {
         setSaving(true);
@@ -60,8 +94,83 @@ const Profile: React.FC = () => {
         }
     };
 
+    const onSubmitSellerForm = async () => {
+        setSubmittingSellerForm(true);
+        try {
+            if (!sellerForm.shop_name || !sellerForm.shop_description || !sellerForm.identity_card || !sellerForm.pickup_address || !sellerForm.business_category) {
+                toast.error("Vui lòng điền đầy đủ thông tin required");
+                setSubmittingSellerForm(false);
+                return;
+            }
+
+            await storeApi.registerSeller(sellerForm);
+            toast.success("Gửi đơn đăng kí seller thành công! ✅ Vui lòng chờ admin phê duyệt.");
+            setShowSellerModal(false);
+            setSellerForm({
+                shop_name: "",
+                shop_description: "",
+                identity_card: "",
+                identity_card_image: "",
+                pickup_address: "",
+                phone: "",
+                business_category: ""
+            });
+            // Reload status
+            checkSellerRegistrationStatus();
+        } catch (e: any) {
+            toast.error(e?.message || "Gửi đơn thất bại");
+        } finally {
+            setSubmittingSellerForm(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark font-display flex flex-col">
+            {/* Modal Become a Seller */}
+            {showSellerModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                    <div className="bg-white dark:bg-[#2d1e16] rounded-xl shadow-xl p-8 w-full max-w-lg relative">
+                        <button onClick={() => setShowSellerModal(false)} className="absolute top-4 right-4 text-slate-500 hover:text-primary">
+                            <span className="material-symbols-outlined">close</span>
+                        </button>
+                        <h2 className="text-xl font-bold mb-6 dark:text-white">Đăng ký trở thành Seller</h2>
+                        <div className="grid gap-4">
+                            <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.shop_name} onChange={e => setSellerForm({...sellerForm, shop_name: e.target.value})} placeholder="Tên shop *" />
+                            <textarea className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.shop_description} onChange={e => setSellerForm({...sellerForm, shop_description: e.target.value})} placeholder="Mô tả shop *" />
+                            <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.identity_card} onChange={e => setSellerForm({...sellerForm, identity_card: e.target.value})} placeholder="Số CMND/CCCD *" />
+                            <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.identity_card_image} onChange={e => setSellerForm({...sellerForm, identity_card_image: e.target.value})} placeholder="Link ảnh CMND/CCCD" />
+                            <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.pickup_address} onChange={e => setSellerForm({...sellerForm, pickup_address: e.target.value})} placeholder="Địa chỉ lấy hàng *" />
+                            <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.phone} onChange={e => setSellerForm({...sellerForm, phone: e.target.value})} placeholder="Số điện thoại liên hệ" />
+                            <div>
+                                <label className="block font-bold mb-2 dark:text-white">Ngành hàng kinh doanh *</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {categories.map(cat => (
+                                        <label key={cat._id} className="flex items-center gap-2">
+                                            <input
+                                                type="checkbox"
+                                                checked={sellerForm.business_category.split(',').includes(cat.name)}
+                                                onChange={e => {
+                                                    let arr = sellerForm.business_category ? sellerForm.business_category.split(',') : [];
+                                                    if (e.target.checked) {
+                                                        arr.push(cat.name);
+                                                    } else {
+                                                        arr = arr.filter(c => c !== cat.name);
+                                                    }
+                                                    setSellerForm({...sellerForm, business_category: arr.join(',')});
+                                                }}
+                                            />
+                                            <span>{cat.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <button onClick={onSubmitSellerForm} disabled={submittingSellerForm} className="mt-6 w-full bg-primary text-white px-6 py-2 rounded-xl font-bold text-sm">
+                            {submittingSellerForm ? "Đang gửi..." : "Gửi đơn đăng ký"}
+                        </button>
+                    </div>
+                </div>
+            )}
             <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a110c] px-6 flex items-center justify-between sticky top-0 z-50">
                 <div className="flex items-center gap-3">
                     <Link to="/" className="bg-primary p-1.5 rounded-lg flex items-center justify-center">
@@ -86,6 +195,11 @@ const Profile: React.FC = () => {
                         <Link to="/account/orders" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
                             <span className="material-symbols-outlined">shopping_bag</span> Orders
                         </Link>
+                        {!sellerRegistrationStatus && (
+                            <button onClick={() => setShowSellerModal(true)} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
+                                <span className="material-symbols-outlined">store</span> Become a Seller
+                            </button>
+                        )}
                     </nav>
                 </aside>
 
@@ -128,6 +242,34 @@ const Profile: React.FC = () => {
                                 )}
                             </div>
                         </section>
+
+                        {/* KHỐI 1.5: TRẠNG THÁI ĐƠN ĐĂNG KÍ SELLER */}
+                        {sellerRegistrationStatus && (
+                            <section className="bg-white dark:bg-[#2d1e16] p-8 rounded-xl border border-slate-200 dark:border-slate-800">
+                                <h3 className="text-lg font-bold mb-4 dark:text-white">Seller Registration Status</h3>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium dark:text-white">Status:</span>
+                                        <span className={`px-4 py-2 rounded-lg font-bold text-sm ${
+                                            sellerRegistrationStatus.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                            sellerRegistrationStatus.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                            'bg-yellow-100 text-yellow-700'
+                                        }`}>
+                                            {sellerRegistrationStatus.status === 'approved' && '✅ Approved'}
+                                            {sellerRegistrationStatus.status === 'rejected' && '❌ Rejected'}
+                                            {sellerRegistrationStatus.status === 'pending' && '⏳ Pending'}
+                                        </span>
+                                    </div>
+                                    {sellerRegistrationStatus.rejection_reason && (
+                                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-lg">
+                                            <p className="text-red-700 dark:text-red-300"><b>Rejection Reason:</b></p>
+                                            <p className="text-red-600 dark:text-red-400 mt-2">{sellerRegistrationStatus.rejection_reason}</p>
+                                        </div>
+                                    )}
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">Submitted on: {new Date(sellerRegistrationStatus.created_at).toLocaleDateString()}</p>
+                                </div>
+                            </section>
+                        )}
 
                         {/* KHỐI 2: GIAO DIỆN ĐỊA CHỈ ĐÃ ĐƯỢC TRẢ LẠI */}
                         <div className="bg-white dark:bg-[#2d1e16] p-8 rounded-xl border border-slate-200 dark:border-slate-800">

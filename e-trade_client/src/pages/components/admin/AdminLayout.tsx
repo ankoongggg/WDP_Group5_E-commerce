@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -24,7 +24,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     }
   };
 
-  const navItems = [
+  const navItems = useMemo(() => [
     { path: '/admin/dashboard', icon: 'dashboard', label: 'Dashboard' },
     { path: '/admin/users', icon: 'group', label: 'Quản lý người dùng' },
     { path: '/admin/products', icon: 'inventory_2', label: 'Duyệt sản phẩm' },
@@ -33,7 +33,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     { path: '/admin/blacklist', icon: 'gavel', label: 'Từ khóa cấm' },
     { path: '/admin/reports', icon: 'bar_chart', label: 'Báo cáo doanh thu' },
     { path: '/admin/settings', icon: 'settings', label: 'Cài đặt hệ thống' },
-  ];
+  ], []);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-background-dark flex">
@@ -94,7 +94,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               <span className="material-symbols-outlined">menu</span>
             </button>
             {/* Mobile menu button (Bạn có thể thêm logic drawer sau) */}
-            <button className="md:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="md:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">
                <span className="material-symbols-outlined">menu</span>
             </button>
             <h1 className="text-xl font-bold text-slate-800 dark:text-white hidden sm:block">Admin Dashboard</h1>

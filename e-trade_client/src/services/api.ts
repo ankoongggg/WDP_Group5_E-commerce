@@ -1,4 +1,5 @@
 const API_BASE = 'http://localhost:9999/api';
+export const getGoogleAuthUrl = () => `${API_BASE}/auth/google`;
 
 interface ApiOptions extends RequestInit {
     requireAuth?: boolean;
@@ -10,7 +11,7 @@ export const setOnTokenRefreshFailed = (callback: () => void) => { onTokenRefres
 const getAccessToken = () => localStorage.getItem('accessToken');
 const getRefreshToken = () => localStorage.getItem('refreshToken');
 
-const setTokens = (accessToken: string, refreshToken: string) => {
+export const setTokens = (accessToken: string, refreshToken: string) => {
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
 };
@@ -96,12 +97,53 @@ export const authApi = {
     },
     
     // Đã trả lại hàm register để bạn tạo tài khoản mượt mà
-    register: (name: string, email: string, password: string) =>
-        api('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
+    register: (name: string, email: string, password: string, phone: string, street: string, district: string, city: string) =>
+        api('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, phone, street, district, city }) }),
         
     getProfile: () => api('/users/me', { requireAuth: true }),
     
     updateProfile: (payload: any) => api('/users/me', { method: 'PUT', requireAuth: true, body: JSON.stringify(payload) }),
     
     logout: () => api('/auth/logout', { method: 'POST', requireAuth: true }),
+};
+
+export const shopApi = {
+    // Lấy danh sách payment methods
+    getPaymentMethods: () => api('/shop/payment-methods'),
+    
+    // Tạo order từ cart
+    createOrder: (orderData: any) => 
+        api('/shop/orders', { 
+            method: 'POST', 
+            requireAuth: true, 
+            body: JSON.stringify(orderData) 
+        }),
+    
+    // Gửi payment request
+    submitPayment: (orderId: string, paymentData: any) => 
+        api(`/shop/orders/${orderId}/payment`, { 
+            method: 'POST', 
+            requireAuth: true, 
+            body: JSON.stringify(paymentData) 
+        }),
+    
+    // Lấy danh sách orders của user
+    getMyOrders: () => api('/shop/orders', { requireAuth: true }),
+    
+    // Lấy chi tiết order
+    getOrderDetail: (orderId: string) => api(`/shop/orders/${orderId}`, { requireAuth: true }),
+};
+
+export const storeApi = {
+    // Đăng kí seller (gửi đơn yêu cầu)
+    registerSeller: (sellerData: any) =>
+        api('/store/register-seller', {
+            method: 'POST',
+            requireAuth: true,
+            body: JSON.stringify(sellerData)
+        }),
+    
+    // Lấy trạng thái đơn đăng kí seller
+    getSellerRegistrationStatus: () =>
+        api('/store/registration/status', { requireAuth: true }),
 };
