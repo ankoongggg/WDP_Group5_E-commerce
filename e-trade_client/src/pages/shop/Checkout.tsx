@@ -5,19 +5,20 @@ import { useCart } from '../../context/CartContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import axios from 'axios';
+import { shopApi } from '../../services/api';
 
 const Checkout: React.FC = () => {
   const { cart, cartTotal, clearCart } = useCart();
   const { formatPrice } = useCurrency();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { addToast } = useToast();
+  const { toast } = useToast();
   const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard');
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'cod'>('credit');
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [useCustomAddress, setUseCustomAddress] = useState(false);
   const [customAddress, setCustomAddress] = useState({
@@ -48,89 +49,68 @@ const Checkout: React.FC = () => {
 
   const checkStockAndPlaceOrder = async () => {
     if (!currentAddress) {
-      addToast('Vui lòng chọn địa chỉ giao hàng', 'error');
+      toast.error('Vui lòng chọn địa chỉ giao hàng');
       return;
     }
 
     if (cart.length === 0) {
-      addToast('Giỏ hàng trống', 'error');
+      toast.error('Giỏ hàng trống');
       return;
     }
 
     try {
       setIsPlacingOrder(true);
 
-      // Check stock for each product
-      for (const item of cart) {
-        const response = await axios.get(
-          `http://localhost:9999/api/products/${item.productId}`
-        );
-        const product = response.data.data || response.data;
-        
-        if (!product.quantity || product.quantity < item.quantity) {
-          addToast(
-            `Sản phẩm "${item.name}" không còn đủ hàng. Còn lại: ${product.quantity || 0}`,
-            'error'
-          );
-          setIsPlacingOrder(false);
-          return;
-        }
-      }
-
-      // All items in stock - create order
+      // Tạo payload và gửi thẳng lên server.
+      // Server sẽ chịu trách nhiệm kiểm tra tồn kho một cách an toàn và chính xác nhất.
       const orderData = {
-        userId: user?._id,
-        items: cart.map(item => ({
+        items: cart.map(item => ({ // Chỉ gửi những gì server cần
           productId: item.productId,
-          name: item.name,
-          price: item.price,
           quantity: item.quantity,
-          main_image: item.main_image,
-          store_id: item.store_id,
-          shop_name: item.shop_name
         })),
-        address: {
+        shippingAddress: {
           street: currentAddress.street,
           district: currentAddress.district,
           city: currentAddress.city,
-          addressId: currentAddress._id
         },
         shippingMethod,
         paymentMethod,
-        subtotal: cartTotal,
         shippingCost,
-        total: orderTotal,
-        status: 'pending',
-        createdAt: new Date()
       };
 
-      const orderResponse = await axios.post(
-        'http://localhost:9999/api/shop/orders',
-        orderData,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      const orderResponse = await shopApi.createOrder(orderData);
 
-      clearCart();
-      addToast('Đặt hàng thành công!', 'success');
-      
+      toast.success('Đặt hàng thành công!');
+      setIsRedirecting(true); // Bật màn hình chờ, che đi giao diện cũ để không bị lỗi hiển thị
+
+      // Chờ một chút để user thấy thông báo, sau đó mới thực sự xóa giỏ hàng và chuyển trang
       setTimeout(() => {
-        navigate('/account/orders', { 
-          state: { orderId: orderResponse.data.data?._id } 
-        });
-      }, 1500);
-
+        clearCart();
+        const orderId = orderResponse.data.data?.orderId;
+        navigate(`/account/orders/${orderId}`);
+      }, 1200);
     } catch (error: any) {
       const message = error.response?.data?.message || 'Không thể đặt hàng. Vui lòng thử lại';
-      addToast(message, 'error');
+      toast.error(message);
       console.error('Order placement error:', error);
-    } finally {
-      setIsPlacingOrder(false);
+      setIsPlacingOrder(false); // Chỉ tắt loading khi có lỗi
     }
   };
+
+  // Giao diện khi đặt hàng thành công, chờ chuyển hướng để tránh lỗi render
+  if (isRedirecting) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center h-screen text-center">
+          <div>
+            <div className="text-6xl mb-4">✅</div>
+            <h2 className="text-3xl font-bold mb-2 dark:text-white">Đặt hàng thành công!</h2>
+            <p className="text-slate-600 dark:text-slate-400">Đang chuyển bạn đến trang chi tiết đơn hàng...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -346,7 +326,10 @@ const Checkout: React.FC = () => {
                           type="radio"
                           name="address"
                           checked={selectedAddressId === addr._id || (!selectedAddressId && addr.isDefault)}
-                          onChange={() => setSelectedAddressId(addr._id)}
+                          onChange={() => {
+                            setSelectedAddressId(addr._id);
+                            setUseCustomAddress(false);
+                          }}
                           className="sr-only"
                         />
                         <div className="flex-1">
@@ -440,13 +423,16 @@ const Checkout: React.FC = () => {
                 onClick={() => {
                   if (showAddressForm) {
                     if (!customAddress.street || !customAddress.district || !customAddress.city) {
-                      addToast('Vui lòng nhập đầy đủ thông tin địa chỉ', 'error');
+                      toast.error('Vui lòng nhập đầy đủ thông tin địa chỉ');
                       return;
                     }
+                    setUseCustomAddress(true);
+                  } else {
+                    setUseCustomAddress(false);
                   }
                   setShowAddressModal(false);
                   setShowAddressForm(false);
-                  addToast('Đã cập nhật địa chỉ giao hàng', 'success');
+                  toast.success('Đã cập nhật địa chỉ giao hàng');
                 }}
                 className="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all"
               >

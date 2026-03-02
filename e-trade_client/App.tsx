@@ -19,6 +19,7 @@ import ProductList from './src/pages/shop/ProductList';
 import ProductDetail from './src/pages/shop/ProductDetail';
 import Cart from './src/pages/shop/Cart';
 import Checkout from './src/pages/shop/Checkout';
+import StoreDetail from './src/pages/shop/StoreDetail';
 
 // Account Pages
 import Profile from './src/pages/account/Profile';
@@ -68,6 +69,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/products" element={<ProductList />} />
         {/* Giữ nguyên products/:id để không bị trắng màn hình */}
         <Route path="/products/:id" element={<ProductDetail />} />
+        <Route path="/store/:id" element={<StoreDetail />} />
 
         {/* Protected Routes (Phải đăng nhập mới vào được) */}
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />

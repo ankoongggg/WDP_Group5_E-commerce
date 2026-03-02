@@ -1,8 +1,8 @@
 import React from 'react';
 import { Layout } from '../components/Layout';
 import { Link } from 'react-router-dom';
-import { ProductCard } from '../components/common/ProductCard';
 import { useHomeProducts } from '../../hooks/useHomeProducts';
+import ProductCard from '../components/ProductCard';
 
 const Home: React.FC = () => {
   const { products, biggestDiscount, categories ,saleProducts, loading } = useHomeProducts();

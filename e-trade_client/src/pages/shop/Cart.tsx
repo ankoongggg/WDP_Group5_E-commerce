@@ -62,8 +62,8 @@ const Cart: React.FC = () => {
                                  </div>
                                </div>
                             </td>
-                            <tdformatPrice
-                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price)}
+                            <td className="px-6 py-6">
+                              {formatPrice(item.price)}
                             </td>
                             <td className="px-6 py-6">
                               <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg w-max">

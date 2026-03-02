@@ -60,7 +60,8 @@ const getPaymentMethods = async (req, res) => {
 // Tạo đơn hàng từ cart
 const createOrder = async (req, res) => {
     try {
-        const { items, shippingAddress, shippingMethod, paymentMethod } = req.body;
+        console.log('[LOG] 1. Received createOrder request.');
+        const { items, shippingAddress, shippingMethod, paymentMethod, shippingCost } = req.body;
         const customerId = req.user.id;
 
         // Validation
@@ -76,41 +77,58 @@ const createOrder = async (req, res) => {
         let totalPrice = 0;
         let orderItems = [];
         let sellerId = null;
+        const stockErrors = []; // Mảng chứa các lỗi về tồn kho
 
         // OPTIMIZATION: Fetch tất cả sản phẩm 1 lần thay vì loop query (N+1 problem fix)
         const productIds = items.map(item => item.productId);
+        console.log(`[LOG] 2. Fetching products from DB for IDs: ${productIds.join(', ')}`);
         const products = await Product.find({ _id: { $in: productIds } });
-        
+        console.log(`[LOG] 3. Found ${products.length} products in DB.`);
         // Tạo Map để tra cứu nhanh O(1)
         const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
+        // --- VÒNG LẶP KIỂM TRA (VALIDATION) ---
+        // Kiểm tra tất cả sản phẩm trước khi thực hiện bất kỳ thay đổi nào
         for (const item of items) {
+            console.log(`[LOG] 4. Processing item: ${item.productId}, quantity: ${item.quantity}`);
             const product = productMap.get(item.productId);
             
             if (!product) {
-                return res.status(404).json({ 
-                    success: false, 
-                    message: `Product ${item.productId} not found` 
-                });
+                // Lỗi nghiêm trọng, có thể dừng ngay lập tức
+                return res.status(404).json({ success: false, message: `Sản phẩm với ID ${item.productId} không tồn tại.` });
             }
 
             if (product.status !== 'active') {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: `Product "${product.name}" is not available` 
-                });
+                stockErrors.push(`Sản phẩm "${product.name}" không còn được bán.`);
+                continue; // Bỏ qua kiểm tra stock cho sản phẩm này và tiếp tục với sản phẩm khác
             }
 
-            // Check stock
-            const stockAvailable = product.stock || 0;
-
-            if (stockAvailable < item.quantity) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: `Insufficient stock for "${product.name}". Available: ${stockAvailable}` 
-                });
+            let availableStock = 0;
+            if (product.product_type && product.product_type.length > 0) {
+                availableStock = product.product_type.reduce((acc, curr) => acc + (curr.stock || 0), 0);
+            } else {
+                availableStock = product.stock || 0;
             }
 
+            if (availableStock < item.quantity) {
+                stockErrors.push(`"${product.name}" không đủ hàng (còn ${availableStock}, cần ${item.quantity})`);
+            }
+        }
+
+        // --- KIỂM TRA KẾT QUẢ VALIDATION ---
+        if (stockErrors.length > 0) {
+            const errorMessage = "Một hoặc nhiều sản phẩm không đủ hàng:\n- " + stockErrors.join('\n- ');
+            return res.status(400).json({ 
+                success: false, 
+                message: errorMessage
+            });
+        }
+
+        // --- VÒNG LẶP THỰC THI (EXECUTION) ---
+        // Chỉ chạy nếu tất cả sản phẩm đều hợp lệ
+        for (const item of items) {
+            const product = productMap.get(item.productId);
+            
             const itemPrice = product.price * item.quantity;
             totalPrice += itemPrice;
 
@@ -127,24 +145,36 @@ const createOrder = async (req, res) => {
                 sellerId = product.store_id;
             }
 
-            // Update stock
-            product.stock -= item.quantity;
-
-            // Lưu thay đổi stock vào DB
+            // Cập nhật tồn kho
+            let quantityToDecrement = item.quantity;
+            if (product.product_type && product.product_type.length > 0) {
+                for (const type of product.product_type) {
+                    if (quantityToDecrement === 0) break;
+                    const stockToTake = Math.min(quantityToDecrement, type.stock || 0);
+                    type.stock -= stockToTake;
+                    quantityToDecrement -= stockToTake;
+                }
+            } else {
+                product.stock = (product.stock || 0) - quantityToDecrement;
+            }
+            
+            // Đánh dấu là đã thay đổi để Mongoose biết cần save
+            product.markModified('product_type'); 
+            console.log(`[LOG] 5. Attempting to save product ${product._id}...`);
             await product.save();
+            console.log(`[LOG] 6. Product ${product._id} saved successfully.`);
         }
 
-        // Tính shipping fee
-        const shippingFee = shippingMethod === 'express' ? 25 : 12;
 
         // Tạo order
+        console.log('[LOG] 7. All items processed. Attempting to create order...');
         const order = await Order.create({
             customer_id: customerId,
             seller_id: sellerId,
             items: orderItems,
             total_price: totalPrice,
-            shipping_fee: shippingFee,
-            total_amount: totalPrice + shippingFee,
+            shipping_fee: shippingCost || 0, // Sử dụng shippingCost từ request, fallback về 0
+            total_amount: totalPrice + (shippingCost || 0),
             shipping_address: shippingAddress,
             payment_method: paymentMethod,
             payment_status: 'pending',
@@ -157,6 +187,7 @@ const createOrder = async (req, res) => {
             ]
         });
 
+        console.log(`[LOG] 8. Order ${order._id} created. Sending response to client.`);
         res.status(201).json({
             success: true,
             message: 'Order created successfully',

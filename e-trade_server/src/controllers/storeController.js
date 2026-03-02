@@ -133,7 +133,8 @@ exports.getStoreProducts = async (req, res) => {
 
         // Lấy sản phẩm với phân trang, lọc và sắp xếp
         const products = await Product.find(filter)
-            .select('name main_image price original_price')
+            .select('name main_image price original_price stock product_type store_id')
+            .populate('store_id', 'shop_name') // Thêm populate để lấy tên shop
             .sort(sortOptions)
             .skip(skip)
             .limit(limit);

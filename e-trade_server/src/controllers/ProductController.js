@@ -77,6 +77,24 @@ exports.getProducts = async (req, res) => {
         pipeline.push({ $skip: skip });
         pipeline.push({ $limit: parseInt(limit) });
 
+        // Thêm stage để định hình lại output và bao gồm các trường cần thiết
+        pipeline.push({
+            $project: {
+                _id: 1,
+                name: 1,
+                main_image: 1,
+                price: 1,
+                original_price: 1,
+                stock: 1, // Thêm tồn kho
+                product_type: 1, // Thêm loại sản phẩm (chứa tồn kho chi tiết)
+                created_at: 1,
+                store_id: { // Đổi tên 'store' thành 'store_id' cho nhất quán
+                    _id: '$store._id',
+                    shop_name: '$store.shop_name'
+                }
+            }
+        });
+
         // Thực thi
         const products = await Product.aggregate(pipeline);
 

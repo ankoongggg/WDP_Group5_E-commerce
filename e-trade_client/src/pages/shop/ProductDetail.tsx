@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Layout } from '../components/Layout';
 import { useCart } from '../../context/CartContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
 
 // Define interfaces for the data structure from the API
@@ -21,7 +22,14 @@ interface Product {
   store_id: {
     _id: string;
     shop_name: string;
-  }
+  };
+  product_type?: {
+    description: string;
+    stock: number;
+    price_difference: number;
+  }[];
+  stock?: number; // For products without types
+  condition: string;
 }
 
 interface ProductDetailsResponse {
@@ -48,6 +56,7 @@ const ProductDetail: React.FC = () => {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { toast } = useToast();
+  const { formatPrice } = useCurrency();
   const [details, setDetails] = useState<ProductDetailsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -184,9 +193,9 @@ const ProductDetail: React.FC = () => {
 
             <div className="flex flex-col gap-6">
                <div>
-                 <div className="text-sm text-slate-500 mb-2 dark:text-slate-400">
-                   Bán bởi <span className="font-bold text-primary">{product.store_id.shop_name}</span>
-                 </div>
+                <div className="text-sm text-slate-500 mb-2 dark:text-slate-400">
+                  Bán bởi <Link to={`/store/${product.store_id._id}`} className="font-bold text-primary hover:underline">{product.store_id.shop_name}</Link>
+                </div>
                  {product.category_id?.[0] && (
                    <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-wider mb-2">{product.category_id[0].name}</span>
                  )}
@@ -200,10 +209,10 @@ const ProductDetail: React.FC = () => {
                </div>
 
                <div className="flex items-baseline gap-4">
-                 <span className="text-4xl font-black text-primary">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price)}</span>
+                 <span className="text-4xl font-black text-primary">{formatPrice(product.price)}</span>
                  {product.original_price > product.price && (
                    <>
-                     <span className="text-xl text-slate-400 line-through font-medium">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.original_price)}</span>
+                     <span className="text-xl text-slate-400 line-through font-medium">{formatPrice(product.original_price)}</span>
                      {discount > 0 && (
                        <span className="text-sm font-bold text-green-600 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">Tiết kiệm {discount}%</span>
                      )}
@@ -220,7 +229,7 @@ const ProductDetail: React.FC = () => {
                        <button onClick={() => handleQuantityChange(1)} className="px-3 py-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"><span className="material-symbols-outlined">add</span></button>
                      </div>
                   </div>
-
+                  
                   <div className="flex flex-col sm:flex-row gap-4">
                     <button onClick={handleAddToCart} className="flex-1 flex items-center justify-center gap-2 px-8 py-4 border-2 border-primary text-primary font-bold rounded-xl hover:bg-primary/5 transition-all">
                       <span className="material-symbols-outlined">shopping_cart</span> Thêm vào giỏ hàng

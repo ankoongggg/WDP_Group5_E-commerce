@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useNavigate } from 'react-router-dom';
 import { authApi, clearTokens, setOnTokenRefreshFailed } from '../services/api';
 
+import { useCart } from './CartContext'; // 1. Import useCart
 // 1. CẬP NHẬT INTERFACE: Đã thêm đầy đủ các trường dữ liệu bị thiếu
 interface User {
     _id: string;
@@ -41,6 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+    const { clearCart } = useCart(); // 2. Lấy hàm clearCart
 
     const handleSessionExpired = useCallback(() => {
         setUser(null);
@@ -82,6 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = async (email: string, password: string) => {
+        clearCart(); // 3. Xóa giỏ hàng cũ trước khi đăng nhập
         const data = await authApi.login(email, password);
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
@@ -89,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const register = async (name: string, email: string, password: string, phone?: string, street?: string, district?: string, city?: string) => {
+        clearCart(); // Xóa giỏ hàng cũ trước khi đăng ký
         const data = await authApi.register(name, email, password, phone, street, district, city);
         // Some backends return tokens on register, others don't. If tokens not returned,
         // perform a login to obtain accessToken/refreshToken and user data.
@@ -116,6 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         setUser(null);
         clearTokens();
+        clearCart(); // 4. Xóa giỏ hàng khi đăng xuất
         navigate('/login');
     };
 
