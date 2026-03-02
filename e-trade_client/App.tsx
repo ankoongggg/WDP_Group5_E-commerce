@@ -2,6 +2,7 @@ import React from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './src/context/AuthContext';
 import { ToastProvider } from './src/context/ToastContext';
+import { CartProvider } from './src/context/CartContext';
 import ProtectedRoute from './src/components/ProtectedRoute';
 import { CurrencyProvider } from './src/context/CurrencyContext';
 
@@ -85,8 +86,9 @@ const App: React.FC = () => {
     <HashRouter>
       <ToastProvider>
         <CurrencyProvider>
-          
-        <AppRoutes />
+          <CartProvider>
+            <AppRoutes />
+          </CartProvider>
         </CurrencyProvider>
       </ToastProvider>
     </HashRouter>

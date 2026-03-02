@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Layout } from '../components/Layout';
+import { useCart } from '../../context/CartContext';
+import { useToast } from '../../context/ToastContext';
 
 // Define interfaces for the data structure from the API
 interface Product {
@@ -43,6 +45,9 @@ interface Review {
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { addToCart } = useCart();
+  const { toast } = useToast();
   const [details, setDetails] = useState<ProductDetailsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +64,7 @@ const ProductDetail: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await axios.get<ProductDetailsResponse>(`http://localhost:9999/product/${id}`);
+        const response = await axios.get<ProductDetailsResponse>(`http://localhost:9999/api/products/${id}`);
         setDetails(response.data);
         const product = response.data.product;
         setActiveImage(product.main_image || (product.display_files.length > 0 ? product.display_files[0] : ''));
@@ -88,7 +93,7 @@ const ProductDetail: React.FC = () => {
         setReviewsError(null);
         try {
           // LƯU Ý: Giả định endpoint API để lấy đánh giá của sản phẩm là như sau.
-          const response = await axios.get<{ reviews: Review[] }>(`http://localhost:9999/product/${id}/reviews`);
+          const response = await axios.get<{ reviews: Review[] }>(`http://localhost:9999/api/products/${id}/reviews`);
           setReviews(response.data.reviews);
         } catch (err) {
           console.error('Error fetching reviews:', err);
@@ -102,6 +107,20 @@ const ProductDetail: React.FC = () => {
     fetchReviews();
   }, [activeTab, id, reviews.length, totalReviews]);
 
+
+  const handleAddToCart = () => {
+    if (!product) return;
+    addToCart(product, quantity);
+    toast.success('Đã thêm vào giỏ hàng!');
+    setQuantity(1); // Reset quantity
+  };
+
+  const handleBuyNow = () => {
+    if (!product) return;
+    addToCart(product, quantity);
+    toast.success('Thêm vào giỏ hàng thành công, đang chuyển tới thanh toán...');
+    setTimeout(() => navigate('/checkout'), 500);
+  };
   const handleQuantityChange = (amount: number) => {
     setQuantity(prev => Math.max(1, prev + amount));
   };
@@ -203,10 +222,10 @@ const ProductDetail: React.FC = () => {
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-4">
-                    <button className="flex-1 flex items-center justify-center gap-2 px-8 py-4 border-2 border-primary text-primary font-bold rounded-xl hover:bg-primary/5 transition-all">
+                    <button onClick={handleAddToCart} className="flex-1 flex items-center justify-center gap-2 px-8 py-4 border-2 border-primary text-primary font-bold rounded-xl hover:bg-primary/5 transition-all">
                       <span className="material-symbols-outlined">shopping_cart</span> Thêm vào giỏ hàng
                     </button>
-                    <button className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
+                    <button onClick={handleBuyNow} className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
                       <span className="material-symbols-outlined">bolt</span> Mua ngay
                     </button>
                   </div>
