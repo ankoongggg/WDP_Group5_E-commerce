@@ -21,7 +21,7 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     login: (email: string, password: string) => Promise<void>;
-    register: (name: string, email: string, password: string) => Promise<void>;
+    register: (name: string, email: string, password: string, phone?: string, street?: string, district?: string, city?: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>; // 2. BỔ SUNG HÀM refreshUser
     isAuthenticated: boolean;
@@ -88,11 +88,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(data.user);
     };
 
-    const register = async (name: string, email: string, password: string) => {
-        const data = await authApi.register(name, email, password);
-        localStorage.setItem('accessToken', data.accessToken);
-        localStorage.setItem('refreshToken', data.refreshToken);
-        setUser(data.user);
+    const register = async (name: string, email: string, password: string, phone?: string, street?: string, district?: string, city?: string) => {
+        const data = await authApi.register(name, email, password, phone, street, district, city);
+        // Some backends return tokens on register, others don't. If tokens not returned,
+        // perform a login to obtain accessToken/refreshToken and user data.
+        if (data?.accessToken) {
+            localStorage.setItem('accessToken', data.accessToken);
+            localStorage.setItem('refreshToken', data.refreshToken || '');
+            setUser(data.user);
+            return;
+        }
+
+        // Fallback: call login to get tokens
+        const loginRes: any = await authApi.login(email, password);
+        if (loginRes?.accessToken) {
+            localStorage.setItem('accessToken', loginRes.accessToken);
+            localStorage.setItem('refreshToken', loginRes.refreshToken || '');
+            setUser(loginRes.user || loginRes);
+        }
     };
 
     const logout = async () => {
