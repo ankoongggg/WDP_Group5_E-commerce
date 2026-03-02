@@ -35,7 +35,7 @@ import AdminDashboard from './src/pages/admin/Dashboard';
 import {AdminBlacklist} from './src/pages/admin/BlackList';
 import {AdminProducts} from './src/pages/admin/Products';
 import {AdminReports} from './src/pages/admin/Reports';
-
+import { AdminCategories } from './src/pages/admin/Categories';
 const ScrollToTop = () => {
   const { pathname } = useLocation();
   React.useEffect(() => {
@@ -77,6 +77,8 @@ const AppRoutes: React.FC = () => {
         <Route path="/admin/blacklist" element={<ProtectedRoute><AdminBlacklist /></ProtectedRoute>} />
         <Route path="/admin/products" element={<ProtectedRoute><AdminProducts /></ProtectedRoute>} />
         <Route path="/admin/reports" element={<ProtectedRoute><AdminReports /></ProtectedRoute>} />
+        <Route path="/admin/categories" element={<ProtectedRoute><AdminCategories /></ProtectedRoute>} />
+        
         </Route>
       </Routes>
     </AuthProvider>
