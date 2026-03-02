@@ -1,6 +1,7 @@
 const Store = require('../models/Store');
 const Product = require('../models/Product');
 const Review = require('../models/ReviewProduct');
+const SellerRegistration = require('../models/SellerRegistration');
 const mongoose = require('mongoose');
 
 // Controller: Lấy thông tin chi tiết công khai của một cửa hàng
@@ -149,6 +150,75 @@ exports.getStoreProducts = async (req, res) => {
 
     } catch (error) {
         console.error('Lỗi khi lấy sản phẩm của cửa hàng:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
+
+// Controller: Đăng kí seller (gửi đơn yêu cầu)
+exports.registerSeller = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { shop_name, shop_description, identity_card, identity_card_image, pickup_address, phone, business_category } = req.body;
+
+        // Kiểm tra user đã có store chưa
+        const existingStore = await Store.findOne({ user_id: userId });
+        if (existingStore) {
+            return res.status(400).json({ message: 'Bạn đã có cửa hàng rồi' });
+        }
+
+        // Kiểm tra đã có pending request chưa
+        const existingRequest = await SellerRegistration.findOne({ 
+            user_id: userId, 
+            status: 'pending' 
+        });
+        if (existingRequest) {
+            return res.status(400).json({ message: 'Bạn đã gửi đơn đăng kí seller, vui lòng chờ phê duyệt' });
+        }
+
+        // Validate input
+        if (!shop_name || !shop_description || !identity_card || !pickup_address || !business_category) {
+            return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin' });
+        }
+
+        // Tạo đơn đăng kí
+        const registration = new SellerRegistration({
+            user_id: userId,
+            shop_name,
+            shop_description,
+            identity_card,
+            identity_card_image,
+            pickup_address,
+            phone,
+            business_category,
+            status: 'pending'
+        });
+
+        await registration.save();
+        res.status(201).json({ 
+            message: 'Gửi đơn đăng kí seller thành công! Vui lòng chờ admin phê duyệt.',
+            registration 
+        });
+    } catch (error) {
+        console.error('Lỗi khi đăng kí seller:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
+
+// Controller: Lấy trạng thái đơn đăng kí seller
+exports.getSellerRegistrationStatus = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        const registration = await SellerRegistration.findOne({ user_id: userId })
+            .sort({ created_at: -1 });
+
+        if (!registration) {
+            return res.status(404).json({ message: 'Bạn chưa gửi đơn đăng kí seller nào' });
+        }
+
+        res.status(200).json(registration);
+    } catch (error) {
+        console.error('Lỗi khi lấy trạng thái đơn đăng kí:', error);
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
     }
 };
