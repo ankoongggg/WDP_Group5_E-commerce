@@ -1,6 +1,7 @@
 import React from 'react';
 import { AdminLayout } from '../components/admin/AdminLayout';
 import { Link } from 'react-router-dom';
+import { useAdminHomePage } from '@/src/hooks/admin/useAdminHomePage';
 
 // Component con để render thẻ thống kê cho gọn code
 const StatCard = ({ title, value, icon, trend, isPositive, colorClass }: any) => (
@@ -26,7 +27,9 @@ const StatCard = ({ title, value, icon, trend, isPositive, colorClass }: any) =>
 
 const AdminDashboard: React.FC = () => {
   // Giả lập dữ liệu, thực tế bạn sẽ gọi API từ custom hook (ví dụ: const { stats, loading } = useAdminDashboard();)
-  
+  const { totalUsers, comparison, isPositive, loading } = useAdminHomePage();
+
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -63,10 +66,10 @@ const AdminDashboard: React.FC = () => {
           />
           <StatCard 
             title="Người dùng mới" 
-            value="128" 
+            value={totalUsers}
             icon="group_add" 
-            trend="+18%" 
-            isPositive={true} 
+            trend={comparison >= 0 ? `+${comparison}` : `${comparison}`}
+            isPositive={isPositive} 
             colorClass="bg-blue-100 text-blue-600 dark:bg-blue-500/20"
           />
           <StatCard 

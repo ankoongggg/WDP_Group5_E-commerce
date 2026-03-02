@@ -7,7 +7,7 @@ import { useToast } from '../../context/ToastContext';
 const GoogleCallback: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { refreshUser } = useAuth();
+  const { refreshUser, user } = useAuth();
   const { toast } = useToast();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const processedRef = useRef(false);
@@ -40,7 +40,7 @@ const GoogleCallback: React.FC = () => {
         await refreshUser();
         setStatus('success');
         toast.success('Signed in with Google!');
-        navigate('/', { replace: true });
+        navigate(user?.role?.includes('admin') ? '/admin' : '/', { replace: true });
       } catch (err) {
         setStatus('error');
         toast.error('Failed to complete sign in');

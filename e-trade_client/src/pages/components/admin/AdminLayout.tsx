@@ -25,7 +25,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   };
 
   const navItems = [
-    { path: '/admin/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { path: '/admin', icon: 'dashboard', label: 'Dashboard' },
     { path: '/admin/users', icon: 'group', label: 'Quản lý người dùng' },
     { path: '/admin/products', icon: 'inventory_2', label: 'Duyệt sản phẩm' },
     { path: '/admin/orders', icon: 'receipt_long', label: 'Đơn hàng' },

@@ -35,7 +35,7 @@ export const useHomeProducts = () => {
         });
         setBiggestDiscount(maxDiscount);
         setSaleProducts(saleRes.data);
-        const categoriesRes = await CategoryService.getAll({
+        const categoriesRes = await CategoryService.getAllOnHomePage({
           limit: 6
         });
 

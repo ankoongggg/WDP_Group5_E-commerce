@@ -1,5 +1,6 @@
 const Store = require('../models/Store');
 const Product = require('../models/Product');
+const Order = require('../models/Order');
 const Review = require('../models/ReviewProduct');
 const SellerRegistration = require('../models/SellerRegistration');
 const mongoose = require('mongoose');
@@ -222,3 +223,45 @@ exports.getSellerRegistrationStatus = async (req, res) => {
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
     }
 };
+
+//admin func
+exports.getListingStoresAndRevenuesTotalOrdersFromProductOfEachStore = async (req,res) => {
+    try{
+        // lean() để trả về plain object, dễ thêm trường mới
+        const stores = await Store.find({}).populate('user_id', 'shop_name').lean();
+        
+        // Tính tổng doanh thu và số đơn hàng cho từng cửa hàng
+        for (const store of stores) {
+            // lấy danh sách id sản phẩm của cửa hàng
+            const products = await Product.find({ store_id: store._id }).select('_id');
+            const productIds = products.map(p => p._id);
+
+            if (productIds.length === 0) {
+                store.total_revenue = 0;
+                store.total_orders = 0;
+                continue;
+            }
+
+            const orders = await Order.find({
+                items: { $elemMatch: { product_id: { $in: productIds } } }
+            });
+
+            let totalRevenue = 0;
+            let totalOrders = orders.length;
+            
+            orders.forEach(order => {
+                totalRevenue += order.total_amount;
+            });
+
+            store.total_revenue = totalRevenue;
+            store.total_orders = totalOrders;
+        }
+
+        res.status(200).json(stores);
+    }catch (err){
+        console.error('Lỗi khi lấy danh sách cửa hàng:', err);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });    
+        
+    }
+}
+

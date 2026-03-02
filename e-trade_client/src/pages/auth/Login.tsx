@@ -6,7 +6,7 @@ import { useToast } from '../../context/ToastContext';
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const { toast } = useToast();
 
   const [email, setEmail] = useState('');
@@ -19,10 +19,16 @@ const Login: React.FC = () => {
   // Xác định trang trước đó người dùng đang truy cập (mặc định là trang chủ)
   const from = (location.state as any)?.from?.pathname || '/';
 
-  // Nếu đã đăng nhập rồi thì tự động đẩy về trang cũ hoặc trang chủ
+  // Determine where to send user after authentication (admin goes to admin dashboard)
+  const computeRedirect = () => {
+    if (user?.role?.includes('admin')) return '/admin';
+    return from;
+  };
+
+  // Nếu đã đăng nhập rồi thì tự động đẩy về trang cũ, trang chủ hoặc admin
   React.useEffect(() => {
-    if (isAuthenticated) navigate(from, { replace: true });
-  }, [isAuthenticated, navigate, from]);
+    if (isAuthenticated) navigate(computeRedirect(), { replace: true });
+  }, [isAuthenticated, navigate, from, user]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +45,7 @@ const Login: React.FC = () => {
       // Gọi hàm login từ AuthContext của Bách
       await login(email, password);
       toast.success('Welcome back! Login successful.');
-      navigate(from, { replace: true });
+      navigate(computeRedirect(), { replace: true });
     } catch (err: any) {
       const msg = err.message || 'Login failed. Please try again.';
       setError(msg);
