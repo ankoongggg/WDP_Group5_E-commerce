@@ -17,6 +17,11 @@ router.post('/register-seller', protect, storeController.registerSeller);
 // API: Get seller registration status
 router.get('/registration/status', protect, storeController.getSellerRegistrationStatus);
 
-
+// =====================================================
+// ADMIN ROUTES
+// =====================================================
+router.get('/admin/pending-sellers',  storeController.getPendingSellers);
+router.put('/admin/approve-seller/:id',  storeController.approveSeller);
+router.delete('/admin/reject-seller/:id', storeController.rejectSeller);
 
 module.exports = router;

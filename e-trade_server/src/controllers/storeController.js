@@ -2,7 +2,6 @@ const Store = require('../models/Store');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const Review = require('../models/ReviewProduct');
-const SellerRegistration = require('../models/SellerRegistration');
 const mongoose = require('mongoose');
 
 // Controller: Lấy thông tin chi tiết công khai của một cửa hàng
@@ -224,6 +223,73 @@ exports.getSellerRegistrationStatus = async (req, res) => {
     }
 };
 
+// =====================================================
+// ADMIN ROUTES
+// =====================================================
+
+// Controller: Lấy danh sách seller đang chờ duyệt
+exports.getPendingSellers = async (req, res) => {
+    try {
+        const pendingSellers = await Store.find({ status: 'pending' })
+            .populate('user_id', 'full_name email')
+            .sort({ created_at: -1 });
+
+        res.status(200).json(pendingSellers);
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách seller chờ duyệt:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
+
+// Controller: Phê duyệt đơn đăng kí seller
+exports.approveSeller = async (req, res) => {
+    try {
+        const registrationId = req.params.id;
+        const registration = await Store.findById(registrationId);
+
+        if (!registration) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn đăng kí' });
+        }
+
+        // Tạo cửa hàng mới từ thông tin đăng kí
+        const newStore = new Store({
+            user_id: registration.user_id,
+            shop_name: registration.shop_name,
+            description: registration.shop_description,
+            identity_card: registration.identity_card,
+            pickup_address: registration.pickup_address,
+            phone: registration.phone,
+            status: 'active'
+        });
+
+        await newStore.save();
+
+        // Xóa đơn đăng kí đã được xử lý
+        await SellerRegistration.findByIdAndDelete(registrationId);
+
+        res.status(200).json({ message: 'Phê duyệt seller thành công', store: newStore });
+    } catch (error) {
+        console.error('Lỗi khi phê duyệt seller:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
+
+// Controller: Từ chối đơn đăng kí seller
+exports.rejectSeller = async (req, res) => {
+    try {
+        const registrationId = req.params.id;
+        const registration = await Store.findByIdAndDelete(registrationId);
+
+        if (!registration) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn đăng kí' });
+        }
+
+        res.status(200).json({ message: 'Từ chối seller thành công' });
+    } catch (error) {
+        console.error('Lỗi khi từ chối seller:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
 //admin func
 exports.getListingStoresAndRevenuesTotalOrdersFromProductOfEachStore = async (req,res) => {
     try{
