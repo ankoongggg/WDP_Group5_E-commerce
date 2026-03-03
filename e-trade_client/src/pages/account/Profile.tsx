@@ -14,6 +14,7 @@ const Profile: React.FC = () => {
     const [showSellerModal, setShowSellerModal] = useState(false);
     const [sellerRegistrationStatus, setSellerRegistrationStatus] = useState<any>(null);
     const [submittingSellerForm, setSubmittingSellerForm] = useState(false);
+    const [isEditingSeller, setIsEditingSeller] = useState(false);
 
     const [form, setForm] = useState({ name: "", phone: "", gender: "", dob: "", avatar: "" });
     const [addr, setAddr] = useState({ label: "Home", street: "", district: "", city: "", is_default: true });
@@ -103,9 +104,16 @@ const Profile: React.FC = () => {
                 return;
             }
 
-            await storeApi.registerSeller(sellerForm);
-            toast.success("Gửi đơn đăng kí seller thành công! ✅ Vui lòng chờ admin phê duyệt.");
+            if (isEditingSeller) {
+                await storeApi.updateSellerRegistration(sellerForm);
+                toast.success("Cập nhật đơn đăng kí thành công! ✅");
+            } else {
+                await storeApi.registerSeller(sellerForm);
+                toast.success("Gửi đơn đăng kí seller thành công! ✅ Vui lòng chờ admin phê duyệt.");
+            }
+            
             setShowSellerModal(false);
+            setIsEditingSeller(false);
             setSellerForm({
                 shop_name: "",
                 shop_description: "",
@@ -124,26 +132,62 @@ const Profile: React.FC = () => {
         }
     };
 
+    const handleEditSellerRegistration = () => {
+        if (!sellerRegistrationStatus) return;
+        
+        setSellerForm({
+            shop_name: sellerRegistrationStatus.shop_name || "",
+            shop_description: sellerRegistrationStatus.shop_description || "",
+            identity_card: sellerRegistrationStatus.identity_card || "",
+            identity_card_image: sellerRegistrationStatus.identity_card_image || "",
+            pickup_address: sellerRegistrationStatus.pickup_address || "",
+            phone: sellerRegistrationStatus.phone || "",
+            business_category: sellerRegistrationStatus.business_category || ""
+        });
+        setIsEditingSeller(true);
+        setShowSellerModal(true);
+    };
+
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark font-display flex flex-col">
             {/* Modal Become a Seller */}
             {showSellerModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
                     <div className="bg-white dark:bg-[#2d1e16] rounded-xl shadow-xl p-8 w-full max-w-lg relative">
-                        <button onClick={() => setShowSellerModal(false)} className="absolute top-4 right-4 text-slate-500 hover:text-primary">
+                        <button onClick={() => { setShowSellerModal(false); setIsEditingSeller(false); }} className="absolute top-4 right-4 text-slate-500 hover:text-primary">
                             <span className="material-symbols-outlined">close</span>
                         </button>
-                        <h2 className="text-xl font-bold mb-6 dark:text-white">Đăng ký trở thành Seller</h2>
-                        <div className="grid gap-4">
-                            <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.shop_name} onChange={e => setSellerForm({...sellerForm, shop_name: e.target.value})} placeholder="Tên shop *" />
-                            <textarea className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.shop_description} onChange={e => setSellerForm({...sellerForm, shop_description: e.target.value})} placeholder="Mô tả shop *" />
-                            <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.identity_card} onChange={e => setSellerForm({...sellerForm, identity_card: e.target.value})} placeholder="Số CMND/CCCD *" />
-                            <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.identity_card_image} onChange={e => setSellerForm({...sellerForm, identity_card_image: e.target.value})} placeholder="Link ảnh CMND/CCCD" />
-                            <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.pickup_address} onChange={e => setSellerForm({...sellerForm, pickup_address: e.target.value})} placeholder="Địa chỉ lấy hàng *" />
-                            <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.phone} onChange={e => setSellerForm({...sellerForm, phone: e.target.value})} placeholder="Số điện thoại liên hệ" />
-                            <div>
-                                <label className="block font-bold mb-2 dark:text-white">Ngành hàng kinh doanh *</label>
-                                <div className="grid grid-cols-2 gap-2">
+                        <h2 className="text-xl font-bold mb-6 dark:text-white">
+                            {isEditingSeller ? "Cập nhật thông tin Seller" : "Đăng ký trở thành Seller"}
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-1">
+                                <label className="block font-bold mb-2 text-sm dark:text-white">Tên Shop <span className="text-red-500">*</span></label>
+                                <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.shop_name} onChange={e => setSellerForm({...sellerForm, shop_name: e.target.value})} placeholder="Nhập tên shop của bạn" />
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block font-bold mb-2 text-sm dark:text-white">Số điện thoại liên hệ</label>
+                                <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.phone} onChange={e => setSellerForm({...sellerForm, phone: e.target.value})} placeholder="SĐT liên hệ với shop" />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block font-bold mb-2 text-sm dark:text-white">Mô tả Shop <span className="text-red-500">*</span></label>
+                                <textarea className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.shop_description} onChange={e => setSellerForm({...sellerForm, shop_description: e.target.value})} placeholder="Giới thiệu ngắn về shop" />
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block font-bold mb-2 text-sm dark:text-white">Số CMND/CCCD <span className="text-red-500">*</span></label>
+                                <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.identity_card} onChange={e => setSellerForm({...sellerForm, identity_card: e.target.value})} placeholder="Nhập số định danh cá nhân" />
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block font-bold mb-2 text-sm dark:text-white">Ảnh CMND/CCCD (Link)</label>
+                                <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.identity_card_image} onChange={e => setSellerForm({...sellerForm, identity_card_image: e.target.value})} placeholder="https://..." />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block font-bold mb-2 text-sm dark:text-white">Địa chỉ lấy hàng <span className="text-red-500">*</span></label>
+                                <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.pickup_address} onChange={e => setSellerForm({...sellerForm, pickup_address: e.target.value})} placeholder="Địa chỉ kho hàng/nơi lấy hàng" />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block font-bold mb-2 text-sm dark:text-white">Ngành hàng kinh doanh <span className="text-red-500">*</span></label>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                                     {categories.map(cat => (
                                         <label key={cat._id} className="flex items-center gap-2">
                                             <input
@@ -166,7 +210,7 @@ const Profile: React.FC = () => {
                             </div>
                         </div>
                         <button onClick={onSubmitSellerForm} disabled={submittingSellerForm} className="mt-6 w-full bg-primary text-white px-6 py-2 rounded-xl font-bold text-sm">
-                            {submittingSellerForm ? "Đang gửi..." : "Gửi đơn đăng ký"}
+                            {submittingSellerForm ? "Đang xử lý..." : (isEditingSeller ? "Cập nhật đơn" : "Gửi đơn đăng ký")}
                         </button>
                     </div>
                 </div>
@@ -196,7 +240,7 @@ const Profile: React.FC = () => {
                             <span className="material-symbols-outlined">shopping_bag</span> Orders
                         </Link>
                         {!sellerRegistrationStatus && (
-                            <button onClick={() => setShowSellerModal(true)} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
+                            <button onClick={() => { setShowSellerModal(true); setIsEditingSeller(false); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
                                 <span className="material-symbols-outlined">store</span> Become a Seller
                             </button>
                         )}
@@ -246,7 +290,19 @@ const Profile: React.FC = () => {
                         {/* KHỐI 1.5: TRẠNG THÁI ĐƠN ĐĂNG KÍ SELLER */}
                         {sellerRegistrationStatus && (
                             <section className="bg-white dark:bg-[#2d1e16] p-8 rounded-xl border border-slate-200 dark:border-slate-800">
-                                <h3 className="text-lg font-bold mb-4 dark:text-white">Seller Registration Status</h3>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-lg font-bold dark:text-white">Seller Registration Status</h3>
+                                    {/* Nút Edit chỉ hiện khi trạng thái là pending hoặc rejected */}
+                                    {(sellerRegistrationStatus.status === 'pending' || sellerRegistrationStatus.status === 'rejected') && (
+                                        <button 
+                                            onClick={handleEditSellerRegistration}
+                                            className="flex items-center gap-1 text-sm font-bold text-primary hover:underline"
+                                        >
+                                            <span className="material-symbols-outlined text-lg">edit_note</span>
+                                            Edit Application
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
                                         <span className="font-medium dark:text-white">Status:</span>

@@ -223,3 +223,49 @@ exports.getSellerRegistrationStatus = async (req, res) => {
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
     }
 };
+
+// Controller: Cập nhật thông tin đơn đăng kí seller
+exports.updateSellerRegistration = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { shop_name, shop_description, identity_card, identity_card_image, pickup_address, phone, business_category } = req.body;
+
+        // Tìm đơn đăng kí gần nhất
+        const registration = await SellerRegistration.findOne({ user_id: userId }).sort({ created_at: -1 });
+
+        if (!registration) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn đăng kí' });
+        }
+
+        // Chỉ cho phép sửa khi chưa được duyệt (pending hoặc rejected)
+        if (registration.status === 'approved') {
+            return res.status(400).json({ message: 'Đơn đăng kí đã được chấp thuận, không thể chỉnh sửa' });
+        }
+
+        // Cập nhật thông tin
+        if (shop_name) registration.shop_name = shop_name;
+        if (shop_description) registration.shop_description = shop_description;
+        if (identity_card) registration.identity_card = identity_card;
+        if (identity_card_image) registration.identity_card_image = identity_card_image;
+        if (pickup_address) registration.pickup_address = pickup_address;
+        if (phone) registration.phone = phone;
+        if (business_category) registration.business_category = business_category;
+
+        // Nếu đơn bị từ chối, khi sửa lại sẽ reset về pending để admin duyệt lại
+        if (registration.status === 'rejected') {
+            registration.status = 'pending';
+            registration.rejection_reason = undefined;
+        }
+
+        registration.updated_at = Date.now();
+        await registration.save();
+
+        res.status(200).json({ 
+            message: 'Cập nhật đơn đăng kí thành công',
+            registration 
+        });
+    } catch (error) {
+        console.error('Lỗi khi cập nhật đơn đăng kí:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};

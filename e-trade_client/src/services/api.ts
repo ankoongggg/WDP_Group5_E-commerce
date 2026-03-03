@@ -146,4 +146,12 @@ export const storeApi = {
     // Lấy trạng thái đơn đăng kí seller
     getSellerRegistrationStatus: () =>
         api('/store/registration/status', { requireAuth: true }),
+
+    // Cập nhật đơn đăng kí seller
+    updateSellerRegistration: (sellerData: any) =>
+        api('/store/registration', { // Lưu ý: Route này phải khớp với route đã định nghĩa ở server (storeRoutes)
+            method: 'PUT',
+            requireAuth: true,
+            body: JSON.stringify(sellerData)
+        }),
 };
