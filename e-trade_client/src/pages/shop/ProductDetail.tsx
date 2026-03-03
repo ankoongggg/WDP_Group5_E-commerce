@@ -116,22 +116,47 @@ const ProductDetail: React.FC = () => {
     fetchReviews();
   }, [activeTab, id, reviews.length, totalReviews]);
 
+  // --- FIX: Thêm logic tính toán stock và biến isOutOfStock ---
+  const currentStock = React.useMemo(() => {
+    if (!product) return 0;
+    // Nếu có product_type, cộng tổng stock của các type
+    if (product.product_type && product.product_type.length > 0) {
+      return product.product_type.reduce((acc, item) => acc + item.stock, 0);
+    }
+    // Nếu không, dùng stock gốc (fallback về 0 nếu undefined)
+    return product.stock || 0;
+  }, [product]);
+
+  const isOutOfStock = currentStock <= 0;
+  // -----------------------------------------------------------
 
   const handleAddToCart = () => {
     if (!product) return;
-    addToCart(product, quantity);
+    if (isOutOfStock) {
+      toast.error('Sản phẩm này đã hết hàng!');
+      return;
+    }
+    addToCart({ ...product, stock: currentStock }, quantity);
     toast.success('Đã thêm vào giỏ hàng!');
     setQuantity(1); // Reset quantity
   };
 
   const handleBuyNow = () => {
     if (!product) return;
-    addToCart(product, quantity);
+    if (isOutOfStock) {
+      toast.error('Sản phẩm này đã hết hàng!');
+      return;
+    }
+    addToCart({ ...product, stock: currentStock }, quantity);
     toast.success('Thêm vào giỏ hàng thành công, đang chuyển tới thanh toán...');
     setTimeout(() => navigate('/checkout'), 500);
   };
   const handleQuantityChange = (amount: number) => {
-    setQuantity(prev => Math.max(1, prev + amount));
+    setQuantity(prev => {
+      const newValue = prev + amount;
+      if (newValue > currentStock) return currentStock;
+      return Math.max(1, newValue);
+    });
   };
 
   const renderStars = (rating: number, sizeClass: string = '') => {
@@ -194,7 +219,7 @@ const ProductDetail: React.FC = () => {
             <div className="flex flex-col gap-6">
                <div>
                 <div className="text-sm text-slate-500 mb-2 dark:text-slate-400">
-                  Bán bởi <Link to={`/store/${product.store_id._id}`} className="font-bold text-primary hover:underline">{product.store_id.shop_name}</Link>
+                  Bán bởi {product.store_id ? <Link to={`/store/${product.store_id._id}`} className="font-bold text-primary hover:underline">{product.store_id.shop_name}</Link> : <span className="font-bold text-slate-400">Unknown Store</span>}
                 </div>
                  {product.category_id?.[0] && (
                    <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-wider mb-2">{product.category_id[0].name}</span>
@@ -205,6 +230,9 @@ const ProductDetail: React.FC = () => {
                        {averageRating && renderStars(averageRating)}
                     </div>
                     <span className="text-slate-400">{totalReviews || 0} Đánh giá</span>
+                    <span className={`text-sm font-bold px-2 py-0.5 rounded ${isOutOfStock ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                       {isOutOfStock ? 'Hết hàng' : `Còn hàng (${currentStock})`}
+                    </span>
                  </div>
                </div>
 
@@ -223,18 +251,26 @@ const ProductDetail: React.FC = () => {
                <div className="flex flex-col gap-6">
                   <div className="flex flex-col gap-2">
                      <span className="text-sm font-bold uppercase tracking-wide text-slate-500">Số lượng</span>
-                     <div className="flex items-center w-fit border border-slate-300 dark:border-white/20 rounded-lg overflow-hidden">
-                       <button onClick={() => handleQuantityChange(-1)} className="px-3 py-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"><span className="material-symbols-outlined">remove</span></button>
+                     <div className={`flex items-center w-fit border border-slate-300 dark:border-white/20 rounded-lg overflow-hidden ${isOutOfStock ? 'opacity-50 pointer-events-none' : ''}`}>
+                       <button onClick={() => handleQuantityChange(-1)} disabled={isOutOfStock} className="px-3 py-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"><span className="material-symbols-outlined">remove</span></button>
                        <span className="px-6 py-2 font-bold text-lg min-w-[50px] text-center dark:text-white">{quantity}</span>
-                       <button onClick={() => handleQuantityChange(1)} className="px-3 py-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"><span className="material-symbols-outlined">add</span></button>
+                       <button onClick={() => handleQuantityChange(1)} disabled={isOutOfStock} className="px-3 py-2 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"><span className="material-symbols-outlined">add</span></button>
                      </div>
                   </div>
                   
                   <div className="flex flex-col sm:flex-row gap-4">
-                    <button onClick={handleAddToCart} className="flex-1 flex items-center justify-center gap-2 px-8 py-4 border-2 border-primary text-primary font-bold rounded-xl hover:bg-primary/5 transition-all">
+                    <button 
+                      onClick={handleAddToCart} 
+                      disabled={isOutOfStock}
+                      className={`flex-1 flex items-center justify-center gap-2 px-8 py-4 border-2 font-bold rounded-xl transition-all ${isOutOfStock ? 'border-slate-300 text-slate-400 cursor-not-allowed' : 'border-primary text-primary hover:bg-primary/5'}`}
+                    >
                       <span className="material-symbols-outlined">shopping_cart</span> Thêm vào giỏ hàng
                     </button>
-                    <button onClick={handleBuyNow} className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
+                    <button 
+                      onClick={handleBuyNow} 
+                      disabled={isOutOfStock}
+                      className={`flex-1 flex items-center justify-center gap-2 px-8 py-4 font-bold rounded-xl shadow-lg transition-all ${isOutOfStock ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-primary text-white shadow-primary/20 hover:bg-primary/90'}`}
+                    >
                       <span className="material-symbols-outlined">bolt</span> Mua ngay
                     </button>
                   </div>

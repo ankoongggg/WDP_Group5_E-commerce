@@ -34,6 +34,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [cart]);
 
   const addToCart = (product: any, quantity: number) => {
+    // Kiểm tra stock (nếu product có truyền stock vào)
+    if (product.stock !== undefined && product.stock <= 0) {
+      // Có thể throw error hoặc return, UI sẽ handle thông báo
+      return;
+    }
+
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.productId === product._id);
 

@@ -85,9 +85,17 @@ exports.getProducts = async (req, res) => {
                 main_image: 1,
                 price: 1,
                 original_price: 1,
-                stock: 1, // Thêm tồn kho
+                // Logic tính stock: Nếu có product_type (mảng) thì tính tổng stock bên trong, ngược lại lấy stock gốc
+                stock: {
+                    $cond: {
+                        if: { $gt: [{ $size: { $ifNull: ["$product_type", []] } }, 0] },
+                        then: { $sum: "$product_type.stock" },
+                        else: { $ifNull: ["$stock", 0] }
+                    }
+                },
                 product_type: 1, // Thêm loại sản phẩm (chứa tồn kho chi tiết)
                 created_at: 1,
+                category_id: 1, // Thêm trường này để frontend có thể lọc
                 store_id: { // Đổi tên 'store' thành 'store_id' cho nhất quán
                     _id: '$store._id',
                     shop_name: '$store.shop_name'

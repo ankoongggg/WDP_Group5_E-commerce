@@ -7,6 +7,7 @@ interface Product {
   main_image: string;
   price: number;
   original_price?: number;
+  stock?: number; // Thêm trường stock
 }
 
 interface ProductCardProps {
@@ -18,18 +19,27 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     ? Math.round(((product.original_price - product.price) / product.original_price) * 100) 
     : 0;
 
+  const isOutOfStock = (product.stock !== undefined && product.stock <= 0);
+
   return (
     <Link to={`/products/${product._id}`} className="group block overflow-hidden rounded-lg border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-lg transition-shadow duration-300">
       <div className="relative aspect-[4/3] overflow-hidden bg-slate-100 dark:bg-white/5">
         <img
           src={product.main_image || 'https://via.placeholder.com/400x300'}
           alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${isOutOfStock ? 'opacity-50 grayscale' : ''}`}
         />
         {discount > 0 && (
           <span className="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
             -{discount}%
           </span>
+        )}
+        {isOutOfStock && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+            <span className="bg-slate-800 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+              Hết hàng
+            </span>
+          </div>
         )}
       </div>
       <div className="p-4 bg-white dark:bg-slate-900">

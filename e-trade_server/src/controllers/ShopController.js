@@ -346,6 +346,7 @@ const getMyOrders = async (req, res) => {
         const customerId = req.user.id;
         const orders = await Order.find({ customer_id: customerId })
             .populate('items.product_id')
+            .populate('seller_id', 'shop_name avatar') // Thêm dòng này để lấy tên shop
             .sort({ created_at: -1 });
 
         res.json({

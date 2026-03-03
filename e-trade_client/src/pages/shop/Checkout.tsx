@@ -86,7 +86,9 @@ const Checkout: React.FC = () => {
       // Chờ một chút để user thấy thông báo, sau đó mới thực sự xóa giỏ hàng và chuyển trang
       setTimeout(() => {
         clearCart();
-        const orderId = orderResponse.data.data?.orderId;
+        // Fix: Lấy orderId an toàn hơn (hỗ trợ cả trường hợp response là axios object hoặc data raw)
+        // Ưu tiên cấu trúc: response.data.data.orderId (Axios) -> response.data.orderId (Interceptor)
+        const orderId = orderResponse.data?.data?.orderId || orderResponse.data?.orderId || orderResponse?.data?.orderId;
         navigate(`/account/orders/${orderId}`);
       }, 1200);
     } catch (error: any) {

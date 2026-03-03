@@ -34,6 +34,7 @@ import {AdminUsers} from './src/pages/admin/Accounts';
 import {AdminProducts} from './src/pages/admin/Products';
 import {AdminReports} from './src/pages/admin/Reports';
 import {AdminBlacklist} from './src/pages/admin/BlackList';
+import OrderHistory from './src/pages/account/OrderHistory';
 // import UserManagement from './src/pages/admin/UserManagement';
 
 const ScrollToTop = () => {
@@ -62,6 +63,8 @@ const AppRoutes: React.FC = () => {
         <Route path="/admin/products" element={<AdminProducts />} />
         <Route path="/admin/reports" element={<AdminReports />} />
         <Route path="/admin/blacklist" element={<AdminBlacklist />} />
+<Route path="/account/orders" element={<OrderHistory />} />
+<Route path="/account/orders/:id" element={<OrderDetail />} />
 
         
         {/* Shop Routes (Public) */}
