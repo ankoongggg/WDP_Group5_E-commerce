@@ -1,7 +1,9 @@
 const Store = require('../models/Store');
+const User = require('../models/User');
 const Product = require('../models/Product');
-const Review = require('../models/ReviewProduct');
 const SellerRegistration = require('../models/SellerRegistration');
+const Order = require('../models/Order');
+const Review = require('../models/ReviewProduct');
 const mongoose = require('mongoose');
 
 // Controller: Lấy thông tin chi tiết công khai của một cửa hàng
@@ -214,6 +216,21 @@ exports.getSellerRegistrationStatus = async (req, res) => {
             .sort({ created_at: -1 });
 
         if (!registration) {
+            // Kiểm tra xem user đã có Store chưa (trường hợp đã duyệt nhưng đơn đăng kí bị xóa)
+            const existingStore = await Store.findOne({ user_id: userId });
+            
+            if (existingStore) {
+                // Tự động sửa lỗi: Cập nhật role seller cho user nếu chưa có
+                await User.findByIdAndUpdate(userId, { $addToSet: { role: 'seller' } });
+
+                // Trả về object giả lập trạng thái approved để frontend hiển thị đúng
+                return res.status(200).json({
+                    status: 'approved',
+                    shop_name: existingStore.shop_name,
+                    created_at: existingStore.created_at
+                });
+            }
+
             return res.status(404).json({ message: 'Bạn chưa gửi đơn đăng kí seller nào' });
         }
 
@@ -269,3 +286,132 @@ exports.updateSellerRegistration = async (req, res) => {
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
     }
 };
+
+// =====================================================
+// ADMIN ROUTES
+// =====================================================
+
+// Controller: Lấy danh sách seller đang chờ duyệt
+exports.getPendingSellers = async (req, res) => {
+    try {
+        const pendingSellers = await SellerRegistration.find({ status: 'pending' })
+            .populate('user_id', 'full_name email')
+            .sort({ created_at: -1 });
+
+        res.status(200).json(pendingSellers);
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách seller chờ duyệt:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
+
+// Controller: Phê duyệt đơn đăng kí seller
+exports.approveSeller = async (req, res) => {
+    try {
+        const registrationId = req.params.id;
+        // SỬA: Tìm trong SellerRegistration, không phải Store
+        const registration = await SellerRegistration.findById(registrationId);
+
+        if (!registration) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn đăng kí' });
+        }
+        if (registration.status !== 'pending') {
+            return res.status(400).json({ message: 'Đơn đăng kí này đã được xử lý' });
+        }
+
+        // Tạo cửa hàng mới từ thông tin đăng kí
+        const newStore = new Store({
+            user_id: registration.user_id,
+            shop_name: registration.shop_name,
+            description: registration.shop_description, // Map trường dữ liệu
+            identity_card: registration.identity_card,
+            pickup_address: registration.pickup_address,
+            phone: registration.phone,
+            status: 'active' // Cửa hàng mới được active ngay
+        });
+
+        await newStore.save();
+
+        // Cập nhật quyền user thành seller để hiển thị menu quản lý shop
+        // Dùng $addToSet để thêm 'seller' vào mảng role một cách an toàn
+        await User.findByIdAndUpdate(registration.user_id, { 
+            $addToSet: { role: 'seller' } 
+        });
+
+        // Xóa đơn đăng kí đã được xử lý để dọn dẹp
+        await SellerRegistration.findByIdAndDelete(registrationId);
+
+        res.status(200).json({ message: 'Phê duyệt seller thành công', store: newStore });
+    } catch (error) {
+        console.error('Lỗi khi phê duyệt seller:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
+
+// Controller: Từ chối đơn đăng kí seller
+exports.rejectSeller = async (req, res) => {
+    try {
+        const registrationId = req.params.id;
+        const { reason } = req.body; // Cho phép admin gửi lý do từ chối (nếu có)
+
+        // SỬA: Tìm và cập nhật trong SellerRegistration, không phải xóa Store
+        const registration = await SellerRegistration.findById(registrationId);
+
+        if (!registration) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn đăng kí' });
+        }
+        if (registration.status !== 'pending') {
+            return res.status(400).json({ message: 'Đơn đăng kí này đã được xử lý' });
+        }
+
+        // Cập nhật trạng thái thành 'rejected' và lưu lý do để người dùng xem
+        registration.status = 'rejected';
+        registration.rejection_reason = reason || 'Thông tin cung cấp chưa hợp lệ. Vui lòng chỉnh sửa và gửi lại.';
+        await registration.save();
+
+        res.status(200).json({ message: 'Từ chối seller thành công', registration });
+    } catch (error) {
+        console.error('Lỗi khi từ chối seller:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
+//admin func
+exports.getListingStoresAndRevenuesTotalOrdersFromProductOfEachStore = async (req,res) => {
+    try{
+        // lean() để trả về plain object, dễ thêm trường mới
+        const stores = await Store.find({}).populate('user_id', 'full_name email phone').lean();
+        
+        // Tính tổng doanh thu và số đơn hàng cho từng cửa hàng
+        for (const store of stores) {
+            // lấy danh sách id sản phẩm của cửa hàng
+            const products = await Product.find({ store_id: store._id }).select('_id');
+            const productIds = products.map(p => p._id);
+
+            if (productIds.length === 0) {
+                store.total_revenue = 0;
+                store.total_orders = 0;
+                continue;
+            }
+
+            const orders = await Order.find({
+                items: { $elemMatch: { product_id: { $in: productIds } } }
+            });
+
+            let totalRevenue = 0;
+            let totalOrders = orders.length;
+            
+            orders.forEach(order => {
+                totalRevenue += order.total_amount;
+            });
+
+            store.total_revenue = totalRevenue;
+            store.total_orders = totalOrders;
+        }
+
+        res.status(200).json(stores);
+    }catch (err){
+        console.error('Lỗi khi lấy danh sách cửa hàng:', err);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });    
+        
+    }
+}

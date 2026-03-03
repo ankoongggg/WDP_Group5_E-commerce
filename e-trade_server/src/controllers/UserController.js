@@ -42,4 +42,45 @@ const updateProfile = async (req, res) => {
     }
 };
 
-module.exports = { getProfile, updateProfile };
+
+// Admin User functions
+const getUserList = async (req,res) => {
+    try{
+
+    }catch (err){
+        console.error("Lỗi get account", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+}
+const banAccount = async (req,res) => {
+    try{}catch (err){
+console.error("Lỗi ban account", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+}
+const upSellerRequest = async (req,res) => {
+    try{}catch (err){
+        console.error("Lỗi up seller request", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+}
+
+// admin dashboard functions
+// lấy số lượng user và so sánh tăng giảm so với tháng trước
+const getTotalUsersNumberAndComparison = async (req,res) => {
+    try{
+        const totalUsers = await User.countDocuments();
+        const lastMonth = new Date();
+        lastMonth.setMonth(lastMonth.getMonth() - 1);
+        const usersLastMonth = await User.countDocuments({ createdAt: { $gte: lastMonth } });
+        const comparison = totalUsers - usersLastMonth;
+
+        res.json({ success: true, data: { totalUsers, comparison } });
+    }catch(err){
+        console.error("Lỗi get total users", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+}
+
+module.exports = { getProfile, updateProfile, banAccount, upSellerRequest, getTotalUsersNumberAndComparison };
+

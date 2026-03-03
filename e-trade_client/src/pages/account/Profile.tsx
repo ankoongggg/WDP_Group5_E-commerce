@@ -28,14 +28,7 @@ const Profile: React.FC = () => {
         business_category: ""
     });
 
-    useEffect(() => {
-        if (showSellerModal) {
-            CategoryService.getAll().then((data) => {
-                setCategories(data);
-            });
-        }
-    }, [showSellerModal]);
-
+    // Effect để điền dữ liệu vào form khi user thay đổi hoặc vào chế độ chỉnh sửa
     useEffect(() => {
         if (user) {
             setForm({
@@ -57,16 +50,50 @@ const Profile: React.FC = () => {
                 });
             }
         }
-        // Load seller registration status
-        checkSellerRegistrationStatus();
     }, [user, editing]);
+
+    // Effect để kiểm tra trạng thái seller. Nó sẽ chạy lại mỗi khi user object thay đổi.
+    useEffect(() => {
+        // Nếu user đã đăng nhập và chưa có vai trò 'seller', kiểm tra trạng thái đăng ký.
+        if (user && !user.role?.includes('seller')) {
+            checkSellerRegistrationStatus();
+        } else {
+            // Nếu user đã là seller hoặc chưa đăng nhập, không cần hiển thị khối trạng thái đăng ký.
+            setSellerRegistrationStatus(null);
+        }
+    }, [user]); // Phụ thuộc vào toàn bộ object `user` để chạy lại khi có thay đổi (ví dụ sau khi refreshUser)
+
+    // Effect để tải danh mục khi mở modal đăng ký seller
+    useEffect(() => {
+        // Khi modal được mở, tải danh mục ngành hàng
+        if (showSellerModal) {
+            CategoryService.getAll()
+                .then((data) => {
+                    setCategories(data);
+                })
+                .catch(err => {
+                    console.error("Lỗi khi tải danh mục:", err);
+                    toast.error("Không thể tải danh mục ngành hàng.");
+                });
+        }
+    }, [showSellerModal]);
 
     const checkSellerRegistrationStatus = async () => {
         try {
             const status = await storeApi.getSellerRegistrationStatus();
-            setSellerRegistrationStatus(status);
+
+            // Nếu backend trả về 'approved' (do đã tìm thấy store và tự sửa lỗi role),
+            // ta cần refresh lại user object ở client để đồng bộ.
+            // Việc refresh này sẽ kích hoạt lại useEffect ở trên, và lần chạy sau nó sẽ vào nhánh `else`.
+            if (status.status === 'approved' && refreshUser) {
+                await refreshUser();
+            } else {
+                // Nếu trạng thái là 'pending' hoặc 'rejected', hiển thị nó ra cho người dùng.
+                setSellerRegistrationStatus(status);
+            }
         } catch (e: any) {
-            // User chưa gửi đơn đăng kí
+            // Lỗi 404 có nghĩa là không tìm thấy đơn đăng ký nào (và backend cũng không tìm thấy store nào có sẵn).
+            // Đây là trạng thái sạch, cho phép user đăng ký.
             setSellerRegistrationStatus(null);
         }
     };
@@ -152,46 +179,60 @@ const Profile: React.FC = () => {
         <div className="min-h-screen bg-background-light dark:bg-background-dark font-display flex flex-col">
             {/* Modal Become a Seller */}
             {showSellerModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white dark:bg-[#2d1e16] rounded-xl shadow-xl p-8 w-full max-w-lg relative">
-                        <button onClick={() => { setShowSellerModal(false); setIsEditingSeller(false); }} className="absolute top-4 right-4 text-slate-500 hover:text-primary">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-[#2d1e16] rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-2xl relative max-h-[90vh] overflow-y-auto">
+                        <button 
+                            onClick={() => { setShowSellerModal(false); setIsEditingSeller(false); }} 
+                            className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                        >
                             <span className="material-symbols-outlined">close</span>
                         </button>
-                        <h2 className="text-xl font-bold mb-6 dark:text-white">
-                            {isEditingSeller ? "Cập nhật thông tin Seller" : "Đăng ký trở thành Seller"}
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        
+                        <div className="text-center mb-8">
+                            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <span className="material-symbols-outlined text-3xl text-primary">storefront</span>
+                            </div>
+                            <h2 className="text-2xl font-bold dark:text-white">
+                                {isEditingSeller ? "Cập nhật thông tin Seller" : "Đăng ký trở thành Seller"}
+                            </h2>
+                            <p className="text-slate-500 dark:text-slate-400 mt-2">
+                                {isEditingSeller ? "Chỉnh sửa thông tin cửa hàng của bạn" : "Điền thông tin bên dưới để bắt đầu kinh doanh cùng E-Trade"}
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="md:col-span-1">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Tên Shop <span className="text-red-500">*</span></label>
-                                <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.shop_name} onChange={e => setSellerForm({...sellerForm, shop_name: e.target.value})} placeholder="Nhập tên shop của bạn" />
+                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.shop_name} onChange={e => setSellerForm({...sellerForm, shop_name: e.target.value})} placeholder="Nhập tên shop của bạn" />
                             </div>
                             <div className="md:col-span-1">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Số điện thoại liên hệ</label>
-                                <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.phone} onChange={e => setSellerForm({...sellerForm, phone: e.target.value})} placeholder="SĐT liên hệ với shop" />
+                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.phone} onChange={e => setSellerForm({...sellerForm, phone: e.target.value})} placeholder="SĐT liên hệ với shop" />
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Mô tả Shop <span className="text-red-500">*</span></label>
-                                <textarea className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.shop_description} onChange={e => setSellerForm({...sellerForm, shop_description: e.target.value})} placeholder="Giới thiệu ngắn về shop" />
+                                <textarea className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none min-h-[100px]" value={sellerForm.shop_description} onChange={e => setSellerForm({...sellerForm, shop_description: e.target.value})} placeholder="Giới thiệu ngắn về shop để thu hút khách hàng" />
                             </div>
                             <div className="md:col-span-1">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Số CMND/CCCD <span className="text-red-500">*</span></label>
-                                <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.identity_card} onChange={e => setSellerForm({...sellerForm, identity_card: e.target.value})} placeholder="Nhập số định danh cá nhân" />
+                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.identity_card} onChange={e => setSellerForm({...sellerForm, identity_card: e.target.value})} placeholder="Nhập số định danh cá nhân" />
                             </div>
                             <div className="md:col-span-1">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Ảnh CMND/CCCD (Link)</label>
-                                <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.identity_card_image} onChange={e => setSellerForm({...sellerForm, identity_card_image: e.target.value})} placeholder="https://..." />
+                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.identity_card_image} onChange={e => setSellerForm({...sellerForm, identity_card_image: e.target.value})} placeholder="https://..." />
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Địa chỉ lấy hàng <span className="text-red-500">*</span></label>
-                                <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={sellerForm.pickup_address} onChange={e => setSellerForm({...sellerForm, pickup_address: e.target.value})} placeholder="Địa chỉ kho hàng/nơi lấy hàng" />
+                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.pickup_address} onChange={e => setSellerForm({...sellerForm, pickup_address: e.target.value})} placeholder="Địa chỉ kho hàng/nơi lấy hàng" />
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Ngành hàng kinh doanh <span className="text-red-500">*</span></label>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
                                     {categories.map(cat => (
-                                        <label key={cat._id} className="flex items-center gap-2">
+                                        <label key={cat._id} className="flex items-center gap-3 cursor-pointer hover:text-primary transition-colors">
                                             <input
                                                 type="checkbox"
+                                                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
                                                 checked={sellerForm.business_category.split(',').includes(cat.name)}
                                                 onChange={e => {
                                                     let arr = sellerForm.business_category ? sellerForm.business_category.split(',') : [];
@@ -203,15 +244,32 @@ const Profile: React.FC = () => {
                                                     setSellerForm({...sellerForm, business_category: arr.join(',')});
                                                 }}
                                             />
-                                            <span>{cat.name}</span>
+                                            <span className="text-sm dark:text-slate-300">{cat.name}</span>
                                         </label>
                                     ))}
                                 </div>
                             </div>
                         </div>
-                        <button onClick={onSubmitSellerForm} disabled={submittingSellerForm} className="mt-6 w-full bg-primary text-white px-6 py-2 rounded-xl font-bold text-sm">
-                            {submittingSellerForm ? "Đang xử lý..." : (isEditingSeller ? "Cập nhật đơn" : "Gửi đơn đăng ký")}
-                        </button>
+                        
+                        <div className="mt-8 flex gap-4 pt-6 border-t border-slate-100 dark:border-slate-800">
+                            <button 
+                                onClick={() => { setShowSellerModal(false); setIsEditingSeller(false); }}
+                                className="flex-1 px-6 py-3 rounded-xl font-bold text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all"
+                            >
+                                Hủy bỏ
+                            </button>
+                            <button 
+                                onClick={onSubmitSellerForm} 
+                                disabled={submittingSellerForm} 
+                                className="flex-1 bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/25 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {submittingSellerForm ? (
+                                    <><span className="material-symbols-outlined animate-spin text-lg">sync</span> Đang xử lý...</>
+                                ) : (
+                                    <><span className="material-symbols-outlined text-lg">send</span> {isEditingSeller ? "Cập nhật đơn" : "Gửi đơn đăng ký"}</>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -239,7 +297,8 @@ const Profile: React.FC = () => {
                         <Link to="/account/orders" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
                             <span className="material-symbols-outlined">shopping_bag</span> Orders
                         </Link>
-                        {!sellerRegistrationStatus && (
+                        {/* Chỉ hiện nút đăng ký khi chưa phải seller VÀ chưa có đơn đăng ký nào */}
+                        {!user?.role?.includes('seller') && !sellerRegistrationStatus && (
                             <button onClick={() => { setShowSellerModal(true); setIsEditingSeller(false); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
                                 <span className="material-symbols-outlined">store</span> Become a Seller
                             </button>
@@ -288,7 +347,8 @@ const Profile: React.FC = () => {
                         </section>
 
                         {/* KHỐI 1.5: TRẠNG THÁI ĐƠN ĐĂNG KÍ SELLER */}
-                        {sellerRegistrationStatus && (
+                        {/* Chỉ hiện khi chưa phải seller và có đơn đăng ký */}
+                        {!user?.role?.includes('seller') && sellerRegistrationStatus && (
                             <section className="bg-white dark:bg-[#2d1e16] p-8 rounded-xl border border-slate-200 dark:border-slate-800">
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="text-lg font-bold dark:text-white">Seller Registration Status</h3>
@@ -323,6 +383,22 @@ const Profile: React.FC = () => {
                                         </div>
                                     )}
                                     <p className="text-sm text-slate-500 dark:text-slate-400">Submitted on: {new Date(sellerRegistrationStatus.created_at).toLocaleDateString()}</p>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* KHỐI 1.6: THÔNG TIN SELLER (NẾU ĐÃ LÀ SELLER) */}
+                        {user?.role?.includes('seller') && (
+                            <section className="bg-white dark:bg-[#2d1e16] p-8 rounded-xl border border-slate-200 dark:border-slate-800">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-lg font-bold dark:text-white">Seller Account</h3>
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium dark:text-white">Trạng thái:</span>
+                                        <span className="px-4 py-2 rounded-lg font-bold text-sm bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">✅ Active Seller</span>
+                                    </div>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">Chúc mừng! Bạn đã là nhà bán hàng trên E-Trade. Truy cập trang quản lý để đăng sản phẩm và theo dõi đơn hàng.</p>
                                 </div>
                             </section>
                         )}

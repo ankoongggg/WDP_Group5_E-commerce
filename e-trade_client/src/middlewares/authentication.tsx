@@ -1,10 +1,10 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { isAuthenticated, loading, user } = useAuth();
-    const location = useLocation();
+    const { isAuthenticated,loading, user} = useAuth();
+    const navigate = useNavigate();
 
     if (loading) {
         return (
@@ -17,17 +17,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
         );
     }
 
-
     if (!isAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
-
-    // nếu người dùng là admin và đang cố gắng truy cập các đường dẫn thông thường, chuyển sang trang quản trị
-    if (user?.role?.includes('admin') && !location.pathname.startsWith('/admin')) {
-        return <Navigate to="/admin" replace />;
-    }
-
-    return <>{children}</>;
-};
-
-export default ProtectedRoute;
+    
+}
