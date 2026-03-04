@@ -68,7 +68,7 @@ const Profile: React.FC = () => {
         // Khi modal được mở, tải danh mục ngành hàng
         if (showSellerModal) {
             CategoryService.getAll()
-                .then((data) => {
+                .then((data) => {   
                     setCategories(data);
                 })
                 .catch(err => {
