@@ -31,6 +31,7 @@ import SellerDashboard from './src/pages/seller/SellerDashboard';
 import Profile from './src/pages/account/Profile';
 import OrderDetail from './src/pages/account/OrderDetail';
 import Settings from './src/pages/account/Settings';
+import FeedbackProduct from './src/pages/account/FeedbackProduct';
 
 // Admin Pages
 import AdminDashboard from './src/pages/admin/Dashboard';
@@ -78,6 +79,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/account/orders" element={<ProtectedRoute><OrderHistory /></ProtectedRoute>} />
         <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
         <Route path="/account/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/account/feedback" element={<ProtectedRoute><FeedbackProduct /></ProtectedRoute>} />
 
         {/* Seller Routes */}
         <Route path="/seller/dashboard" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />

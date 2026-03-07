@@ -1,5 +1,6 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const Review = require('../models/ReviewProduct');
 const User = require('../models/User');
 
 // =====================================================
@@ -365,7 +366,7 @@ const getOrderDetail = async (req, res) => {
         const customerId = req.user.id;
 
         const order = await Order.findById(orderId)
-            .populate('items.product_id')
+            .populate('items.product_id', '_id') // Chỉ cần _id để tạo link
             .populate('customer_id', 'full_name email phone')
             .populate('seller_id', 'shop_name avatar');
 
@@ -373,12 +374,30 @@ const getOrderDetail = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        // Verify ownership
+        // Xác thực quyền sở hữu
         if (order.customer_id._id.toString() !== customerId) {
             return res.status(403).json({ success: false, message: 'Unauthorized' });
         }
 
-        res.json({ success: true, data: order });
+        // Lấy các đánh giá của người dùng cho đơn hàng này
+        const userReviews = await Review.find({ order_id: orderId, user_id: customerId }).lean();
+        const reviewsMap = new Map(userReviews.map(review => [review.product_id.toString(), review]));
+
+        // Chuyển đổi sang object thuần để chỉnh sửa
+        const orderData = order.toObject();
+
+        // Gắn thông tin đánh giá vào từng sản phẩm trong đơn hàng
+        orderData.items = orderData.items.map(item => {
+            if (!item.product_id) return item; // Bỏ qua nếu sản phẩm đã bị xóa
+            
+            const review = reviewsMap.get(item.product_id._id.toString());
+            return {
+                ...item,
+                user_review: review || null // Gắn đánh giá nếu có, ngược lại là null
+            };
+        });
+
+        res.json({ success: true, data: orderData });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
