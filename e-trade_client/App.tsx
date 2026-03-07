@@ -25,6 +25,7 @@ import Cart from './src/pages/shop/Cart';
 import Checkout from './src/pages/shop/Checkout';
 import StoreDetail from './src/pages/shop/StoreDetail';
 import OrderManagement from './src/pages/shop/OrderManagement';
+import SellerDashboard from './src/pages/seller/SellerDashboard';  
 
 // Account Pages
 import Profile from './src/pages/account/Profile';
@@ -77,6 +78,9 @@ const AppRoutes: React.FC = () => {
         <Route path="/account/orders" element={<ProtectedRoute><OrderHistory /></ProtectedRoute>} />
         <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
         <Route path="/account/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+        {/* Seller Routes */}
+        <Route path="/seller/dashboard" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
         <Route path="/seller/orders" element={<ProtectedRoute><OrderManagement /></ProtectedRoute>} />
 
         {/* Admin Routes (Có thể thêm sau) */}

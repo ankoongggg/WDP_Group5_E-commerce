@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import SellerLayout from '../seller/SellerLayout';
 import { useToast } from '../../context/ToastContext';
 import { storeApi } from '../../services/api'; // Giả định API được export từ đây
 import { format } from 'date-fns';
@@ -139,13 +140,10 @@ const OrderManagement: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark font-display">
-            {/* Header */}
-            <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a110c] px-6 flex items-center justify-between sticky top-0 z-40">
+        <SellerLayout>
+            <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a110c] px-6 flex items-center">
                 <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Quản lý Đơn hàng</h1>
-                <Link to="/account" className="font-bold text-sm text-slate-500 hover:text-primary transition-all">Quay lại Tài khoản</Link>
             </header>
-
             <main className="p-6 md:p-10">
                 <div className="border-b border-slate-200 dark:border-slate-800 mb-6 pb-3">
                     <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -393,7 +391,7 @@ const OrderManagement: React.FC = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </SellerLayout>
     );
 };
 

@@ -305,8 +305,8 @@ const Profile: React.FC = () => {
                         )}
                         {/* Link đến trang quản lý của Seller */}
                         {user?.role?.includes('seller') && (
-                            <Link to="/seller/orders" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
-                                <span className="material-symbols-outlined">storefront</span> Manage Store
+                            <Link to="/seller/dashboard" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
+                                <span className="material-symbols-outlined">storefront</span> Seller Dashboard
                             </Link>
                         )}
                     </nav>
@@ -406,7 +406,7 @@ const Profile: React.FC = () => {
                                     </div>
                                     <p className="text-sm text-slate-500 dark:text-slate-400">Chúc mừng! Bạn đã là nhà bán hàng trên E-Trade. Truy cập trang quản lý để đăng sản phẩm và theo dõi đơn hàng.</p>
                                     <div className="pt-4">
-                                        <Link to="/seller/orders" className="inline-flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all">
+                                        <Link to="/seller/dashboard" className="inline-flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all">
                                             <span className="material-symbols-outlined">storefront</span>
                                             Go to Seller Dashboard
                                         </Link>

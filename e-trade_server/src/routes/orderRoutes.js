@@ -5,6 +5,9 @@ const { protect, isSeller } = require('../middlewares/auth');
 
 // Các route này yêu cầu người dùng phải đăng nhập (protect) và có vai trò 'seller' (isSeller)
 
+// [SELLER] GET /api/seller/dashboard - Lấy dữ liệu thống kê cho dashboard
+router.get('/dashboard', protect, isSeller, orderController.getSellerDashboardStats);
+
 // [SELLER] GET /api/seller/orders - Lấy danh sách đơn hàng cho cửa hàng của người bán
 router.get('/orders', protect, isSeller, orderController.getSellerOrders);
 

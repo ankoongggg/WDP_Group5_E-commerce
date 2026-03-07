@@ -98,6 +98,92 @@ exports.getSellerOrders = async (req, res) => {
 };
 
 /**
+ * @desc    [SELLER] Lấy dữ liệu thống kê cho dashboard
+ * @route   GET /api/seller/dashboard
+ * @access  Private (Seller)
+ */
+exports.getSellerDashboardStats = async (req, res) => {
+    try {
+        const sellerUserId = req.user.id;
+        const { revenuePeriod = '30d', startDate: queryStartDate, endDate: queryEndDate } = req.query; // '7d', '30d'
+
+        const store = await Store.findOne({ user_id: sellerUserId }).select('_id');
+        if (!store) {
+            return res.status(404).json({ message: 'Không tìm thấy cửa hàng.' });
+        }
+
+        let startDate = new Date();
+        const endDate = new Date(); // End date is today for period-based queries
+
+        if (queryStartDate && queryEndDate) {
+            startDate = new Date(queryStartDate);
+            // Set endDate to the end of the selected day for accurate filtering
+            const end = new Date(queryEndDate);
+            end.setHours(23, 59, 59, 999);
+            endDate.setTime(end.getTime());
+        } else if (revenuePeriod === '7d') {
+            startDate.setDate(startDate.getDate() - 7);
+        } else { // Default to 30 days
+            startDate.setDate(startDate.getDate() - 30);
+        }
+
+        const statsPipeline = Order.aggregate([
+            { $match: { seller_id: store._id } },
+            {
+                $facet: {
+                    totalRevenue: [
+                        { $match: { order_status: 'completed' } },
+                        { $group: { _id: null, total: { $sum: '$total_amount' } } }
+                    ],
+                    orderStatusCounts: [
+                        { $group: { _id: '$order_status', count: { $sum: 1 } } }
+                    ],
+                    revenueOverPeriod: [
+                        { $match: { order_status: 'completed', created_at: { $gte: startDate, $lte: endDate } } },
+                        {
+                            $group: {
+                                _id: { $dateToString: { format: "%Y-%m-%d", date: "$created_at" } },
+                                dailyRevenue: { $sum: '$total_amount' }
+                            }
+                        },
+                        { $sort: { _id: 1 } }
+                    ],
+                    productsSold: [
+                        { $match: { order_status: { $in: ['confirmed', 'shipping', 'completed'] } } },
+                        { $unwind: '$items' },
+                        { $group: { _id: null, total: { $sum: '$items.quantity' } } }
+                    ]
+                }
+            }
+        ]);
+
+        const recentOrdersQuery = Order.find({ seller_id: store._id })
+            .sort({ created_at: -1 })
+            .limit(5)
+            .populate('customer_id', 'full_name');
+
+        const [statsResult, recentOrders] = await Promise.all([statsPipeline, recentOrdersQuery]);
+
+        const stats = statsResult[0];
+        const formattedStats = {
+            totalRevenue: stats.totalRevenue[0]?.total || 0,
+            orderStatusCounts: stats.orderStatusCounts.reduce((acc, status) => {
+                acc[status._id] = status.count;
+                return acc;
+            }, { pending: 0, confirmed: 0, shipping: 0, completed: 0, cancelled: 0 }),
+            revenueOverPeriod: stats.revenueOverPeriod,
+            productsSold: stats.productsSold[0]?.total || 0,
+            recentOrders
+        };
+
+        res.status(200).json({ success: true, data: formattedStats });
+    } catch (error) {
+        console.error('Lỗi khi lấy dữ liệu dashboard của người bán:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
+
+/**
  * @desc    [SELLER] Xác nhận hoặc từ chối đơn hàng
  * @route   PUT /api/orders/seller/:orderId/status
  * @access  Private (Seller)

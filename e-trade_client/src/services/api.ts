@@ -179,4 +179,18 @@ export const storeApi = {
             requireAuth: true,
             body: JSON.stringify({ status, reason })
         }),
+    
+    // Lấy dữ liệu thống kê cho dashboard của người bán
+    getSellerDashboardStats: (options?: { revenuePeriod?: '7d' | '30d', startDate?: string, endDate?: string }) => {
+        const params = new URLSearchParams();
+        // Ưu tiên khoảng thời gian tùy chỉnh
+        if (options?.startDate && options?.endDate) {
+            params.append('startDate', options.startDate);
+            params.append('endDate', options.endDate);
+        } else if (options?.revenuePeriod) {
+            params.append('revenuePeriod', options.revenuePeriod);
+        }
+        const endpoint = `/seller/dashboard?${params.toString()}`;
+        return api(endpoint, { requireAuth: true });
+    },
 };
