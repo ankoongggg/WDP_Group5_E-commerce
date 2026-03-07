@@ -303,6 +303,12 @@ const Profile: React.FC = () => {
                                 <span className="material-symbols-outlined">store</span> Become a Seller
                             </button>
                         )}
+                        {/* Link đến trang quản lý của Seller */}
+                        {user?.role?.includes('seller') && (
+                            <Link to="/seller/orders" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
+                                <span className="material-symbols-outlined">storefront</span> Manage Store
+                            </Link>
+                        )}
                     </nav>
                 </aside>
 
@@ -396,9 +402,15 @@ const Profile: React.FC = () => {
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
                                         <span className="font-medium dark:text-white">Trạng thái:</span>
-                                        <span className="px-4 py-2 rounded-lg font-bold text-sm bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">✅ Active Seller</span>
+                                        <span className="px-4 py-2 rounded-lg font-bold text-sm bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Active Seller</span>
                                     </div>
                                     <p className="text-sm text-slate-500 dark:text-slate-400">Chúc mừng! Bạn đã là nhà bán hàng trên E-Trade. Truy cập trang quản lý để đăng sản phẩm và theo dõi đơn hàng.</p>
+                                    <div className="pt-4">
+                                        <Link to="/seller/orders" className="inline-flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all">
+                                            <span className="material-symbols-outlined">storefront</span>
+                                            Go to Seller Dashboard
+                                        </Link>
+                                    </div>
                                 </div>
                             </section>
                         )}

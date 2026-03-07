@@ -26,7 +26,7 @@ interface Order {
   items: OrderItem[];
   created_at: string;
   seller_id?: {
-      shop_name: string;
+    shop_name: string;
   }
 }
 
@@ -78,6 +78,8 @@ const OrderHistory: React.FC = () => {
     switch (status) {
       case 'pending': return 'text-amber-500';
       case 'confirmed': return 'text-blue-500';
+      case 'shipping': return 'text-blue-500'
+      case 'shipped': return 'text-blue-500';
       case 'completed': return 'text-green-500';
       case 'cancelled': return 'text-red-500';
       default: return 'text-slate-500';
@@ -87,7 +89,10 @@ const OrderHistory: React.FC = () => {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'pending': return 'Chờ thanh toán';
-      case 'confirmed': return 'Đang vận chuyển';
+      case 'confirmed':
+      case 'shipping':
+      case 'shipped':
+        return 'Đang vận chuyển';
       case 'completed': return 'Hoàn thành';
       case 'cancelled': return 'Đã hủy';
       default: return status;
@@ -112,35 +117,35 @@ const OrderHistory: React.FC = () => {
                 <div key={order._id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 border border-slate-100 dark:border-slate-700">
                   <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">
                     <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-slate-500">storefront</span>
-                        <span className="font-bold dark:text-white">{order.seller_id?.shop_name || 'Cửa hàng'}</span>
-                        <Link to={`/account/orders/${order._id}`} className="bg-slate-100 dark:bg-slate-700 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white">Xem chi tiết</Link>
+                      <span className="material-symbols-outlined text-slate-500">storefront</span>
+                      <span className="font-bold dark:text-white">{order.seller_id?.shop_name || 'Cửa hàng'}</span>
+                      <Link to={`/account/orders/${order._id}`} className="bg-slate-100 dark:bg-slate-700 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white">Xem chi tiết</Link>
                     </div>
                     <div className={`text-sm font-bold uppercase flex items-center gap-1 ${getStatusColor(order.order_status)}`}>
-                        <span className="material-symbols-outlined text-lg">{order.order_status === 'completed' ? 'check_circle' : 'local_shipping'}</span>
-                        {getStatusLabel(order.order_status)}
+                      <span className="material-symbols-outlined text-lg">{order.order_status === 'completed' ? 'check_circle' : 'local_shipping'}</span>
+                      {getStatusLabel(order.order_status)}
                     </div>
                   </div>
                   <div className="space-y-4">
                     {order.items.map((item, idx) => (
-                        <div key={idx} className="flex gap-4">
-                            <div className="w-20 h-20 rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden shrink-0">
-                                <img src={item.image_snapshot || 'https://via.placeholder.com/100'} alt={item.name_snapshot} className="w-full h-full object-cover"/>
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="font-medium line-clamp-2 dark:text-white">{item.name_snapshot}</h3>
-                                <p className="text-sm text-slate-500 mt-1">x{item.quantity}</p>
-                            </div>
-                            <div className="text-right">
-                                <span className="text-primary font-medium">{formatPrice(item.price_snapshot)}</span>
-                            </div>
+                      <div key={idx} className="flex gap-4">
+                        <div className="w-20 h-20 rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden shrink-0">
+                          <img src={item.image_snapshot || 'https://via.placeholder.com/100'} alt={item.name_snapshot} className="w-full h-full object-cover" />
                         </div>
+                        <div className="flex-1">
+                          <h3 className="font-medium line-clamp-2 dark:text-white">{item.name_snapshot}</h3>
+                          <p className="text-sm text-slate-500 mt-1">x{item.quantity}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-primary font-medium">{formatPrice(item.price_snapshot)}</span>
+                        </div>
+                      </div>
                     ))}
                   </div>
                   <div className="border-t border-slate-100 dark:border-slate-700 pt-4 mt-4 flex flex-col sm:flex-row justify-between items-end sm:items-center gap-4">
                     <div className="text-right sm:text-left"><span className="text-sm text-slate-500 mr-2">Thành tiền:</span><span className="text-xl font-bold text-primary">{formatPrice(order.total_amount)}</span></div>
                     <div className="flex gap-3">
-                        <Link to={`/account/orders/${order._id}`} className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors">Xem chi tiết</Link>
+                      <Link to={`/account/orders/${order._id}`} className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors">Xem chi tiết</Link>
                     </div>
                   </div>
                 </div>

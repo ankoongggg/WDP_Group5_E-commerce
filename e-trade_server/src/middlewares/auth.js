@@ -14,4 +14,12 @@ const protect = (req, res, next) => {
     }
 };
 
-module.exports = { protect };
+const isSeller = (req, res, next) => {
+    // Middleware này phải được chạy sau 'protect' để có req.user
+    if (req.user && Array.isArray(req.user.role) && req.user.role.includes('seller')) {
+        return next();
+    }
+    return res.status(403).json({ success: false, message: 'Truy cập bị từ chối. Yêu cầu quyền người bán (seller).' });
+};
+
+module.exports = { protect, isSeller };

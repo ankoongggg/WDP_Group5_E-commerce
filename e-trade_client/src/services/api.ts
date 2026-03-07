@@ -154,4 +154,29 @@ export const storeApi = {
             requireAuth: true,
             body: JSON.stringify(sellerData)
         }),
+
+    // Lấy danh sách đơn hàng của người bán
+    getSellerOrders: (status?: string, page?: number, search?: string) => {
+        const params = new URLSearchParams();
+        if (status && status !== 'all') {
+            params.append('status', status);
+        }
+        if (page) {
+            params.append('page', page.toString());
+        }
+        if (search) {
+            params.append('search', search);
+        }
+        const endpoint = `/seller/orders?${params.toString()}`;
+        return api(endpoint, { requireAuth: true });
+    },
+
+    // Cập nhật trạng thái đơn hàng (xác nhận/từ chối)
+    updateOrderStatusBySeller: (orderId: string, status: string, reason?: string) =>
+        // Dựa trên orderRoutes.js, endpoint là /seller/:orderId/status
+        api(`/seller/${orderId}/status`, {
+            method: 'PUT',
+            requireAuth: true,
+            body: JSON.stringify({ status, reason })
+        }),
 };
