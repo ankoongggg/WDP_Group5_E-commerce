@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Layout } from '../components/Layout';
-import ProductCard from './ProductCard';
+import ProductCard from '../components/ProductCard';
 
 // --- Interfaces ---
 interface Store {
@@ -34,6 +34,14 @@ interface Product {
   main_image: string;
   price: number;
   original_price?: number;
+  // Thêm các trường để ProductCard hoạt động đúng
+  stock?: number;
+  product_type?: {
+    stock: number;
+  }[];
+  store_id?: {
+    shop_name: string;
+  };
 }
 
 interface StoreProductsResponse {

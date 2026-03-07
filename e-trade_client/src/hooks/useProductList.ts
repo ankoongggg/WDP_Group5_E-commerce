@@ -33,7 +33,7 @@ export const useProductList = () => {
     const initData = async () => {
       try {
         const [catRes, prodRes] = await Promise.all([
-            CategoryService.getAll({}),
+            CategoryService.getAllOnHomePage({}),
             ProductService.getAll({ limit: 1000 })
         ]);
 
@@ -70,7 +70,7 @@ export const useProductList = () => {
             let catIds: string[] = [];
             if (Array.isArray(p.category_id)) {
                 catIds = p.category_id.map(c => typeof c === 'object' ? c._id : String(c));
-            } else if (typeof p.category_id === 'object') {
+            } else if (typeof p.category_id === 'object' && p.category_id) {
                 catIds = [(p.category_id as any)?._id];
             } else if (typeof p.category_id === 'string') {
                 catIds = [p.category_id];

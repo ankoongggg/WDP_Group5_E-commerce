@@ -11,6 +11,10 @@ const Register: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [street, setStreet] = useState('');
+  const [district, setDistrict] = useState('');
+  const [city, setCity] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -43,6 +47,10 @@ const Register: React.FC = () => {
       toast.warning('Please fill in all fields');
       return;
     }
+    if (!phone || !street || !district || !city) {
+      toast.warning('Phone and address (street, district, city) are required');
+      return;
+    }
     if (password.length < 6) {
       toast.warning('Password must be at least 6 characters');
       return;
@@ -54,7 +62,7 @@ const Register: React.FC = () => {
 
     setIsLoading(true);
     try {
-      await register(name, email, password);
+      await register(name, email, password, phone, street, district, city);
       toast.success('Account created successfully! Welcome aboard.');
       navigate('/', { replace: true });
     } catch (err: any) {
@@ -133,6 +141,37 @@ const Register: React.FC = () => {
                     className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white"
                     placeholder="you@example.com"
                   />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Phone</label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">phone</span>
+                  <input
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white"
+                    placeholder="0123 456 789"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Street</label>
+                  <input type="text" value={street} onChange={e => setStreet(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none dark:text-white" placeholder="Street" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">District</label>
+                    <input type="text" value={district} onChange={e => setDistrict(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none dark:text-white" placeholder="District" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">City</label>
+                    <input type="text" value={city} onChange={e => setCity(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none dark:text-white" placeholder="City" />
+                  </div>
                 </div>
               </div>
 

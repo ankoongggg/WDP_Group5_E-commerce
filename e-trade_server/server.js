@@ -12,6 +12,7 @@ const productRoutes = require('./src/routes/productRoutes'); // Của Thắng
 const storeRoutes = require('./src/routes/storeRoutes'); // Của Thắng
 const categoryRoutes = require('./src/routes/categoryRoutes'); // Của Tú
 const shopRoutes = require('./src/routes/shopRoutes'); // Của Ann - Order, Payment
+const orderRoutes = require('./src/routes/orderRoutes'); // Của Thắng - quan lý đơn hàng
 
 const app = express();
 
@@ -50,6 +51,8 @@ app.use('/api/categories', categoryRoutes);
 
 // Use store routes
 app.use('/api/store', storeRoutes);
+// Use order routes
+app.use('/api/seller', orderRoutes); // Các route liên quan đến quản lý đơn hàng của người bán
 
 const PORT = process.env.PORT || 9999;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

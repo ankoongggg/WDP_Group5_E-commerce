@@ -161,7 +161,7 @@ const seedData = async () => {
                 original_price: 500000,
                 product_type: [{
                     description: 'Size L - Xanh đậm',
-                    stock: 1,
+                    stock: 0, // <-- Đã sửa thành 0 để test logic hết hàng
                     price_difference: 0
                 }],
                 condition: 'Used',

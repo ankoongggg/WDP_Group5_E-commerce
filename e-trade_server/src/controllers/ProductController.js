@@ -77,6 +77,32 @@ exports.getProducts = async (req, res) => {
         pipeline.push({ $skip: skip });
         pipeline.push({ $limit: parseInt(limit) });
 
+        // Thêm stage để định hình lại output và bao gồm các trường cần thiết
+        pipeline.push({
+            $project: {
+                _id: 1,
+                name: 1,
+                main_image: 1,
+                price: 1,
+                original_price: 1,
+                // Logic tính stock: Nếu có product_type (mảng) thì tính tổng stock bên trong, ngược lại lấy stock gốc
+                stock: {
+                    $cond: {
+                        if: { $gt: [{ $size: { $ifNull: ["$product_type", []] } }, 0] },
+                        then: { $sum: "$product_type.stock" },
+                        else: { $ifNull: ["$stock", 0] }
+                    }
+                },
+                product_type: 1, // Thêm loại sản phẩm (chứa tồn kho chi tiết)
+                created_at: 1,
+                category_id: 1, // Thêm trường này để frontend có thể lọc
+                store_id: { // Đổi tên 'store' thành 'store_id' cho nhất quán
+                    _id: '$store._id',
+                    shop_name: '$store.shop_name'
+                }
+            }
+        });
+
         // Thực thi
         const products = await Product.aggregate(pipeline);
 
@@ -320,3 +346,6 @@ exports.getProductReviews = async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 };
+
+// admin product functions (Tú)
+exports.adminGetProducts

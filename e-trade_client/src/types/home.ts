@@ -16,7 +16,8 @@ export interface Product {
 
 export interface Category {
   _id: string;
-  name: string; // Icon hoặc ảnh
+  name: string;
+  is_active: boolean;
 }
 
 // Interface cho response trả về từ API phân trang

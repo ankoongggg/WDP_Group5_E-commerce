@@ -1,137 +1,140 @@
 import React from 'react';
 import { Layout } from '../components/Layout';
 import { Link } from 'react-router-dom';
-import { ProductCard } from '../components/common/ProductCard';
 import { useHomeProducts } from '../../hooks/useHomeProducts';
+import ProductCard from '../components/ProductCard';
 
 const Home: React.FC = () => {
-  const { products, biggestDiscount, categories ,saleProducts, loading } = useHomeProducts();
+  const { products, biggestDiscount, categories, saleProducts, loading } = useHomeProducts();
 
   return (
     <Layout>
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-12">
-        {/* Hero */}
-        <section class="relative rounded-2xl overflow-hidden aspect-[21/9] bg-slate-900 group">
-           <div class="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070&auto=format&fit=crop')" }}></div>
-           <div class="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent flex items-center px-8 sm:px-16">
-             <div class="max-w-lg space-y-4">
-               <span class="inline-block px-3 py-1 bg-primary text-white text-xs font-bold rounded-full uppercase tracking-widest">New Arrival</span>
-               <h2 class="text-4xl sm:text-6xl font-bold text-white leading-tight">Elevate Your Lifestyle</h2>
-               <p class="text-slate-200 text-lg">Experience the future of tech and fashion with our curated summer collection.</p>
-               <div class="flex gap-4 pt-4">
-                 <Link to="/products" class="bg-primary hover:bg-primary/90 text-white px-8 py-3 rounded-xl font-bold transition-all transform hover:scale-105">Shop Now</Link>
+      {/* Tối ưu padding và khoảng cách các section để nội dung đẩy lên trên */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-8">
+        
+        {/* 1. Hero Banner - Đã làm nhỏ lại chiều cao */}
+        <section className="relative rounded-xl overflow-hidden h-[240px] md:h-[300px] bg-slate-900 group shadow-sm">
+           <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070&auto=format&fit=crop')" }}></div>
+           {/* Giảm độ tối của gradient để hình ảnh tươi sáng hơn */}
+           <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent flex items-center px-8 sm:px-12">
+             <div className="max-w-md space-y-3">
+               <span className="inline-block px-3 py-1 bg-primary text-white text-xs font-bold rounded-full uppercase tracking-widest shadow-md">
+                 Siêu Sale Tháng Mới
+               </span>
+               <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight drop-shadow-md">
+                 Săn Deal Gấp Bội
+               </h2>
+               <div className="pt-2">
+                 <Link to="/products" className="inline-block bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg font-bold transition-transform transform hover:scale-105 shadow-lg shadow-primary/30">
+                   Mua Sắm Ngay
+                 </Link>
                </div>
              </div>
            </div>
         </section>
 
-        {/* Sale  row */}
-        <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Deep Sale Column */}
-          <div class="bg-primary/5 dark:bg-primary/10 rounded-2xl p-6 border border-primary/10">
-            <div class="space-y-1 mb-6">
-              <div class="flex items-center gap-2 text-primary font-bold">
-                <span class="material-symbols-outlined">bolt</span>
-                <h3 class="text-2xl">DEEP SALE</h3>
+        {/* 2. DEEP SALE SECTION - Tách thành hàng riêng, trải dài */}
+        <section className="bg-gradient-to-r from-orange-50 to-primary/10 dark:from-slate-800 dark:to-primary/20 rounded-xl p-4 border border-primary/20 shadow-sm">
+          <div className="flex items-end justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="bg-primary text-white p-1.5 rounded-lg flex items-center justify-center shadow-inner">
+                <span className="material-symbols-outlined text-xl">bolt</span>
               </div>
-              <p class="text-slate-500 dark:text-slate-400">Giảm giá siêu sâu lên tới <span className="font-bold text-primary">{biggestDiscount}%</span> </p>
+              <h3 className="text-2xl font-bold text-primary italic uppercase tracking-tight">DEEP SALE</h3>
+              <span className="hidden sm:inline-block ml-3 px-2.5 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
+                Giảm tới {biggestDiscount}%
+              </span>
             </div>
-            
-            <div class="grid grid-cols-2 gap-4">
-              {/* Deep Sale Products */}
-              {saleProducts.map((item) => (
-                <ProductCard key={item._id} product={item} />
-              ))}
-            </div>
-            <div class="mt-6 text-center">
-              <Link 
-                to="/products?sale=deep" 
-                class="inline-block bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-full font-bold transition-colors"
-              >
-                Mở rộng
-              </Link>
-            </div>
+            <Link to="/products?sale=deep" className="text-sm font-bold text-primary hover:underline flex items-center gap-1">
+              Xem tất cả <span className="material-symbols-outlined text-sm">chevron_right</span>
+            </Link>
           </div>
-
-          {/* Flash Sale Column */}
-          <div class="bg-primary/5 dark:bg-primary/10 rounded-2xl p-6 border border-primary/10">
-            <div class="space-y-1 mb-6">
-              <div class="flex items-center justify-between gap-4">
-                <div class="flex items-center gap-2 text-primary font-bold">
-                  <span class="material-symbols-outlined">local_fire_department</span>
-                  <h3 class="text-2xl">FLASH SALE</h3>
-                </div>
-                <div class="flex gap-2">
-                  {[["02", "Hours"], ["45", "Min"], ["12", "Sec"]].map(([val, label]) => (
-                    <div key={label} class="flex flex-col items-center">
-                      <div class="bg-primary text-white w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold shadow-lg shadow-primary/20">{val}</div>
-                      <span class="text-[8px] uppercase font-bold mt-0.5 tracking-wider opacity-60 text-center">{label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <p class="text-slate-500 dark:text-slate-400">Giới hạn thời gian - nhanh tay mua sắm</p>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-4">
-              {/* Flash Sale Products
-              {saleProducts.slice(Math.ceil(saleProducts.length / 2)).map((item) => (
-                <ProductCard key={item._id} product={item} />
-              ))} */}
-            </div>
-            <div class="mt-6 text-center">
-              <Link 
-                to="/products?sale=flash" 
-                class="inline-block bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-full font-bold transition-colors"
-              >
-                Mở rộng
-              </Link>
-            </div>
+          
+          {/* Hiển thị 4-5 sản phẩm trên 1 hàng thay vì 2 */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {saleProducts.slice(0, 5).map((item) => (
+              <ProductCard key={item._id} product={item} />
+            ))}
           </div>
         </section>
 
-        {/* Categories */}
-        <section>
-           <h3 class="text-2xl font-bold mb-8 dark:text-white">Shop by Category</h3>
-           <div class="flex items-center justify-center gap-6 flex-wrap">
+        {/* 3. FLASH SALE SECTION - Tách thành hàng riêng */}
+        <section className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between mb-4 gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-slate-800 dark:text-white font-bold">
+                <span className="material-symbols-outlined text-amber-500 text-2xl">local_fire_department</span>
+                <h3 className="text-2xl italic uppercase tracking-tight">FLASH SALE</h3>
+              </div>
+              {/* Cụm đếm ngược thời gian gọn gàng hơn */}
+              <div className="flex items-center gap-1.5">
+                {[["02", "H"], ["45", "M"], ["12", "S"]].map(([val, label], idx) => (
+                  <React.Fragment key={label}>
+                    <div className="bg-slate-800 text-white w-8 h-8 rounded flex items-center justify-center text-sm font-bold shadow-inner">
+                      {val}
+                    </div>
+                    {idx < 2 && <span className="font-bold text-slate-800 dark:text-slate-400">:</span>}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+            <Link to="/products?sale=flash" className="text-sm font-bold text-slate-500 hover:text-primary transition-colors flex items-center gap-1">
+              Xem tất cả <span className="material-symbols-outlined text-sm">chevron_right</span>
+            </Link>
+          </div>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+             {/* Thay .slice(0,5) bằng logic lấy Flash Sale nếu bạn có API tách biệt */}
+            {saleProducts.slice(Math.ceil(saleProducts.length / 2), Math.ceil(saleProducts.length / 2) + 5).map((item) => (
+              <ProductCard key={item._id} product={item} />
+            ))}
+          </div>
+        </section>
+
+        {/* 4. Categories - Hiển thị dạng lưới gọn gàng */}
+        <section className="bg-white dark:bg-slate-900 rounded-xl p-4 md:p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+           <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-white uppercase">Danh Mục</h3>
+           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 lg:gap-4">
              {categories.map((item) => ( 
-                <div key={item._id} class="group cursor-pointer items-center justify-center rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col bg-white dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-orange-500 hover:text-white hover:shadow-lg transition-all">
-                   {/* <div class="aspect-square bg-slate-100 dark:bg-primary/5 rounded-2xl flex items-center justify-center mb-3 group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                     <span class="material-symbols-outlined text-4xl">{item.name}</span>
-                   </div> */}
-                   <p class="text-center font-bold text-sm">{item.name}</p>
-                </div>
+                <Link 
+                  to={`/products?category=${item._id}`} 
+                  key={item._id} 
+                  className="group flex flex-col items-center justify-center p-3 rounded-xl border border-transparent hover:border-primary/20 bg-slate-50 dark:bg-slate-800 hover:bg-orange-50 dark:hover:bg-primary/10 transition-all duration-200 text-slate-700 dark:text-slate-300 hover:text-primary"
+                >
+                   {/* Nếu có icon/image từ DB thì đưa vào đây, tạm thời dùng hình chữ nhật xám mờ như placeholder */}
+                   <div className="w-12 h-12 mb-2 rounded-full bg-white dark:bg-slate-700 shadow-sm border border-slate-100 dark:border-slate-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                     <span className="material-symbols-outlined text-slate-400 group-hover:text-primary">category</span>
+                   </div>
+                   <p className="text-center font-medium text-xs leading-tight line-clamp-2">{item.name}</p>
+                </Link>
              ))}
            </div>
         </section>
-      </div>
-      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 text-center ">
-       {/* Products Section */}
-        <section>
-          <div className="flex justify-between items-end mb-6">
-            <h3 className="text-2xl font-bold dark:text-white">Trending Now</h3>
-            <Link to="/products" className="text-primary font-bold text-sm hover:underline flex items-center gap-1">
-              View All <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </Link>
+
+        {/* 5. Gợi Ý Hôm Nay (Trending Now) */}
+        <section className="pt-4">
+          <div className="bg-white dark:bg-slate-900 border-b-2 border-primary sticky top-[64px] z-30 mb-4 p-4 shadow-sm text-center uppercase text-primary font-bold text-lg tracking-wider">
+             Gợi Ý Hôm Nay
           </div>
 
           {loading ? (
-            <div className="text-center py-10">Loading products...</div>
+            <div className="flex justify-center items-center py-20">
+               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               {products.map((product) => (
                 <ProductCard key={product._id} product={product} />
               ))}
             </div>
           )}
 
-          {/* Nút Xem Thêm chuyển trang */}
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center pb-8">
              <Link 
                to="/products" 
-               className="inline-block bg-white border border-slate-200 text-slate-700 px-6 py-2 rounded-full font-bold hover:bg-slate-50 transition-colors"
+               className="inline-block bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 px-10 py-2.5 rounded-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
              >
-               View More Products
+               Xem Thêm
              </Link>
           </div>
         </section>

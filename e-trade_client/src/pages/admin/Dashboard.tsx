@@ -1,6 +1,9 @@
 import React from 'react';
 import { AdminLayout } from '../components/admin/AdminLayout';
 import { Link } from 'react-router-dom';
+import { useAdminHomePage } from '@/src/hooks/admin/useAdminHomePage';
+import { useAdminReport } from '../../hooks/admin/useAdminReport'; // Import hook báo cáo
+import { useCurrency } from '../../context/CurrencyContext';
 
 // Component con để render thẻ thống kê cho gọn code
 const StatCard = ({ title, value, icon, trend, isPositive, colorClass }: any) => (
@@ -26,7 +29,12 @@ const StatCard = ({ title, value, icon, trend, isPositive, colorClass }: any) =>
 
 const AdminDashboard: React.FC = () => {
   // Giả lập dữ liệu, thực tế bạn sẽ gọi API từ custom hook (ví dụ: const { stats, loading } = useAdminDashboard();)
+  const { totalUsers, comparison, isPositive, loading } = useAdminHomePage();
   
+  // Dùng hook report để lấy tổng hoa hồng (Đã tính sẵn trong useAdminReport)
+  const { totalPlatformFee, loading: loadingReport } = useAdminReport(); 
+  const { formatPrice } = useCurrency();
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -46,12 +54,12 @@ const AdminDashboard: React.FC = () => {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard 
-            title="Tổng Doanh Thu" 
-            value="124.5M ₫" 
-            icon="payments" 
-            trend="+12.5%" 
+            title="Tổng Hoa Hồng Sàn (5%)" 
+            value={loadingReport ? "..." : formatPrice(totalPlatformFee)} // Hiển thị ở đây
+            icon="account_balance_wallet" 
+            trend="Thực tế" 
             isPositive={true} 
-            colorClass="bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20"
+            colorClass="bg-blue-100 text-blue-600 dark:bg-blue-500/20"
           />
           <StatCard 
             title="Sản phẩm chờ duyệt" 
@@ -63,10 +71,10 @@ const AdminDashboard: React.FC = () => {
           />
           <StatCard 
             title="Người dùng mới" 
-            value="128" 
+            value={totalUsers}
             icon="group_add" 
-            trend="+18%" 
-            isPositive={true} 
+            trend={comparison >= 0 ? `+${comparison}` : `${comparison}`}
+            isPositive={isPositive} 
             colorClass="bg-blue-100 text-blue-600 dark:bg-blue-500/20"
           />
           <StatCard 

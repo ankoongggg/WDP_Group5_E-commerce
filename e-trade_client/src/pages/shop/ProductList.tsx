@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ProductCard } from '../components/common/ProductCard';
 import { useProductList } from '../../hooks/useProductList';
+import ProductCard from '../components/ProductCard';
 
 const ProductList: React.FC = () => {
   // Lấy thêm fallbackProducts từ hook

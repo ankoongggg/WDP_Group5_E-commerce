@@ -1,5 +1,7 @@
 const Store = require('../models/Store');
+const User = require('../models/User');
 const Product = require('../models/Product');
+const Order = require('../models/Order');
 const Review = require('../models/ReviewProduct');
 const SellerRegistration = require('../models/SellerRegistration');
 const mongoose = require('mongoose');
@@ -133,7 +135,8 @@ exports.getStoreProducts = async (req, res) => {
 
         // Lấy sản phẩm với phân trang, lọc và sắp xếp
         const products = await Product.find(filter)
-            .select('name main_image price original_price')
+            .select('name main_image price original_price stock product_type store_id')
+            .populate('store_id', 'shop_name') // Thêm populate để lấy tên shop
             .sort(sortOptions)
             .skip(skip)
             .limit(limit);
@@ -175,8 +178,8 @@ exports.registerSeller = async (req, res) => {
             return res.status(400).json({ message: 'Bạn đã gửi đơn đăng kí seller, vui lòng chờ phê duyệt' });
         }
 
-        // Validate input
-        if (!shop_name || !shop_description || !identity_card || !pickup_address || !business_category) {
+        // Validate input (bao gồm phone vì schema yêu cầu)
+        if (!shop_name || !shop_description || !identity_card || !pickup_address || !business_category || !phone) {
             return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin' });
         }
 
@@ -213,6 +216,21 @@ exports.getSellerRegistrationStatus = async (req, res) => {
             .sort({ created_at: -1 });
 
         if (!registration) {
+            // Kiểm tra xem user đã có Store chưa (trường hợp đã duyệt nhưng đơn đăng kí bị xóa)
+            const existingStore = await Store.findOne({ user_id: userId });
+            
+            if (existingStore) {
+                // Tự động sửa lỗi: Cập nhật role seller cho user nếu chưa có
+                await User.findByIdAndUpdate(userId, { $addToSet: { role: 'seller' } });
+
+                // Trả về object giả lập trạng thái approved để frontend hiển thị đúng
+                return res.status(200).json({
+                    status: 'approved',
+                    shop_name: existingStore.shop_name,
+                    created_at: existingStore.created_at
+                });
+            }
+
             return res.status(404).json({ message: 'Bạn chưa gửi đơn đăng kí seller nào' });
         }
 
@@ -222,3 +240,174 @@ exports.getSellerRegistrationStatus = async (req, res) => {
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
     }
 };
+
+// Controller: Cập nhật thông tin đơn đăng kí seller
+exports.updateSellerRegistration = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { shop_name, shop_description, identity_card, identity_card_image, pickup_address, phone, business_category } = req.body;
+
+        // Tìm đơn đăng kí gần nhất
+        const registration = await SellerRegistration.findOne({ user_id: userId }).sort({ created_at: -1 });
+
+        if (!registration) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn đăng kí' });
+        }
+
+        // Chỉ cho phép sửa khi chưa được duyệt (pending hoặc rejected)
+        if (registration.status === 'approved') {
+            return res.status(400).json({ message: 'Đơn đăng kí đã được chấp thuận, không thể chỉnh sửa' });
+        }
+
+        // Cập nhật thông tin
+        if (shop_name) registration.shop_name = shop_name;
+        if (shop_description) registration.shop_description = shop_description;
+        if (identity_card) registration.identity_card = identity_card;
+        if (identity_card_image) registration.identity_card_image = identity_card_image;
+        if (pickup_address) registration.pickup_address = pickup_address;
+        if (phone) registration.phone = phone;
+        if (business_category) registration.business_category = business_category;
+
+        // Nếu đơn bị từ chối, khi sửa lại sẽ reset về pending để admin duyệt lại
+        if (registration.status === 'rejected') {
+            registration.status = 'pending';
+            registration.rejection_reason = undefined;
+        }
+
+        registration.updated_at = Date.now();
+        await registration.save();
+
+        res.status(200).json({ 
+            message: 'Cập nhật đơn đăng kí thành công',
+            registration 
+        });
+    } catch (error) {
+        console.error('Lỗi khi cập nhật đơn đăng kí:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
+
+// =====================================================
+// ADMIN ROUTES
+// =====================================================
+
+// Controller: Lấy danh sách seller đang chờ duyệt
+exports.getPendingSellers = async (req, res) => {
+    try {
+        const pendingSellers = await SellerRegistration.find({ status: 'pending' })
+            .populate('user_id', 'full_name email')
+            .sort({ created_at: -1 });
+
+        res.status(200).json(pendingSellers);
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách seller chờ duyệt:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
+
+// Controller: Phê duyệt đơn đăng kí seller
+exports.approveSeller = async (req, res) => {
+    try {
+        const registrationId = req.params.id;
+        // SỬA: Tìm trong SellerRegistration, không phải Store
+        const registration = await SellerRegistration.findById(registrationId);
+
+        if (!registration) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn đăng kí' });
+        }
+        if (registration.status !== 'pending') {
+            return res.status(400).json({ message: 'Đơn đăng kí này đã được xử lý' });
+        }
+
+        // Tạo cửa hàng mới từ thông tin đăng kí
+        const newStore = new Store({
+            user_id: registration.user_id,
+            shop_name: registration.shop_name,
+            description: registration.shop_description, // Map trường dữ liệu
+            identity_card: registration.identity_card,
+            pickup_address: registration.pickup_address,
+            phone: registration.phone,
+            status: 'active' // Cửa hàng mới được active ngay
+        });
+
+        await newStore.save();
+
+        // Cập nhật quyền user thành seller để hiển thị menu quản lý shop
+        // Dùng $addToSet để thêm 'seller' vào mảng role một cách an toàn
+        await User.findByIdAndUpdate(registration.user_id, { 
+            $addToSet: { role: 'seller' } 
+        });
+
+        // Xóa đơn đăng kí đã được xử lý để dọn dẹp
+        await SellerRegistration.findByIdAndDelete(registrationId);
+
+        res.status(200).json({ message: 'Phê duyệt seller thành công', store: newStore });
+    } catch (error) {
+        console.error('Lỗi khi phê duyệt seller:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
+
+// Controller: Từ chối đơn đăng kí seller
+exports.rejectSeller = async (req, res) => {
+    try {
+        const registrationId = req.params.id;
+        const { reason } = req.body; // Cho phép admin gửi lý do từ chối (nếu có)
+
+        // SỬA: Tìm và cập nhật trong SellerRegistration, không phải xóa Store
+        const registration = await SellerRegistration.findById(registrationId);
+
+        if (!registration) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn đăng kí' });
+        }
+        if (registration.status !== 'pending') {
+            return res.status(400).json({ message: 'Đơn đăng kí này đã được xử lý' });
+        }
+
+        // Cập nhật trạng thái thành 'rejected' và lưu lý do để người dùng xem
+        registration.status = 'rejected';
+        registration.rejection_reason = reason || 'Thông tin cung cấp chưa hợp lệ. Vui lòng chỉnh sửa và gửi lại.';
+        // some existing documents may lack required fields; skip validation on save to avoid errors
+        await registration.save({ validateBeforeSave: false });
+
+        res.status(200).json({ message: 'Từ chối seller thành công', registration });
+    } catch (error) {
+        console.error('Lỗi khi từ chối seller:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
+//admin func
+exports.getListingStoresAndRevenuesTotalOrdersFromProductOfEachStore = async (req,res) => {
+    try {
+        const stores = await Store.find({}).populate('user_id', 'full_name email phone').lean();
+        
+        for (const store of stores) {
+            const products = await Product.find({ store_id: store._id }).select('_id');
+            const productIds = products.map(p => p._id);
+
+            if (productIds.length === 0) {
+                store.platform_fee = 0; // Sửa tên field
+                store.total_orders = 0;
+                continue;
+            }
+
+            const orders = await Order.find({
+                items: { $elemMatch: { product_id: { $in: productIds } } }
+            });
+
+            let totalRevenue = 0;
+            orders.forEach(order => {
+                totalRevenue += order.total_amount;
+            });
+
+            // LOGIC MỚI: Chỉ lưu hoa hồng sàn (5% của tổng doanh thu)
+            store.platform_fee = totalRevenue * 0.05; 
+            store.total_orders = orders.length;
+        }
+
+        res.status(200).json(stores);
+    } catch (err){
+        console.error('Lỗi khi lấy danh sách cửa hàng:', err);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });    
+    }
+}
