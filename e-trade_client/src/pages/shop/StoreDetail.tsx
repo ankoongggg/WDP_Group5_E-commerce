@@ -166,7 +166,7 @@ const StoreDetail: React.FC = () => {
         {/* Store Header */}
         <div className="flex flex-col md:flex-row items-center gap-8 p-8 rounded-xl bg-slate-100 dark:bg-slate-800 mb-12">
           <img 
-            src={store.user_id.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(store.shop_name)}&background=random&color=fff`} 
+            src={store.user_id?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(store.shop_name)}&background=random&color=fff`} 
             alt={store.shop_name}
             className="w-32 h-32 rounded-full object-cover border-4 border-white dark:border-slate-700 shadow-lg"
           />

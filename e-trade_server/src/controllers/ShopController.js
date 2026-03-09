@@ -62,7 +62,9 @@ const getPaymentMethods = async (req, res) => {
 const createOrder = async (req, res) => {
     try {
         console.log('[LOG] 1. Received createOrder request.');
-        const { items, shippingAddress, shippingMethod, paymentMethod, shippingCost } = req.body;
+        
+        // --- CHỖ SỬA SỐ 1: Bóc thêm shipping_address từ req.body ---
+        const { items, shippingAddress, shipping_address, shippingMethod, paymentMethod, shippingCost } = req.body;
         const customerId = req.user.id;
 
         // Validation
@@ -70,7 +72,8 @@ const createOrder = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Cart is empty' });
         }
 
-        if (!shippingAddress) {
+        // --- CHỖ SỬA SỐ 2: Check điều kiện lấy 1 trong 2 ---
+        if (!shippingAddress && !shipping_address) {
             return res.status(400).json({ success: false, message: 'Shipping address is required' });
         }
 
@@ -166,7 +169,6 @@ const createOrder = async (req, res) => {
             console.log(`[LOG] 6. Product ${product._id} saved successfully.`);
         }
 
-
         // Tạo order
         console.log('[LOG] 7. All items processed. Attempting to create order...');
         const order = await Order.create({
@@ -176,7 +178,10 @@ const createOrder = async (req, res) => {
             total_price: totalPrice,
             shipping_fee: shippingCost || 0, // Sử dụng shippingCost từ request, fallback về 0
             total_amount: totalPrice + (shippingCost || 0),
-            shipping_address: shippingAddress,
+
+            // --- CHỖ SỬA SỐ 3: Ép cứng lấy đúng địa chỉ lấy từ req.body ---
+            shipping_address: shipping_address || shippingAddress, 
+
             payment_method: paymentMethod,
             payment_status: 'pending',
             order_status: 'pending',

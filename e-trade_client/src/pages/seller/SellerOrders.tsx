@@ -86,6 +86,7 @@ const SellerOrders: React.FC = () => {
                                         <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
                                             order.order_status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                                             order.order_status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
+                                            order.order_status === 'shipping' ? 'bg-indigo-100 text-indigo-700' :
                                             order.order_status === 'completed' ? 'bg-green-100 text-green-700' :
                                             order.order_status === 'cancelled' ? 'bg-red-100 text-red-700' :
                                             'bg-slate-100 text-slate-700'
@@ -113,22 +114,50 @@ const SellerOrders: React.FC = () => {
                                 ))}
                             </div>
 
-                            <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-700">
-                                <div className="text-sm text-slate-500">
-                                    Khách hàng: <span className="font-medium text-slate-900 dark:text-white">{order.customer_id?.full_name || 'N/A'}</span>
+                            {/* Khối hiển thị thông tin giao hàng ĐÃ FIX THEO SCHEMA ORDER.JS */}
+                            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg mb-4 text-sm border border-slate-100 dark:border-slate-700">
+                                <div className="font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[18px] text-primary">local_shipping</span> 
+                                    Thông tin giao hàng
                                 </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    <div>
+                                        <span className="text-slate-500">Người nhận: </span>
+                                        <span className="font-medium text-slate-900 dark:text-white">
+                                            {order.shipping_address?.recipient_name || order.customer_id?.full_name || 'Khách hàng'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-slate-500">SĐT: </span>
+                                        <span className="font-medium text-slate-900 dark:text-white">
+                                            {order.shipping_address?.phone || order.customer_id?.phone || 'Chưa cập nhật'}
+                                        </span>
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <span className="text-slate-500">Địa chỉ: </span>
+                                        <span className="font-medium text-slate-900 dark:text-white">
+                                            {order.shipping_address?.full_address || 'Chưa có thông tin địa chỉ'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-center pt-2">
+                                {/* Cột trống để cân bằng Flexbox */}
+                                <div></div>
+                                
                                 <div className="flex gap-2">
                                     {order.order_status === 'pending' && (
                                         <>
-                                            <button onClick={() => handleUpdateStatus(order._id, 'cancelled')} className="px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium text-sm">Từ chối</button>
-                                            <button onClick={() => handleUpdateStatus(order._id, 'confirmed')} className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 font-medium text-sm">Xác nhận đơn</button>
+                                            <button onClick={() => handleUpdateStatus(order._id, 'cancelled')} className="px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium text-sm transition-colors">Từ chối</button>
+                                            <button onClick={() => handleUpdateStatus(order._id, 'confirmed')} className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 font-medium text-sm transition-colors shadow-sm">Xác nhận đơn</button>
                                         </>
                                     )}
                                     {order.order_status === 'confirmed' && (
-                                        <button onClick={() => handleUpdateStatus(order._id, 'shipping')} className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium text-sm">Giao hàng</button>
+                                        <button onClick={() => handleUpdateStatus(order._id, 'shipping')} className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-medium text-sm transition-colors shadow-sm">Giao hàng</button>
                                     )}
                                     {order.order_status === 'shipping' && (
-                                        <button onClick={() => handleUpdateStatus(order._id, 'completed')} className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 font-medium text-sm">Đã giao hàng</button>
+                                        <button onClick={() => handleUpdateStatus(order._id, 'completed')} className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 font-medium text-sm transition-colors shadow-sm">Đã giao hàng</button>
                                     )}
                                 </div>
                             </div>

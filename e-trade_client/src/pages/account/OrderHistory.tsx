@@ -26,6 +26,7 @@ interface Order {
   items: OrderItem[];
   created_at: string;
   seller_id?: {
+    _id: string; // ĐÃ THÊM: Phải có dòng này TypeScript mới cho chạy Link to={order.seller_id._id}
     shop_name: string;
   }
 }
@@ -135,11 +136,24 @@ const OrderHistory: React.FC = () => {
               filteredOrders.map(order => (
                 <div key={order._id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 border border-slate-100 dark:border-slate-700">
                   <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">
+                    
+                    {/* ĐÃ CẬP NHẬT: Giao diện hiển thị Shop */}
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-slate-500">storefront</span>
-                      <span className="font-bold dark:text-white">{order.seller_id?.shop_name || 'Cửa hàng'}</span>
-                      <Link to={`/account/orders/${order._id}`} className="bg-slate-100 dark:bg-slate-700 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white">Xem chi tiết</Link>
+                      {order.seller_id?._id ? (
+                        <>
+                          <Link to={`/stores/${order.seller_id._id}`} className="font-bold text-slate-900 dark:text-white hover:text-primary transition-colors">
+                            {order.seller_id.shop_name}
+                          </Link>
+                          <Link to={`/stores/${order.seller_id._id}`} className="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">store</span> Xem Shop
+                          </Link>
+                        </>
+                      ) : (
+                        <span className="font-bold dark:text-white">Cửa hàng</span>
+                      )}
                     </div>
+
                     <div className={`text-sm font-bold uppercase flex items-center gap-1 ${getStatusColor(order.order_status)}`}>
                       <span className="material-symbols-outlined text-lg">{order.order_status === 'completed' ? 'check_circle' : 'local_shipping'}</span>
                       {getStatusLabel(order.order_status)}
@@ -164,6 +178,18 @@ const OrderHistory: React.FC = () => {
                   <div className="border-t border-slate-100 dark:border-slate-700 pt-4 mt-4 flex flex-col sm:flex-row justify-between items-end sm:items-center gap-4">
                     <div className="text-right sm:text-left"><span className="text-sm text-slate-500 mr-2">Thành tiền:</span><span className="text-xl font-bold text-primary">{formatPrice(order.total_amount)}</span></div>
                     <div className="flex gap-3">
+                      
+                      {/* Thêm lại nút Đánh Giá cho chuẩn */}
+                      {order.order_status === 'completed' && order.items?.[0]?.product_id?._id && (
+                        <Link 
+                          to={`/account/feedback?productId=${order.items[0].product_id._id}&orderId=${order._id}`} 
+                          className="px-6 py-2 rounded-lg border border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 font-medium hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">star</span>
+                          Đánh giá
+                        </Link>
+                      )}
+
                       <Link to={`/account/orders/${order._id}`} className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors">Xem chi tiết</Link>
                     </div>
                   </div>

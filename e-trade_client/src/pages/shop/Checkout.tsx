@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { Layout } from '../components/Layout';
 import { useCart } from '../../context/CartContext';
 import { useCurrency } from '../../context/CurrencyContext';
@@ -21,17 +22,16 @@ const Checkout: React.FC = () => {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [useCustomAddress, setUseCustomAddress] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [customAddress, setCustomAddress] = useState({
     street: '',
     district: '',
     city: ''
   });
 
-  // Lấy địa chỉ default hoặc địa chỉ đầu tiên
   const addresses = user?.addresses || [];
-  const defaultAddress = addresses.find((addr: any) => addr.isDefault) || addresses[0];
+  const defaultAddress = addresses.find((addr: any) => addr.is_default || addr.isDefault) || addresses[0];
   
-  // Lấy địa chỉ hiện tại dựa vào mode (form hoặc list)
   const getSelectedAddress = () => {
     if (useCustomAddress) {
       return customAddress;
@@ -44,7 +44,7 @@ const Checkout: React.FC = () => {
   
   const currentAddress = getSelectedAddress();
 
-  const shippingCost = shippingMethod === 'standard' ? 12000 : 25000; // VND
+  const shippingCost = shippingMethod === 'standard' ? 12000 : 25000;
   const orderTotal = cartTotal + shippingCost;
 
   const checkStockAndPlaceOrder = async () => {
@@ -61,18 +61,25 @@ const Checkout: React.FC = () => {
     try {
       setIsPlacingOrder(true);
 
-      // Tạo payload và gửi thẳng lên server.
-      // Server sẽ chịu trách nhiệm kiểm tra tồn kho một cách an toàn và chính xác nhất.
       const orderData = {
-        items: cart.map(item => ({ // Chỉ gửi những gì server cần
+        items: cart.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
         })),
+        
+        // ĐÃ FIX: Gửi đúng chuẩn model Order.js xuống DB
+        shipping_address: { 
+            recipient_name: user?.full_name || user?.account_name || 'Khách hàng',
+            phone: user?.phone || '',
+            full_address: `${currentAddress.street}, ${currentAddress.district}, ${currentAddress.city}`
+        },
+        // Giữ lại cái này đề phòng API cũ của bạn cần dùng để tính phí ship
         shippingAddress: {
           street: currentAddress.street,
           district: currentAddress.district,
           city: currentAddress.city,
         },
+
         shippingMethod,
         paymentMethod,
         shippingCost,
@@ -81,13 +88,10 @@ const Checkout: React.FC = () => {
       const orderResponse = await shopApi.createOrder(orderData);
 
       toast.success('Đặt hàng thành công!');
-      setIsRedirecting(true); // Bật màn hình chờ, che đi giao diện cũ để không bị lỗi hiển thị
+      setIsRedirecting(true); 
 
-      // Chờ một chút để user thấy thông báo, sau đó mới thực sự xóa giỏ hàng và chuyển trang
       setTimeout(() => {
         clearCart();
-        // Fix: Lấy orderId an toàn hơn (hỗ trợ cả trường hợp response là axios object hoặc data raw)
-        // Ưu tiên cấu trúc: response.data.data.orderId (Axios) -> response.data.orderId (Interceptor)
         const orderId = orderResponse.data?.data?.orderId || orderResponse.data?.orderId || orderResponse?.data?.orderId;
         navigate(`/account/orders/${orderId}`);
       }, 1200);
@@ -95,11 +99,10 @@ const Checkout: React.FC = () => {
       const message = error.response?.data?.message || 'Không thể đặt hàng. Vui lòng thử lại';
       toast.error(message);
       console.error('Order placement error:', error);
-      setIsPlacingOrder(false); // Chỉ tắt loading khi có lỗi
+      setIsPlacingOrder(false); 
     }
   };
 
-  // Giao diện khi đặt hàng thành công, chờ chuyển hướng để tránh lỗi render
   if (isRedirecting) {
     return (
       <Layout>
@@ -130,34 +133,27 @@ const Checkout: React.FC = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-bold dark:text-white">
-                    {user?.full_name || user?.name || 'Khách hàng'} 
-                    <span className="font-normal text-slate-500"> | {user?.phone || 'N/A'}</span>
+                    {user?.full_name || user?.account_name || 'Khách hàng'} 
+                    <span className="font-normal text-slate-500"> | {user?.phone || 'Chưa cập nhật SĐT'}</span>
                   </p>
                   <p className="text-slate-600 dark:text-slate-400 mt-1">
                     {currentAddress ? `${currentAddress.street}, ${currentAddress.district}, ${currentAddress.city}` : 'Chưa có địa chỉ'}
                   </p>
                 </div>
-                {currentAddress?.isDefault && (
+                {(currentAddress?.is_default || currentAddress?.isDefault) && (
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">Mặc định</span>
                 )}
               </div>
             </section>
 
             {/* Shipping Method Section */}
-            <section className="bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/20 p-6 shadow-sm">
+            <section className="bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/20 p-6 shadow-sm mt-6">
               <h2 className="text-lg font-bold flex items-center gap-2 mb-6 dark:text-white">
                 <span className="material-symbols-outlined text-primary">local_shipping</span> Phương thức vận chuyển
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <label className={`relative flex cursor-pointer rounded-xl border p-4 transition-all ${shippingMethod === 'standard' ? 'border-primary bg-primary/5 ring-2 ring-primary' : 'border-slate-200 dark:border-primary/20'}`}>
-                  <input 
-                    type="radio" 
-                    name="shipping" 
-                    value="standard"
-                    checked={shippingMethod === 'standard'}
-                    onChange={() => setShippingMethod('standard')}
-                    className="sr-only" 
-                  />
+                  <input type="radio" name="shipping" value="standard" checked={shippingMethod === 'standard'} onChange={() => setShippingMethod('standard')} className="sr-only" />
                   <span className="flex flex-1 flex-col">
                     <span className="block text-sm font-bold text-slate-900 dark:text-white">Giao hàng thường</span>
                     <span className="text-xs text-slate-500 mt-1">3-5 ngày làm việc</span>
@@ -165,14 +161,7 @@ const Checkout: React.FC = () => {
                   <span className="text-sm font-bold text-primary">{formatPrice(12000)}</span>
                 </label>
                 <label className={`relative flex cursor-pointer rounded-xl border p-4 transition-all ${shippingMethod === 'express' ? 'border-primary bg-primary/5 ring-2 ring-primary' : 'border-slate-200 dark:border-primary/20'}`}>
-                  <input 
-                    type="radio" 
-                    name="shipping"
-                    value="express"
-                    checked={shippingMethod === 'express'}
-                    onChange={() => setShippingMethod('express')}
-                    className="sr-only" 
-                  />
+                  <input type="radio" name="shipping" value="express" checked={shippingMethod === 'express'} onChange={() => setShippingMethod('express')} className="sr-only" />
                   <span className="flex flex-1 flex-col">
                     <span className="block text-sm font-bold text-slate-900 dark:text-white">Giao hàng nhanh</span>
                     <span className="text-xs text-slate-500 mt-1">1-2 ngày làm việc</span>
@@ -183,36 +172,18 @@ const Checkout: React.FC = () => {
             </section>
 
             {/* Payment Method Section */}
-            <section className="bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/20 p-6 shadow-sm">
+            <section className="bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/20 p-6 shadow-sm mt-6">
               <h2 className="text-lg font-bold flex items-center gap-2 mb-6 dark:text-white">
                 <span className="material-symbols-outlined text-primary">credit_card</span> Phương thức thanh toán
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <label 
-                  className={`flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentMethod === 'credit' ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-primary/20'}`}
-                >
-                  <input 
-                    type="radio" 
-                    name="payment"
-                    value="credit"
-                    checked={paymentMethod === 'credit'}
-                    onChange={() => setPaymentMethod('credit')}
-                    className="sr-only" 
-                  />
+                <label className={`flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentMethod === 'credit' ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-primary/20'}`}>
+                  <input type="radio" name="payment" value="credit" checked={paymentMethod === 'credit'} onChange={() => setPaymentMethod('credit')} className="sr-only" />
                   <span className={`material-symbols-outlined ${paymentMethod === 'credit' ? 'text-primary' : 'text-slate-500'}`}>credit_card</span>
                   <span className={`text-xs font-bold mt-2 ${paymentMethod === 'credit' ? 'text-primary dark:text-white' : 'text-slate-500'}`}>Thẻ tín dụng</span>
                 </label>
-                <label 
-                  className={`flex flex-col items-center justify-center p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'cod' ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-primary/20'}`}
-                >
-                  <input 
-                    type="radio" 
-                    name="payment"
-                    value="cod"
-                    checked={paymentMethod === 'cod'}
-                    onChange={() => setPaymentMethod('cod')}
-                    className="sr-only" 
-                  />
+                <label className={`flex flex-col items-center justify-center p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'cod' ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-primary/20'}`}>
+                  <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="sr-only" />
                   <span className={`material-symbols-outlined ${paymentMethod === 'cod' ? 'text-primary' : 'text-slate-500'}`}>payments</span>
                   <span className={`text-xs font-bold mt-2 ${paymentMethod === 'cod' ? 'text-primary dark:text-white' : 'text-slate-500'}`}>Thanh toán khi nhận</span>
                 </label>
@@ -226,7 +197,7 @@ const Checkout: React.FC = () => {
                   </div>
                   <div>
                     <label htmlFor="cardName" className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên chủ thẻ</label>
-                    <input id="cardName" type="text" placeholder={user?.full_name || user?.name || 'Tên'} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg" />
+                    <input id="cardName" type="text" placeholder={user?.full_name || user?.account_name || 'Tên'} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg" />
                   </div>
                 </div>
               )}
@@ -238,7 +209,6 @@ const Checkout: React.FC = () => {
             <div className="bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/20 p-6 shadow-lg sticky top-24">
               <h2 className="text-lg font-bold mb-6 dark:text-white">Tóm tắt đơn hàng</h2>
               
-              {/* Cart Items */}
               <div className="space-y-4 mb-6 border-b border-slate-100 dark:border-primary/10 pb-6 max-h-64 overflow-y-auto">
                 {cart.map((item) => (
                   <div key={item.productId} className="flex gap-3 text-sm">
@@ -252,7 +222,6 @@ const Checkout: React.FC = () => {
                 ))}
               </div>
 
-              {/* Price Breakdown */}
               <div className="space-y-4 text-sm border-b border-slate-100 dark:border-primary/10 pb-4 mb-4">
                 <div className="flex justify-between text-slate-600 dark:text-slate-400">
                   <span>Tạm tính</span>
@@ -279,13 +248,9 @@ const Checkout: React.FC = () => {
                 }`}
               >
                 {isPlacingOrder ? (
-                  <>
-                    <span className="material-symbols-outlined animate-spin">loop</span> Đang xử lý...
-                  </>
+                  <><span className="material-symbols-outlined animate-spin">loop</span> Đang xử lý...</>
                 ) : (
-                  <>
-                    Đặt hàng <span className="material-symbols-outlined">arrow_forward</span>
-                  </>
+                  <>Đặt hàng <span className="material-symbols-outlined">arrow_forward</span></>
                 )}
               </button>
             </div>
@@ -312,57 +277,50 @@ const Checkout: React.FC = () => {
 
             {showAddressForm === false ? (
               <>
-                {/* Show saved addresses list */}
-                {addresses.length > 0 ? (
-                  <div className="space-y-3 mb-6">
-                    {addresses.map((addr: any) => (
-                      <label 
-                        key={addr._id}
-                        className={`relative flex cursor-pointer rounded-xl border-2 p-4 transition-all ${
-                          selectedAddressId === addr._id || (!selectedAddressId && addr.isDefault)
-                            ? 'border-primary bg-primary/5'
-                            : 'border-slate-200 dark:border-slate-700 hover:border-primary/50'
-                        }`}
-                      >
-                        <input 
-                          type="radio"
-                          name="address"
-                          checked={selectedAddressId === addr._id || (!selectedAddressId && addr.isDefault)}
-                          onChange={() => {
-                            setSelectedAddressId(addr._id);
-                            setUseCustomAddress(false);
-                          }}
-                          className="sr-only"
-                        />
-                        <div className="flex-1">
-                          <p className="font-bold text-slate-900 dark:text-white">
-                            {addr.street}
-                          </p>
-                          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                            {addr.district}, {addr.city}
-                          </p>
-                        </div>
-                        {addr.isDefault && (
-                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">Mặc định</span>
-                        )}
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-slate-600 dark:text-slate-400 text-center py-8 mb-6">Chưa có địa chỉ nào</p>
-                )}
+                <div className="space-y-3 mb-6">
+                  {addresses.map((addr: any) => (
+                    <label 
+                      key={addr._id}
+                      className={`relative flex cursor-pointer rounded-xl border-2 p-4 transition-all ${
+                        selectedAddressId === addr._id || (!selectedAddressId && (addr.is_default || addr.isDefault))
+                          ? 'border-primary bg-primary/5'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-primary/50'
+                      }`}
+                    >
+                      <input 
+                        type="radio"
+                        name="address"
+                        checked={selectedAddressId === addr._id || (!selectedAddressId && (addr.is_default || addr.isDefault))}
+                        onChange={() => {
+                          setSelectedAddressId(addr._id);
+                          setUseCustomAddress(false);
+                        }}
+                        className="sr-only"
+                      />
+                      <div className="flex-1">
+                        <p className="font-bold text-slate-900 dark:text-white">
+                          {addr.street}
+                        </p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                          {addr.district}, {addr.city}
+                        </p>
+                      </div>
+                      {(addr.is_default || addr.isDefault) && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">Mặc định</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
 
-                {/* Button to add custom address */}
                 <button
                   onClick={() => setShowAddressForm(true)}
                   className="w-full px-4 py-3 border-2 border-dashed border-primary text-primary rounded-xl font-bold hover:bg-primary/5 transition-all mb-6"
                 >
-                  <span className="material-symbols-outlined align-middle">add_location</span> Nhập địa chỉ khác
+                  <span className="material-symbols-outlined align-middle">add_location</span> Thêm địa chỉ mới
                 </button>
               </>
             ) : (
               <>
-                {/* Form to enter custom address */}
                 <div className="space-y-4 mb-6">
                   <div>
                     <label htmlFor="street" className="block text-sm font-bold text-slate-700 dark:text-white mb-2">Đường/Số nhà</label>
@@ -410,35 +368,71 @@ const Checkout: React.FC = () => {
               </>
             )}
 
-            {/* Action buttons */}
             <div className="flex gap-3 mt-6 border-t border-slate-200 dark:border-slate-700 pt-6">
               <button 
                 onClick={() => {
                   setShowAddressModal(false);
                   setShowAddressForm(false);
                 }}
-                className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl font-bold dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                disabled={isSavingAddress}
+                className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl font-bold dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
               >
                 Hủy
               </button>
+              
               <button 
-                onClick={() => {
+                onClick={async () => {
                   if (showAddressForm) {
                     if (!customAddress.street || !customAddress.district || !customAddress.city) {
                       toast.error('Vui lòng nhập đầy đủ thông tin địa chỉ');
                       return;
                     }
-                    setUseCustomAddress(true);
+                    
+                    setIsSavingAddress(true);
+                    try {
+                      const newAddressObj = {
+                        street: customAddress.street,
+                        district: customAddress.district,
+                        city: customAddress.city,
+                        is_default: addresses.length === 0, 
+                        recipient_name: user?.full_name || user?.account_name || 'Khách hàng',
+                        phone: user?.phone || ''
+                      };
+
+                      const token = localStorage.getItem('accessToken');
+                      const updatedAddresses = [...addresses, newAddressObj];
+
+                      await axios.put('http://localhost:9999/api/users/me', 
+                        { addresses: updatedAddresses },
+                        { headers: { Authorization: `Bearer ${token}` } }
+                      );
+
+                      toast.success('Đã lưu địa chỉ mới vào hồ sơ!');
+                      setUseCustomAddress(true);
+                      setShowAddressModal(false);
+                      setShowAddressForm(false);
+                    } catch (error) {
+                      console.error("Lỗi lưu địa chỉ:", error);
+                      toast.error('Không thể lưu vào DB nhưng vẫn dùng cho đơn này được.');
+                      setUseCustomAddress(true);
+                      setShowAddressModal(false);
+                      setShowAddressForm(false);
+                    } finally {
+                      setIsSavingAddress(false);
+                    }
+
                   } else {
                     setUseCustomAddress(false);
+                    setShowAddressModal(false);
+                    setShowAddressForm(false);
+                    toast.success('Đã chọn địa chỉ giao hàng');
                   }
-                  setShowAddressModal(false);
-                  setShowAddressForm(false);
-                  toast.success('Đã cập nhật địa chỉ giao hàng');
                 }}
-                className="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all"
+                disabled={isSavingAddress}
+                className="flex-1 px-4 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all flex justify-center items-center gap-2 disabled:bg-slate-400"
               >
-                Xác nhận
+                {isSavingAddress ? <span className="material-symbols-outlined animate-spin">sync</span> : null}
+                {isSavingAddress ? 'Đang lưu...' : 'Xác nhận'}
               </button>
             </div>
           </div>
