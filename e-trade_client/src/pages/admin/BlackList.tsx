@@ -1,19 +1,30 @@
 import React, { useState } from 'react';
-import { AdminLayout } from '../components/admin/AdminLayout';
+import { AdminLayout } from '../../pages/components/admin/AdminLayout';
+import { useAdminBlacklist } from '../../hooks/admin/useAdminBlacklist';
 
 export const AdminBlacklist: React.FC = () => {
-  const [keywords, setKeywords] = useState([
-    { id: 1, word: 'súng', level: 'high' },
-    { id: 2, word: 'ma túy', level: 'critical' },
-    { id: 3, word: 'lừa đảo', level: 'medium' },
-  ]);
+  // Lấy dữ liệu và hàm từ Hook
+  const { keywords, loading, handleAddKeyword, handleDeleteKeyword } = useAdminBlacklist();
+
+  // State lưu trữ dữ liệu form
+  const [keywordInput, setKeywordInput] = useState('');
+  const [levelInput, setLevelInput] = useState('medium');
 
   const getLevelBadge = (level: string) => {
     switch(level) {
       case 'critical': return <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded font-bold">Nghiêm trọng (Khóa nick)</span>;
       case 'high': return <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded font-bold">Cao (Xóa bài)</span>;
       case 'medium': return <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded font-bold">Trung bình (Cảnh cáo)</span>;
-      default: return null;
+      default: return <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded font-bold">{level}</span>;
+    }
+  };
+
+  const onSubmitAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const isSuccess = await handleAddKeyword(keywordInput, levelInput);
+    if (isSuccess) {
+      setKeywordInput(''); // Xóa ô input sau khi thêm thành công
+      setLevelInput('medium'); // Reset level về mặc định
     }
   };
 
@@ -26,21 +37,37 @@ export const AdminBlacklist: React.FC = () => {
           <h3 className="font-bold text-lg mb-4 dark:text-white flex items-center gap-2">
              <span className="material-symbols-outlined text-red-500">gavel</span> Thêm Từ Khóa Cấm
           </h3>
-          <form className="space-y-4">
+          <form onSubmit={onSubmitAdd} className="space-y-4">
             <div>
               <label className="text-sm text-slate-500 mb-1 block">Từ khóa</label>
-              <input type="text" className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl px-4 py-2 outline-none dark:text-white" placeholder="Nhập từ cần cấm..." />
+              <input 
+                type="text" 
+                value={keywordInput}
+                onChange={(e) => setKeywordInput(e.target.value)}
+                className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-2 outline-none dark:text-white focus:ring-2 focus:ring-red-500" 
+                placeholder="Nhập từ cần cấm..." 
+                disabled={loading}
+              />
             </div>
             <div>
               <label className="text-sm text-slate-500 mb-1 block">Mức độ vi phạm</label>
-              <select className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl px-4 py-2 outline-none dark:text-white appearance-none">
+              <select 
+                value={levelInput}
+                onChange={(e) => setLevelInput(e.target.value)}
+                className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-2 outline-none dark:text-white appearance-none cursor-pointer"
+                disabled={loading}
+              >
                 <option value="medium">Trung bình (Cảnh cáo)</option>
                 <option value="high">Cao (Xóa sản phẩm)</option>
                 <option value="critical">Nghiêm trọng (Khóa tài khoản)</option>
               </select>
             </div>
-            <button type="button" className="w-full bg-red-500 text-white font-bold py-2 rounded-xl hover:bg-red-600 transition-colors">
-              Đưa vào Blacklist
+            <button 
+              type="submit" 
+              disabled={loading || !keywordInput.trim()}
+              className="w-full bg-red-500 text-white font-bold py-2 rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Đang xử lý...' : 'Đưa vào Blacklist'}
             </button>
           </form>
         </div>
@@ -56,17 +83,27 @@ export const AdminBlacklist: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
-              {keywords.map((kw) => (
-                <tr key={kw.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                  <td className="p-4 font-bold text-slate-800 dark:text-slate-200">"{kw.word}"</td>
-                  <td className="p-4">{getLevelBadge(kw.level)}</td>
-                  <td className="p-4 text-center">
-                    <button className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Xóa">
-                      <span className="material-symbols-outlined text-[20px]">delete</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {loading && keywords.length === 0 ? (
+                 <tr><td colSpan={3} className="p-6 text-center text-slate-500">Đang tải...</td></tr>
+              ) : keywords.length === 0 ? (
+                 <tr><td colSpan={3} className="p-6 text-center text-slate-500">Chưa có từ khóa nào trong danh sách.</td></tr>
+              ) : (
+                keywords.map((kw) => (
+                  <tr key={kw._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="p-4 font-bold text-slate-800 dark:text-slate-200">"{kw.keyword}"</td>
+                    <td className="p-4">{getLevelBadge(kw.level)}</td>
+                    <td className="p-4 text-center">
+                      <button 
+                        onClick={() => handleDeleteKeyword(kw._id)}
+                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors" 
+                        title="Xóa"
+                      >
+                        <span className="material-symbols-outlined text-[20px] block">delete</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
