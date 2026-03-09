@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { Layout } from '../components/Layout';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
+import { orderApi } from '../../services/api';
 
 const OrderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,19 +16,16 @@ const OrderDetail: React.FC = () => {
   useEffect(() => {
     const fetchOrderDetail = async () => {
       // Fix: Kiểm tra id hợp lệ trước khi gọi API
-      if (!id || id === 'undefined') {
+      if (!id) {
+        toast.error('Invalid Order ID');
+        navigate('/account/orders');
         return;
       }
 
       try {
-        const token = localStorage.getItem('accessToken');
-        const response = await axios.get(`http://localhost:9999/api/shop/orders/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (response.data.success) {
-          setOrder(response.data.data);
-        }
-      } catch (error) {
+        const data = await orderApi.getOrderDetail(id);
+        setOrder(data.data || data);
+      } catch (error: any) {
         console.error('Failed to fetch order detail', error);
         toast.error('Không tìm thấy đơn hàng');
         navigate('/account/orders');

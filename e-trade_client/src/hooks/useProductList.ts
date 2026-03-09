@@ -33,7 +33,7 @@ export const useProductList = () => {
     const initData = async () => {
       try {
         const [catRes, prodRes] = await Promise.all([
-            CategoryService.getAll({}),
+            CategoryService.getAllOnHomePage({}),
             ProductService.getAll({ limit: 1000 })
         ]);
 

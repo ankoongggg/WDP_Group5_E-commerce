@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
 import { Layout } from '../components/Layout';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
+import { orderApi } from '../../services/api';
 
 interface OrderItem {
   product_id: {
@@ -48,14 +48,9 @@ const OrderHistory: React.FC = () => {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
-        const response = await axios.get('http://localhost:9999/api/shop/orders', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (response.data.success) {
-          setOrders(response.data.data);
-        }
-      } catch (error) {
+        const data = await orderApi.getMyOrders();
+        setOrders(Array.isArray(data) ? data : data.data || []);
+      } catch (error: any) {
         console.error('Failed to fetch orders', error);
       } finally {
         setLoading(false);

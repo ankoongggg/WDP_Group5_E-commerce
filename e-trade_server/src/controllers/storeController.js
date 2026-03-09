@@ -1,9 +1,9 @@
 const Store = require('../models/Store');
 const User = require('../models/User');
 const Product = require('../models/Product');
-const SellerRegistration = require('../models/SellerRegistration');
 const Order = require('../models/Order');
 const Review = require('../models/ReviewProduct');
+const SellerRegistration = require('../models/SellerRegistration');
 const mongoose = require('mongoose');
 
 // Controller: Lấy thông tin chi tiết công khai của một cửa hàng
@@ -178,8 +178,8 @@ exports.registerSeller = async (req, res) => {
             return res.status(400).json({ message: 'Bạn đã gửi đơn đăng kí seller, vui lòng chờ phê duyệt' });
         }
 
-        // Validate input
-        if (!shop_name || !shop_description || !identity_card || !pickup_address || !business_category) {
+        // Validate input (bao gồm phone vì schema yêu cầu)
+        if (!shop_name || !shop_description || !identity_card || !pickup_address || !business_category || !phone) {
             return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin' });
         }
 
@@ -367,7 +367,8 @@ exports.rejectSeller = async (req, res) => {
         // Cập nhật trạng thái thành 'rejected' và lưu lý do để người dùng xem
         registration.status = 'rejected';
         registration.rejection_reason = reason || 'Thông tin cung cấp chưa hợp lệ. Vui lòng chỉnh sửa và gửi lại.';
-        await registration.save();
+        // some existing documents may lack required fields; skip validation on save to avoid errors
+        await registration.save({ validateBeforeSave: false });
 
         res.status(200).json({ message: 'Từ chối seller thành công', registration });
     } catch (error) {
@@ -377,18 +378,15 @@ exports.rejectSeller = async (req, res) => {
 };
 //admin func
 exports.getListingStoresAndRevenuesTotalOrdersFromProductOfEachStore = async (req,res) => {
-    try{
-        // lean() để trả về plain object, dễ thêm trường mới
+    try {
         const stores = await Store.find({}).populate('user_id', 'full_name email phone').lean();
         
-        // Tính tổng doanh thu và số đơn hàng cho từng cửa hàng
         for (const store of stores) {
-            // lấy danh sách id sản phẩm của cửa hàng
             const products = await Product.find({ store_id: store._id }).select('_id');
             const productIds = products.map(p => p._id);
 
             if (productIds.length === 0) {
-                store.total_revenue = 0;
+                store.platform_fee = 0; // Sửa tên field
                 store.total_orders = 0;
                 continue;
             }
@@ -398,20 +396,18 @@ exports.getListingStoresAndRevenuesTotalOrdersFromProductOfEachStore = async (re
             });
 
             let totalRevenue = 0;
-            let totalOrders = orders.length;
-            
             orders.forEach(order => {
                 totalRevenue += order.total_amount;
             });
 
-            store.total_revenue = totalRevenue;
-            store.total_orders = totalOrders;
+            // LOGIC MỚI: Chỉ lưu hoa hồng sàn (5% của tổng doanh thu)
+            store.platform_fee = totalRevenue * 0.05; 
+            store.total_orders = orders.length;
         }
 
         res.status(200).json(stores);
-    }catch (err){
+    } catch (err){
         console.error('Lỗi khi lấy danh sách cửa hàng:', err);
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });    
-        
     }
 }

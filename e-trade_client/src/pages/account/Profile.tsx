@@ -67,8 +67,8 @@ const Profile: React.FC = () => {
     useEffect(() => {
         // Khi modal được mở, tải danh mục ngành hàng
         if (showSellerModal) {
-            CategoryService.getAll()
-                .then((data) => {   
+            CategoryService.getAllOnHomePage()
+                .then((data) => {
                     setCategories(data);
                 })
                 .catch(err => {
@@ -297,6 +297,14 @@ const Profile: React.FC = () => {
                         <Link to="/account/orders" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
                             <span className="material-symbols-outlined">shopping_bag</span> Orders
                         </Link>
+                        <Link to="/account/settings" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
+                            <span className="material-symbols-outlined">settings</span> Settings
+                        </Link>
+                        {user?.role?.includes('seller') && (
+                            <Link to="/seller/dashboard" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
+                                <span className="material-symbols-outlined">storefront</span> Seller Dashboard
+                            </Link>
+                        )}
                         {/* Chỉ hiện nút đăng ký khi chưa phải seller VÀ chưa có đơn đăng ký nào */}
                         {!user?.role?.includes('seller') && !sellerRegistrationStatus && (
                             <button onClick={() => { setShowSellerModal(true); setIsEditingSeller(false); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
@@ -399,6 +407,9 @@ const Profile: React.FC = () => {
                                         <span className="px-4 py-2 rounded-lg font-bold text-sm bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">✅ Active Seller</span>
                                     </div>
                                     <p className="text-sm text-slate-500 dark:text-slate-400">Chúc mừng! Bạn đã là nhà bán hàng trên E-Trade. Truy cập trang quản lý để đăng sản phẩm và theo dõi đơn hàng.</p>
+                                    <div className="pt-2">
+                                        <Link to="/seller/dashboard" className="inline-flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"><span className="material-symbols-outlined">dashboard</span> Truy cập Seller Dashboard</Link>
+                                    </div>
                                 </div>
                             </section>
                         )}

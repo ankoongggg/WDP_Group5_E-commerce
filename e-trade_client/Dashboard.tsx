@@ -1,29 +1,34 @@
 import React, { useEffect, useState } from 'react';
-import { SellerLayout } from '../components/seller/SellerLayout';
-import axios from 'axios';
-import { useAuth } from '../../context/AuthContext';
+import { SellerLayout } from './SellerLayout';
+import { useAuth } from './src/context/AuthContext';
 import { Link } from 'react-router-dom';
+import { storeApi } from './src/services/api';
+import { useCurrency } from './src/context/CurrencyContext';
 
 export const SellerDashboard: React.FC = () => {
     const [shop, setShop] = useState<any>(null);
+    const [stats, setStats] = useState<any>({ products: 0, orders: 0, revenue: 0 });
     const [loading, setLoading] = useState(true);
     const { user } = useAuth();
+    const { formatPrice } = useCurrency();
 
     useEffect(() => {
-        const fetchMyStore = async () => {
+        const fetchData = async () => {
             try {
-                const token = localStorage.getItem('accessToken');
-                const res = await axios.get('http://localhost:9999/api/store/my-store', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setShop(res.data);
-            } catch (error) {
+                const [storeData, statsData] = await Promise.all([
+                    storeApi.getMyStore(),
+                    storeApi.getSellerStats().catch(() => ({ products: 0, orders: 0, revenue: 0 })) // Fallback nếu API lỗi
+                ]);
+                
+                setShop(storeData.data || storeData);
+                setStats(statsData.data || statsData || { products: 0, orders: 0, revenue: 0 });
+            } catch (error: any) {
                 console.error("Lỗi tải thông tin shop", error);
             } finally {
                 setLoading(false);
             }
         };
-        fetchMyStore();
+        fetchData();
     }, []);
 
     if (loading) return <SellerLayout><div className="p-10 text-center">Đang tải dữ liệu...</div></SellerLayout>;
@@ -51,7 +56,7 @@ export const SellerDashboard: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-sm text-slate-500 dark:text-slate-400">Sản phẩm</p>
-                                <h3 className="text-2xl font-bold dark:text-white">--</h3>
+                                <h3 className="text-2xl font-bold dark:text-white">{stats.products || 0}</h3>
                             </div>
                         </div>
                     </div>
@@ -62,7 +67,7 @@ export const SellerDashboard: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-sm text-slate-500 dark:text-slate-400">Đơn hàng mới</p>
-                                <h3 className="text-2xl font-bold dark:text-white">--</h3>
+                                <h3 className="text-2xl font-bold dark:text-white">{stats.orders || 0}</h3>
                             </div>
                         </div>
                     </div>
@@ -73,7 +78,7 @@ export const SellerDashboard: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-sm text-slate-500 dark:text-slate-400">Doanh thu tháng</p>
-                                <h3 className="text-2xl font-bold dark:text-white">--</h3>
+                                <h3 className="text-2xl font-bold dark:text-white">{formatPrice(stats.revenue || 0)}</h3>
                             </div>
                         </div>
                     </div>

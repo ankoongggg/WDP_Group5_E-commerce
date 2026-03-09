@@ -8,6 +8,7 @@ import { CurrencyProvider } from './src/context/CurrencyContext';
 
 //Route components
 import AdminRoute from './src/routes/adminRoutes';
+import SellerRoute from './src/routes/sellerRoutes';
 
 // Auth Pages
 import Login from './src/pages/auth/Login';
@@ -40,6 +41,9 @@ import OrderHistory from './src/pages/account/OrderHistory';
 import { AdminCategories } from './src/pages/admin/Categories';
 import SellerRequests from './src/pages/admin/SellerRequests';
 import { AdminStores } from './src/pages/admin/Stores';
+
+// Seller Pages
+import { SellerDashboard } from './Dashboard';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -76,6 +80,11 @@ const AppRoutes: React.FC = () => {
         <Route path="/account/orders" element={<ProtectedRoute><OrderHistory /></ProtectedRoute>} />
         <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
         <Route path="/account/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+        {/* Seller Routes */}
+        <Route element={<SellerRoute />}>
+          <Route path="/seller/dashboard" element={<SellerDashboard />} />
+        </Route>
 
         {/* Admin Routes (Có thể thêm sau) */}
         <Route element={<AdminRoute />}>
