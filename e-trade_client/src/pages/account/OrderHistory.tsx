@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
-import { Layout } from '../components/Layout';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
+import { orderApi } from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 
 interface OrderItem {
   product_id: {
@@ -26,6 +26,7 @@ interface Order {
   items: OrderItem[];
   created_at: string;
   seller_id?: {
+    _id: string; // ĐÃ THÊM: Phải có dòng này TypeScript mới cho chạy Link to={order.seller_id._id}
     shop_name: string;
   }
 }
@@ -35,7 +36,13 @@ const OrderHistory: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const { formatPrice } = useCurrency();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    await logout();
+    toast.success('Logged out successfully');
+  };
 
   const tabs = [
     { id: 'all', label: 'Tất cả' },
@@ -48,14 +55,9 @@ const OrderHistory: React.FC = () => {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
-        const response = await axios.get('http://localhost:9999/api/shop/orders', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (response.data.success) {
-          setOrders(response.data.data);
-        }
-      } catch (error) {
+        const data = await orderApi.getMyOrders();
+        setOrders(Array.isArray(data) ? data : data.data || []);
+      } catch (error: any) {
         console.error('Failed to fetch orders', error);
       } finally {
         setLoading(false);
@@ -99,13 +101,31 @@ const OrderHistory: React.FC = () => {
     }
   };
 
-  if (loading) return <Layout><div className="p-10 text-center">Đang tải đơn hàng...</div></Layout>;
+  if (loading) return (
+    <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
+        <div className="text-center">Đang tải đơn hàng...</div>
+    </div>
+  );
 
   return (
-    <Layout>
-      <div className="bg-slate-50 dark:bg-slate-900 min-h-screen py-8">
+    <div className="min-h-screen bg-background-light dark:bg-background-dark font-display flex flex-col">
+      <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a110c] px-6 flex items-center justify-between sticky top-0 z-50">
+          <div className="flex items-center gap-3">
+             <Link to="/" className="bg-primary p-1.5 rounded-lg flex items-center justify-center">
+                <span className="material-symbols-outlined text-white text-2xl">dashboard</span>
+             </Link>
+             <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">My Orders</h1>
+          </div>
+          <div className="flex items-center gap-4">
+             <Link to="/account" className="text-sm font-bold text-slate-500 hover:text-primary">Back to Account</Link>
+             <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors font-bold text-sm text-slate-900 dark:text-white">
+                <span className="material-symbols-outlined text-lg">logout</span> Logout
+             </button>
+          </div>
+       </header>
+
+      <main className="flex-1 bg-slate-50 dark:bg-slate-900 py-8">
         <div className="max-w-5xl mx-auto px-4">
-          <h1 className="text-2xl font-bold mb-6 dark:text-white">Đơn hàng của tôi</h1>
           <div className="bg-white dark:bg-slate-800 rounded-t-xl shadow-sm border-b border-slate-200 dark:border-slate-700 flex overflow-x-auto">
             {tabs.map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 py-4 px-6 text-sm font-medium whitespace-nowrap transition-all border-b-2 ${activeTab === tab.id ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-primary/70'}`}>{tab.label}</button>
@@ -116,11 +136,24 @@ const OrderHistory: React.FC = () => {
               filteredOrders.map(order => (
                 <div key={order._id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 border border-slate-100 dark:border-slate-700">
                   <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">
+                    
+                    {/* ĐÃ CẬP NHẬT: Giao diện hiển thị Shop */}
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-slate-500">storefront</span>
-                      <span className="font-bold dark:text-white">{order.seller_id?.shop_name || 'Cửa hàng'}</span>
-                      <Link to={`/account/orders/${order._id}`} className="bg-slate-100 dark:bg-slate-700 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white">Xem chi tiết</Link>
+                      {order.seller_id?._id ? (
+                        <>
+                          <Link to={`/stores/${order.seller_id._id}`} className="font-bold text-slate-900 dark:text-white hover:text-primary transition-colors">
+                            {order.seller_id.shop_name}
+                          </Link>
+                          <Link to={`/stores/${order.seller_id._id}`} className="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">store</span> Xem Shop
+                          </Link>
+                        </>
+                      ) : (
+                        <span className="font-bold dark:text-white">Cửa hàng</span>
+                      )}
                     </div>
+
                     <div className={`text-sm font-bold uppercase flex items-center gap-1 ${getStatusColor(order.order_status)}`}>
                       <span className="material-symbols-outlined text-lg">{order.order_status === 'completed' ? 'check_circle' : 'local_shipping'}</span>
                       {getStatusLabel(order.order_status)}
@@ -145,6 +178,18 @@ const OrderHistory: React.FC = () => {
                   <div className="border-t border-slate-100 dark:border-slate-700 pt-4 mt-4 flex flex-col sm:flex-row justify-between items-end sm:items-center gap-4">
                     <div className="text-right sm:text-left"><span className="text-sm text-slate-500 mr-2">Thành tiền:</span><span className="text-xl font-bold text-primary">{formatPrice(order.total_amount)}</span></div>
                     <div className="flex gap-3">
+                      
+                      {/* Thêm lại nút Đánh Giá cho chuẩn */}
+                      {order.order_status === 'completed' && order.items?.[0]?.product_id?._id && (
+                        <Link 
+                          to={`/account/feedback?productId=${order.items[0].product_id._id}&orderId=${order._id}`} 
+                          className="px-6 py-2 rounded-lg border border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 font-medium hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">star</span>
+                          Đánh giá
+                        </Link>
+                      )}
+
                       <Link to={`/account/orders/${order._id}`} className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors">Xem chi tiết</Link>
                     </div>
                   </div>
@@ -155,8 +200,8 @@ const OrderHistory: React.FC = () => {
             )}
           </div>
         </div>
-      </div>
-    </Layout>
+      </main>
+    </div>
   );
 };
 export default OrderHistory;

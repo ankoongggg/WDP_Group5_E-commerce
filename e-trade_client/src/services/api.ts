@@ -157,6 +157,12 @@ export const storeApi = {
             body: JSON.stringify(sellerData)
         }),
 
+    // Lấy thông tin store của seller hiện tại
+    getMyStore: () => api('/store/my-store', { requireAuth: true }),
+
+    // Lấy thống kê dashboard (Tổng quan)
+    getSellerStats: () => api('/store/stats', { requireAuth: true }),
+
     // Lấy danh sách đơn hàng của người bán
     getSellerOrders: (status?: string, page?: number, search?: string) => {
         const params = new URLSearchParams();
@@ -197,3 +203,4 @@ export const storeApi = {
     },
 };
 
+export const orderApi = shopApi;

@@ -8,6 +8,7 @@ import { CurrencyProvider } from './src/context/CurrencyContext';
 
 //Route components
 import AdminRoute from './src/routes/adminRoutes';
+import SellerRoute from './src/routes/sellerRoutes';
 
 // Auth Pages
 import Login from './src/pages/auth/Login';
@@ -24,14 +25,14 @@ import ProductDetail from './src/pages/shop/ProductDetail';
 import Cart from './src/pages/shop/Cart';
 import Checkout from './src/pages/shop/Checkout';
 import StoreDetail from './src/pages/shop/StoreDetail';
+import SellerDashboard  from './src/pages/seller/SellerDashboard';
 import OrderManagement from './src/pages/shop/OrderManagement';
-import SellerDashboard from './src/pages/seller/SellerDashboard';  
+import FeedbackProduct from './src/pages/account/FeedbackProduct';
 
 // Account Pages
 import Profile from './src/pages/account/Profile';
 import OrderDetail from './src/pages/account/OrderDetail';
 import Settings from './src/pages/account/Settings';
-import FeedbackProduct from './src/pages/account/FeedbackProduct';
 
 // Admin Pages
 import AdminDashboard from './src/pages/admin/Dashboard';
@@ -43,6 +44,10 @@ import OrderHistory from './src/pages/account/OrderHistory';
 import { AdminCategories } from './src/pages/admin/Categories';
 import SellerRequests from './src/pages/admin/SellerRequests';
 import { AdminStores } from './src/pages/admin/Stores';
+
+// Seller Pages
+// import { SellerDashboard as SellerDashboardPage } from './Dashboard';
+import SellerOrders from './src/pages/seller/SellerOrders';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -82,8 +87,10 @@ const AppRoutes: React.FC = () => {
         <Route path="/account/feedback" element={<ProtectedRoute><FeedbackProduct /></ProtectedRoute>} />
 
         {/* Seller Routes */}
-        <Route path="/seller/dashboard" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
-        <Route path="/seller/orders" element={<ProtectedRoute><OrderManagement /></ProtectedRoute>} />
+        <Route element={<SellerRoute />}>
+          <Route path="/seller/dashboard" element={<SellerDashboard />} />
+          <Route path="/seller/orders" element={<OrderManagement />} />
+        </Route>
 
         {/* Admin Routes (Có thể thêm sau) */}
         <Route element={<AdminRoute />}>
