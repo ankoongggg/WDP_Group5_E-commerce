@@ -1,3 +1,5 @@
+import { create } from "domain";
+
 const API_BASE = 'http://localhost:9999/api';
 export const getGoogleAuthUrl = () => `${API_BASE}/auth/google`;
 
@@ -160,6 +162,45 @@ export const storeApi = {
 
     // Lấy thống kê dashboard (Tổng quan)
     getSellerStats: () => api('/store/stats', { requireAuth: true }),
+
+    // Lấy danh sách đơn hàng của người bán
+    getSellerOrders: (status?: string, page?: number, search?: string) => {
+        const params = new URLSearchParams();
+        if (status && status !== 'all') {
+            params.append('status', status);
+        }
+        if (page) {
+            params.append('page', page.toString());
+        }
+        if (search) {
+            params.append('search', search);
+        }
+        const endpoint = `/seller/orders?${params.toString()}`;
+        return api(endpoint, { requireAuth: true });
+    },
+
+    // Cập nhật trạng thái đơn hàng (xác nhận/từ chối)
+    updateOrderStatusBySeller: (orderId: string, status: string, reason?: string) =>
+        // Dựa trên orderRoutes.js, endpoint là /seller/:orderId/status
+        api(`/seller/${orderId}/status`, {
+            method: 'PUT',
+            requireAuth: true,
+            body: JSON.stringify({ status, reason })
+        }),
+    
+    // Lấy dữ liệu thống kê cho dashboard của người bán
+    getSellerDashboardStats: (options?: { revenuePeriod?: '7d' | '30d', startDate?: string, endDate?: string }) => {
+        const params = new URLSearchParams();
+        // Ưu tiên khoảng thời gian tùy chỉnh
+        if (options?.startDate && options?.endDate) {
+            params.append('startDate', options.startDate);
+            params.append('endDate', options.endDate);
+        } else if (options?.revenuePeriod) {
+            params.append('revenuePeriod', options.revenuePeriod);
+        }
+        const endpoint = `/seller/dashboard?${params.toString()}`;
+        return api(endpoint, { requireAuth: true });
+    },
 };
 
 export const orderApi = shopApi;

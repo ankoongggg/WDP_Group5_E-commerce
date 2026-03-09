@@ -25,6 +25,9 @@ import ProductDetail from './src/pages/shop/ProductDetail';
 import Cart from './src/pages/shop/Cart';
 import Checkout from './src/pages/shop/Checkout';
 import StoreDetail from './src/pages/shop/StoreDetail';
+import SellerDashboard  from './src/pages/seller/SellerDashboard';
+import OrderManagement from './src/pages/shop/OrderManagement';
+import FeedbackProduct from './src/pages/account/FeedbackProduct';
 
 // Account Pages
 import Profile from './src/pages/account/Profile';
@@ -43,7 +46,8 @@ import SellerRequests from './src/pages/admin/SellerRequests';
 import { AdminStores } from './src/pages/admin/Stores';
 
 // Seller Pages
-import { SellerDashboard } from './Dashboard';
+// import { SellerDashboard as SellerDashboardPage } from './Dashboard';
+import SellerOrders from './src/pages/seller/SellerOrders';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -80,10 +84,12 @@ const AppRoutes: React.FC = () => {
         <Route path="/account/orders" element={<ProtectedRoute><OrderHistory /></ProtectedRoute>} />
         <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
         <Route path="/account/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/account/feedback" element={<ProtectedRoute><FeedbackProduct /></ProtectedRoute>} />
 
         {/* Seller Routes */}
         <Route element={<SellerRoute />}>
           <Route path="/seller/dashboard" element={<SellerDashboard />} />
+          <Route path="/seller/orders" element={<OrderManagement />} />
         </Route>
 
         {/* Admin Routes (Có thể thêm sau) */}
