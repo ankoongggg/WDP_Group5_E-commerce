@@ -49,9 +49,39 @@ const login = async (req, res) => {
         if (!user.password || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ success: false, message: 'Sai pass' });
         }
+
+        // Kiểm tra trạng thái ban
+        if (user.status === 'banned') {
+            const now = new Date();
+            // banned_until null => ban vĩnh viễn
+            if (!user.banned_until) {
+                return res.status(403).json({
+                    success: false,
+                    message: user.ban_reason || 'Tài khoản của bạn đã bị khóa vĩnh viễn.',
+                });
+            }
+
+            // Nếu còn trong thời gian bị ban
+            if (user.banned_until > now) {
+                return res.status(403).json({
+                    success: false,
+                    message: user.ban_reason
+                        ? `Tài khoản của bạn đang bị khóa đến ${user.banned_until.toLocaleString('vi-VN')}.\nLý do: ${user.ban_reason}`
+                        : `Tài khoản của bạn đang bị khóa đến ${user.banned_until.toLocaleString('vi-VN')}.`,
+                });
+            }
+
+            // Hết hạn banned_until => auto-unban
+            user.status = 'active';
+            await user.save();
+        }
+
         const accessToken = generateAccessToken(user);
         res.json({ success: true, user, accessToken });
-    } catch (error) { res.status(500).json({ success: false, message: 'Error' }); }
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ success: false, message: 'Error' });
+    }
 };
 
 const logout = async (req, res) => { res.json({ success: true, message: 'Logged out' }); };
@@ -93,6 +123,27 @@ const googleCallback = async (req, res, next) => {
                 user.avatar = user.avatar || googleUser.avatar;
                 user.provider = 'google';
                 user.providerId = googleUser.providerId;
+                await user.save();
+            }
+
+            // Không cho đăng nhập nếu đang bị ban
+            if (user.status === 'banned') {
+                const now = new Date();
+                if (!user.banned_until || user.banned_until > now) {
+                    const message = !user.banned_until
+                        ? user.ban_reason || 'Tài khoản của bạn đã bị khóa vĩnh viễn.'
+                        : user.ban_reason
+                        ? `Tài khoản của bạn đang bị khóa đến ${user.banned_until.toLocaleString('vi-VN')}.\nLý do: ${user.ban_reason}`
+                        : `Tài khoản của bạn đang bị khóa đến ${user.banned_until.toLocaleString('vi-VN')}.`;
+                    return res.redirect(
+                        `${process.env.CLIENT_URL || 'http://localhost:3000'}/#/login?error=${encodeURIComponent(
+                            message,
+                        )}`,
+                    );
+                }
+
+                // Hết hạn banned_until => auto-unban
+                user.status = 'active';
                 await user.save();
             }
 
