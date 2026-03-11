@@ -39,6 +39,7 @@ import AdminDashboard from './src/pages/admin/Dashboard';
 import {AdminBlacklist} from './src/pages/admin/BlackList';
 import {AdminProducts} from './src/pages/admin/Products';
 import {AdminReports} from './src/pages/admin/Reports';
+import { AdminUsers } from './src/pages/admin/Accounts';
 import OrderHistory from './src/pages/account/OrderHistory';
 // import UserManagement from './src/pages/admin/UserManagement';
 import { AdminCategories } from './src/pages/admin/Categories';
@@ -48,6 +49,8 @@ import { AdminStores } from './src/pages/admin/Stores';
 // Seller Pages
 // import { SellerDashboard as SellerDashboardPage } from './Dashboard';
 import SellerOrders from './src/pages/seller/SellerOrders';
+import ProductsManager from './src/pages/seller/ProductsManager';
+import SellerProductForm from './src/pages/seller/SellerProductForm';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -90,9 +93,12 @@ const AppRoutes: React.FC = () => {
         <Route element={<SellerRoute />}>
           <Route path="/seller/dashboard" element={<SellerDashboard />} />
           <Route path="/seller/orders" element={<OrderManagement />} />
+          <Route path="/seller/products" element={<ProductsManager />} />
+          <Route path="/seller/products/new" element={<SellerProductForm />} />
+          <Route path="/seller/products/:id/edit" element={<SellerProductForm />} />
         </Route>
 
-        {/* Admin Routes (Có thể thêm sau) */}
+        {/* Admin Routes */}
         <Route element={<AdminRoute />}>
         <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/blacklist" element={<ProtectedRoute><AdminBlacklist /></ProtectedRoute>} />
@@ -101,6 +107,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/admin/categories" element={<ProtectedRoute><AdminCategories /></ProtectedRoute>} />
         <Route path="/admin/seller-requests" element={<ProtectedRoute><SellerRequests /></ProtectedRoute>} />
         <Route path="/admin/stores" element={<ProtectedRoute><AdminStores /></ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
         
         </Route>
       </Routes>
