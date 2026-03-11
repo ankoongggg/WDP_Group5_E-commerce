@@ -22,4 +22,11 @@ const isSeller = (req, res, next) => {
     return res.status(403).json({ success: false, message: 'Truy cập bị từ chối. Yêu cầu quyền người bán (seller).' });
 };
 
-module.exports = { protect, isSeller };
+const isAdmin = (req, res, next) => {
+    if (req.user && Array.isArray(req.user.role) && req.user.role.includes('admin')) {
+        return next();
+    }
+    return res.status(403).json({ success: false, message: 'Truy cập bị từ chối. Yêu cầu quyền quản trị viên (admin).' });
+};
+
+module.exports = { protect, isSeller, isAdmin };

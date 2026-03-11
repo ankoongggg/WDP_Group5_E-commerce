@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Store = require('../models/Store');
 const Product = require('../models/Product');
 const Review = require('../models/ReviewProduct'); // Thêm import Review của Thắng
+const BlackListKeyword = require('../models/BlackListKeyword.js'); // Thêm import BlackListKeyword của Tú
 
 // ==========================================
 // CÁC HÀM CỦA TÚ (Quản lý tìm kiếm, lọc)
@@ -346,6 +347,3 @@ exports.getProductReviews = async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 };
-
-// admin product functions (Tú)
-exports.adminGetProducts

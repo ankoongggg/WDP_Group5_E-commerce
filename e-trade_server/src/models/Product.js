@@ -19,7 +19,7 @@ const productSchema = new mongoose.Schema({
         }
     ],
     condition: String,
-    status: String,
+    status: { type: [String], enum: ['pending', 'active', 'rejected', 'inactive'] },
     rejection_reason: String,
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },

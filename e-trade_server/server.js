@@ -13,6 +13,7 @@ const storeRoutes = require('./src/routes/storeRoutes'); // Của Thắng
 const categoryRoutes = require('./src/routes/categoryRoutes'); // Của Tú
 const shopRoutes = require('./src/routes/shopRoutes'); // Của Ann - Order, Payment
 const orderRoutes = require('./src/routes/orderRoutes'); // Của Thắng - quan lý đơn hàng
+const blacklistRoutes = require('./src/routes/blacklistRoutes'); // Của Tú - quản lý blacklist keywords
 
 const app = express();
 
@@ -43,7 +44,7 @@ app.use("/api/dev", devRoutes);
 
 // Route Shop - Orders & Payments (Ann)
 app.use('/api/shop', shopRoutes);
-
+app.use('/api/blacklist', blacklistRoutes); // Route quản lý blacklist keywords của Tú
 // Route Products (Tú & Thắng)
 // Thống nhất dùng tiền tố /api/products cho chuẩn RESTful
 app.use('/api/products', productRoutes); 
