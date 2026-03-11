@@ -4,9 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { authApi, storeApi } from '../../services/api';
 import { CategoryService } from '../../services/categoryService';
+import { Layout } from '../components/Layout'; // IMPORT LAYOUT CHUẨN
 
 const Profile: React.FC = () => {
-        const [categories, setCategories] = useState<Array<{_id: string, name: string}>>([]);
+    const [categories, setCategories] = useState<Array<{_id: string, name: string}>>([]);
     const { user, logout, refreshUser } = useAuth();
     const { toast } = useToast();
     const [editing, setEditing] = useState(false);
@@ -28,14 +29,12 @@ const Profile: React.FC = () => {
         business_category: ""
     });
 
-    // Effect để điền dữ liệu vào form khi user thay đổi hoặc vào chế độ chỉnh sửa
     useEffect(() => {
         if (user) {
             setForm({
                 name: user.full_name || user.name || "", 
                 phone: user.phone || "",
                 gender: user.gender || "",
-                // Cắt chuẩn "YYYY-MM-DD" để form nhận diện được ngày
                 dob: user.dob ? user.dob.split('T')[0] : "", 
                 avatar: user.avatar || "",
             });
@@ -52,20 +51,15 @@ const Profile: React.FC = () => {
         }
     }, [user, editing]);
 
-    // Effect để kiểm tra trạng thái seller. Nó sẽ chạy lại mỗi khi user object thay đổi.
     useEffect(() => {
-        // Nếu user đã đăng nhập và chưa có vai trò 'seller', kiểm tra trạng thái đăng ký.
         if (user && !user.role?.includes('seller')) {
             checkSellerRegistrationStatus();
         } else {
-            // Nếu user đã là seller hoặc chưa đăng nhập, không cần hiển thị khối trạng thái đăng ký.
             setSellerRegistrationStatus(null);
         }
-    }, [user]); // Phụ thuộc vào toàn bộ object `user` để chạy lại khi có thay đổi (ví dụ sau khi refreshUser)
+    }, [user]);
 
-    // Effect để tải danh mục khi mở modal đăng ký seller
     useEffect(() => {
-        // Khi modal được mở, tải danh mục ngành hàng
         if (showSellerModal) {
             CategoryService.getAllOnHomePage()
                 .then((data) => {
@@ -81,19 +75,12 @@ const Profile: React.FC = () => {
     const checkSellerRegistrationStatus = async () => {
         try {
             const status = await storeApi.getSellerRegistrationStatus();
-
-            // Nếu backend trả về 'approved' (do đã tìm thấy store và tự sửa lỗi role),
-            // ta cần refresh lại user object ở client để đồng bộ.
-            // Việc refresh này sẽ kích hoạt lại useEffect ở trên, và lần chạy sau nó sẽ vào nhánh `else`.
             if (status.status === 'approved' && refreshUser) {
                 await refreshUser();
             } else {
-                // Nếu trạng thái là 'pending' hoặc 'rejected', hiển thị nó ra cho người dùng.
                 setSellerRegistrationStatus(status);
             }
         } catch (e: any) {
-            // Lỗi 404 có nghĩa là không tìm thấy đơn đăng ký nào (và backend cũng không tìm thấy store nào có sẵn).
-            // Đây là trạng thái sạch, cho phép user đăng ký.
             setSellerRegistrationStatus(null);
         }
     };
@@ -105,13 +92,12 @@ const Profile: React.FC = () => {
                 full_name: form.name, 
                 phone: form.phone,
                 gender: form.gender,
-                dob: form.dob || null, // Xử lý triệt để lỗi ngày sinh rỗng
+                dob: form.dob || null, 
                 addresses: [addr],
             };
 
             await authApi.updateProfile(payload);
             
-            // Ép UI tải lại dữ liệu mới nhất
             if (refreshUser) await refreshUser();
             setEditing(false);
             toast.success("Cập nhật thành công! ✅");
@@ -150,7 +136,6 @@ const Profile: React.FC = () => {
                 phone: "",
                 business_category: ""
             });
-            // Reload status
             checkSellerRegistrationStatus();
         } catch (e: any) {
             toast.error(e?.message || "Gửi đơn thất bại");
@@ -176,7 +161,7 @@ const Profile: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark font-display flex flex-col">
+        <Layout>
             {/* Modal Become a Seller */}
             {showSellerModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -273,22 +258,8 @@ const Profile: React.FC = () => {
                     </div>
                 </div>
             )}
-            <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a110c] px-6 flex items-center justify-between sticky top-0 z-50">
-                <div className="flex items-center gap-3">
-                    <Link to="/" className="bg-primary p-1.5 rounded-lg flex items-center justify-center">
-                        <span className="material-symbols-outlined text-white text-2xl">dashboard</span>
-                    </Link>
-                    <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">My Account</h1>
-                </div>
-                <div className="flex items-center gap-4">
-                    <Link to="/" className="font-bold text-sm text-slate-500 hover:text-primary transition-all">Return to Shop</Link>
-                    <button onClick={logout} className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors font-bold text-sm text-slate-900 dark:text-white">
-                        <span className="material-symbols-outlined text-lg">logout</span> Logout
-                    </button>
-                </div>
-            </header>
 
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 overflow-hidden bg-background-light dark:bg-background-dark font-display">
                 <aside className="w-64 bg-white dark:bg-[#1a110c] border-r border-slate-200 dark:border-slate-800 hidden md:flex flex-col py-6 px-3">
                     <nav className="flex flex-col gap-1">
                         <Link to="/account" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary/10 border-r-4 border-primary text-primary font-medium">
@@ -305,7 +276,6 @@ const Profile: React.FC = () => {
                                 <span className="material-symbols-outlined">storefront</span> Seller Dashboard
                             </Link>
                         )}
-                        {/* Chỉ hiện nút đăng ký khi chưa phải seller VÀ chưa có đơn đăng ký nào */}
                         {!user?.role?.includes('seller') && !sellerRegistrationStatus && (
                             <button onClick={() => { setShowSellerModal(true); setIsEditingSeller(false); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
                                 <span className="material-symbols-outlined">store</span> Become a Seller
@@ -355,12 +325,10 @@ const Profile: React.FC = () => {
                         </section>
 
                         {/* KHỐI 1.5: TRẠNG THÁI ĐƠN ĐĂNG KÍ SELLER */}
-                        {/* Chỉ hiện khi chưa phải seller và có đơn đăng ký */}
                         {!user?.role?.includes('seller') && sellerRegistrationStatus && (
                             <section className="bg-white dark:bg-[#2d1e16] p-8 rounded-xl border border-slate-200 dark:border-slate-800">
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="text-lg font-bold dark:text-white">Seller Registration Status</h3>
-                                    {/* Nút Edit chỉ hiện khi trạng thái là pending hoặc rejected */}
                                     {(sellerRegistrationStatus.status === 'pending' || sellerRegistrationStatus.status === 'rejected') && (
                                         <button 
                                             onClick={handleEditSellerRegistration}
@@ -417,7 +385,7 @@ const Profile: React.FC = () => {
                             </section>
                         )}
 
-                        {/* KHỐI 2: GIAO DIỆN ĐỊA CHỈ ĐÃ ĐƯỢC TRẢ LẠI */}
+                        {/* KHỐI 2: GIAO DIỆN ĐỊA CHỈ */}
                         <div className="bg-white dark:bg-[#2d1e16] p-8 rounded-xl border border-slate-200 dark:border-slate-800">
                             <h3 className="text-lg font-bold mb-6 dark:text-white">Delivery Address</h3>
                             {!editing ? (
@@ -440,7 +408,7 @@ const Profile: React.FC = () => {
                     </div>
                 </main>
             </div>
-        </div>
+        </Layout>
     );
 };
 

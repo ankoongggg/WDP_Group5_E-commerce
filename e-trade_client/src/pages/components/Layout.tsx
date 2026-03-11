@@ -1,21 +1,80 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useSearch } from '../../hooks/useLayout';
-// Sửa lại đường dẫn import cho đúng cấu trúc thư mục của bạn
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useCurrency, CurrencyType } from '../../context/CurrencyContext';
+import { useCart } from '../../context/CartContext';
+
+// --- COMPONENT MỚI: Thanh công cụ nổi bên phải ---
+const FloatingSidebar: React.FC = () => {
+    const { user, isAuthenticated } = useAuth();
+    const { cartCount } = useCart();
+    const [isOpen, setIsOpen] = useState(false);
+    
+    if (!isAuthenticated) return null;
+
+    return (
+        <div className="fixed right-0 top-1/2 -translate-y-1/2 z-[100] flex flex-col items-end">
+            <div className="w-1 h-12 bg-slate-300 dark:bg-slate-700 rounded-l-full mb-2"></div>
+            
+            <div 
+                className={`bg-white dark:bg-slate-800 shadow-[-4px_0_15px_rgba(0,0,0,0.1)] rounded-l-xl border border-r-0 border-slate-200 dark:border-slate-700 p-2 flex flex-col gap-3 transition-transform duration-300 ${isOpen ? 'translate-x-0' : 'translate-x-[70%] hover:translate-x-0'}`}
+                onMouseEnter={() => setIsOpen(true)}
+                onMouseLeave={() => setIsOpen(false)}
+            >
+                {/* Nút Avatar */}
+                <Link to="/account" className="relative group">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 overflow-hidden flex items-center justify-center transition-transform group-hover:scale-110">
+                        {user?.avatar ? (
+                            <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : (
+                            <span className="material-symbols-outlined text-primary">person</span>
+                        )}
+                    </div>
+                    <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        Tài khoản của tôi
+                    </div>
+                </Link>
+
+                {/* Nút Giỏ hàng */}
+                <Link to="/cart" className="relative group flex items-center justify-center w-10 h-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <span className="material-symbols-outlined text-slate-600 dark:text-slate-300">shopping_cart</span>
+                    {cartCount > 0 && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-white text-[10px] font-bold flex items-center justify-center rounded-full">
+                            {cartCount > 99 ? '99+' : cartCount}
+                        </span>
+                    )}
+                    <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        Giỏ hàng
+                    </div>
+                </Link>
+
+                {/* Nút Thông báo (Chuông đã được dời hẳn sang đây) */}
+                <Link to="/account/orders" className="relative group flex items-center justify-center w-10 h-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <span className="material-symbols-outlined text-slate-600 dark:text-slate-300">notifications</span>
+                    <span className="absolute top-1 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-800"></span>
+                    <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        Đơn hàng & Thông báo
+                    </div>
+                </Link>
+            </div>
+            
+            <div className="w-1 h-12 bg-slate-300 dark:bg-slate-700 rounded-l-full mt-2"></div>
+        </div>
+    );
+};
+
 export const Navbar: React.FC = () => {
-    // Gộp Hooks: useSearch của Tú và useAuth/Toast của Bách
     const { search, setSearch, suggestions, showSuggestions, setShowSuggestions, handleSearch, handleKeyDown, handleSelectSuggestion, handleFocus, handleBlur } = useSearch();
     const { user, isAuthenticated, logout, loading } = useAuth();
     const { toast } = useToast();
     const { currency, setCurrency } = useCurrency();
+    const { cartCount } = useCart(); 
 
     const [showDropdown, setShowDropdown] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Xử lý đóng dropdown profile khi bấm ra ngoài
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -37,7 +96,7 @@ export const Navbar: React.FC = () => {
                     <h2 className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white uppercase italic">E-Shop Trading</h2>
                 </Link>
                 
-                {/* Search Bar Section (Của Tú) */}
+                {/* Search Bar Section */}
                 <div className="flex-1 max-w-xl hidden md:block relative">
                     <label className="relative flex items-center">
                         <input 
@@ -49,7 +108,7 @@ export const Navbar: React.FC = () => {
                                 setSearch(e.target.value);
                                 setShowSuggestions(true);
                             }}
-onKeyDown={handleKeyDown}
+                            onKeyDown={handleKeyDown}
                             onFocus={handleFocus}
                             onBlur={handleBlur}
                         />
@@ -79,33 +138,42 @@ onKeyDown={handleKeyDown}
                     )}
                 </div>
 
-                {/* Auth & Cart Section (Của Bách) */}
+                {/* Auth & Cart Section */}
                 <div className="flex items-center gap-3">
-
-                    {/* BỘ CHỌN TIỀN TỆ (Currency Selector) */}
-                    <div className="relative flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-1.5 mr-2">
+                    
+                    {/* BỘ CHỌN TIỀN TỆ ĐƯỢC REDESIGN */}
+                    <div className="relative group">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm transition-all cursor-pointer">
+                            <span className="material-symbols-outlined text-[16px] text-primary font-bold">currency_exchange</span>
+                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{currency}</span>
+                            <span className="material-symbols-outlined text-[16px] text-slate-400 group-hover:text-primary transition-colors">keyboard_arrow_down</span>
+                        </div>
+                        {/* Select thật được làm trong suốt đè lên trên để dễ click */}
                         <select
                             value={currency}
                             onChange={(e) => setCurrency(e.target.value as CurrencyType)}
-                            className="bg-transparent border-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-pointer focus:ring-0 outline-none p-0 pr-4 appearance-none"
-                            style={{ backgroundImage: "none" }} // Tắt mũi tên mặc định để trông gọn hơn
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
                         >
-                            <option value="VND" className="text-slate-900 dark:text-white">VND ₫</option>
-                            <option value="USD" className="text-slate-900 dark:text-white">USD $</option>
+                            <option value="VND">VND (₫)</option>
+                            <option value="USD">USD ($)</option>
                         </select>
-                        <span className="material-symbols-outlined text-slate-400 text-xs absolute right-1 pointer-events-none">expand_more</span>
                     </div>
-{/* Dấu gạch dọc chia cách */}
-                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block mr-1"></div>
+
+                    {/* Dấu gạch dọc chia cách */}
+                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block mx-1"></div>
 
                     {!loading && isAuthenticated ? (
                         <>
-                            <Link to="/account/orders" className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors relative">
-                                <span className="material-symbols-outlined">notifications</span>
-                                <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-white dark:border-background-dark"></span>
-                            </Link>
+                            {/* NÚT CHUÔNG ĐÃ ĐƯỢC XÓA Ở ĐÂY */}
+                            
+                            {/* Icon Giỏ hàng trên Navbar */}
                             <Link to="/cart" className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors relative">
                                 <span className="material-symbols-outlined">shopping_cart</span>
+                                {cartCount > 0 && (
+                                    <span className="absolute top-1 right-0 w-4 h-4 bg-primary text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white dark:border-background-dark">
+                                        {cartCount > 99 ? '99+' : cartCount}
+                                    </span>
+                                )}
                             </Link>
                             <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
                             
@@ -131,7 +199,7 @@ onKeyDown={handleKeyDown}
                                 {showDropdown && (
                                     <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-zinc-900 rounded-xl shadow-xl shadow-black/10 border border-slate-200 dark:border-white/10 py-2 z-50">
                                         <div className="px-4 py-3 border-b border-slate-100 dark:border-white/10">
-<p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{user?.name}</p>
+                                            <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{user?.name}</p>
                                             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
                                         </div>
                                         <Link to="/account" onClick={() => setShowDropdown(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
@@ -164,7 +232,7 @@ onKeyDown={handleKeyDown}
                             <Link to="/login" className="px-5 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-primary transition-colors">
                                 Log In
                             </Link>
-<Link to="/register" className="px-5 py-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-lg transition-all shadow-md shadow-primary/20">
+                            <Link to="/register" className="px-5 py-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-lg transition-all shadow-md shadow-primary/20">
                                 Sign Up
                             </Link>
                         </>
@@ -189,7 +257,7 @@ export const Footer: React.FC = () => {
                     <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">The ultimate destination for tech enthusiasts and trendsetters.</p>
                 </div>
                 <div>
-                    <h4 className="font-bold mb-6">Company</h4>
+                    <h4 className="font-bold mb-6 dark:text-white">Company</h4>
                     <ul className="flex flex-col gap-4 text-sm text-slate-500 dark:text-slate-400">
                         <li><a href="#" className="hover:text-primary">About Us</a></li>
                         <li><a href="#" className="hover:text-primary">Careers</a></li>
@@ -197,7 +265,7 @@ export const Footer: React.FC = () => {
                     </ul>
                 </div>
                 <div>
-                    <h4 className="font-bold mb-6">Support</h4>
+                    <h4 className="font-bold mb-6 dark:text-white">Support</h4>
                     <ul className="flex flex-col gap-4 text-sm text-slate-500 dark:text-slate-400">
                         <li><a href="#" className="hover:text-primary">Help Center</a></li>
                         <li><a href="#" className="hover:text-primary">Returns</a></li>
@@ -205,10 +273,10 @@ export const Footer: React.FC = () => {
                     </ul>
                 </div>
                 <div>
-                    <h4 className="font-bold mb-6">Newsletter</h4>
+                    <h4 className="font-bold mb-6 dark:text-white">Newsletter</h4>
                     <div className="flex gap-2">
-                        <input className="flex-1 bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm" placeholder="Your email" />
-                        <button className="bg-primary text-white p-2 rounded-xl">
+                        <input className="flex-1 bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all" placeholder="Your email" />
+                        <button className="bg-primary hover:bg-primary/90 transition-colors text-white p-2 rounded-xl">
                             <span className="material-symbols-outlined">send</span>
                         </button>
                     </div>
@@ -217,10 +285,12 @@ export const Footer: React.FC = () => {
         </footer>
     );
 };
+
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return (
-        <div className="flex flex-col min-h-screen">
+        <div className="flex flex-col min-h-screen relative overflow-x-hidden">
             <Navbar />
+            <FloatingSidebar />
             <main className="flex-1">
                 {children}
             </main>

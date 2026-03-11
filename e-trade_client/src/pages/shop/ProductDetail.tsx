@@ -28,7 +28,7 @@ interface Product {
     stock: number;
     price_difference: number;
   }[];
-  stock?: number; // For products without types
+  stock?: number; 
   condition: string;
 }
 
@@ -83,12 +83,10 @@ const ProductDetail: React.FC = () => {
         } else {
           setError('Không thể tải chi tiết sản phẩm. Vui lòng thử lại sau.');
         }
-        console.error('Error fetching product details:', err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchProductDetails();
   }, [id]);
 
@@ -96,39 +94,31 @@ const ProductDetail: React.FC = () => {
 
   useEffect(() => {
     const fetchReviews = async () => {
-      // Tải đánh giá khi tab được chọn, chưa có dữ liệu và có đánh giá để tải
       if (activeTab === 'reviews' && id && reviews.length === 0 && totalReviews && totalReviews > 0) {
         setReviewsLoading(true);
         setReviewsError(null);
         try {
-          // LƯU Ý: Giả định endpoint API để lấy đánh giá của sản phẩm là như sau.
           const response = await axios.get<{ reviews: Review[] }>(`http://localhost:9999/api/products/${id}/reviews`);
           setReviews(response.data.reviews);
         } catch (err) {
-          console.error('Error fetching reviews:', err);
           setReviewsError('Không thể tải danh sách đánh giá. Vui lòng thử lại.');
         } finally {
           setReviewsLoading(false);
         }
       }
     };
-
     fetchReviews();
   }, [activeTab, id, reviews.length, totalReviews]);
 
-  // --- FIX: Thêm logic tính toán stock và biến isOutOfStock ---
   const currentStock = React.useMemo(() => {
     if (!product) return 0;
-    // Nếu có product_type, cộng tổng stock của các type
     if (product.product_type && product.product_type.length > 0) {
       return product.product_type.reduce((acc, item) => acc + item.stock, 0);
     }
-    // Nếu không, dùng stock gốc (fallback về 0 nếu undefined)
     return product.stock || 0;
   }, [product]);
 
   const isOutOfStock = currentStock <= 0;
-  // -----------------------------------------------------------
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -138,19 +128,36 @@ const ProductDetail: React.FC = () => {
     }
     addToCart({ ...product, stock: currentStock }, quantity);
     toast.success('Đã thêm vào giỏ hàng!');
-    setQuantity(1); // Reset quantity
+    setQuantity(1); 
   };
 
+  // --- LOGIC MUA NGAY ĐƯỢC LÀM LẠI ---
   const handleBuyNow = () => {
     if (!product) return;
     if (isOutOfStock) {
       toast.error('Sản phẩm này đã hết hàng!');
       return;
     }
-    addToCart({ ...product, stock: currentStock }, quantity);
-    toast.success('Thêm vào giỏ hàng thành công, đang chuyển tới thanh toán...');
-    setTimeout(() => navigate('/checkout'), 500);
+    
+    // Tạo object item mua ngay giống cấu trúc trong giỏ hàng
+    const buyNowItem = {
+      productId: product._id, // Cần truyền ID xuống Checkout
+      name: product.name,
+      price: product.price,
+      main_image: product.main_image,
+      stock: currentStock,
+      quantity: quantity
+    };
+
+    toast.success('Đang chuyển tới thanh toán...');
+    
+    // Đẩy thông tin qua URL State, không đụng tới Giỏ hàng
+    setTimeout(() => {
+        navigate('/checkout', { state: { buyNowItems: [buyNowItem] } });
+    }, 500);
   };
+  // ------------------------------------
+
   const handleQuantityChange = (amount: number) => {
     setQuantity(prev => {
       const newValue = prev + amount;
@@ -172,17 +179,9 @@ const ProductDetail: React.FC = () => {
     );
   };
 
-  if (loading) {
-    return <Layout><div className="flex justify-center items-center h-screen">Đang tải...</div></Layout>;
-  }
-
-  if (error) {
-    return <Layout><div className="text-center py-20 text-red-500">{error}</div></Layout>;
-  }
-
-  if (!product) {
-    return <Layout><div className="text-center py-20">Không có chi tiết sản phẩm.</div></Layout>;
-  }
+  if (loading) return <Layout><div className="flex justify-center items-center h-screen">Đang tải...</div></Layout>;
+  if (error) return <Layout><div className="text-center py-20 text-red-500">{error}</div></Layout>;
+  if (!product) return <Layout><div className="text-center py-20">Không có chi tiết sản phẩm.</div></Layout>;
 
   const allImages = [product.main_image, ...product.display_files].filter(Boolean);
   const discount = (product.original_price && product.price && product.original_price > product.price) ? Math.round(((product.original_price - product.price) / product.original_price) * 100) : 0;
