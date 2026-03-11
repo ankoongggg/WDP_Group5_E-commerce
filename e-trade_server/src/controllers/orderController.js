@@ -66,8 +66,27 @@ exports.getSellerOrders = async (req, res) => {
         }
 
         // Sử dụng $facet để lấy cả dữ liệu đã phân trang và tổng số lượng
+        // ĐÃ THÊM $project Ở ĐÂY ĐỂ HIỂN THỊ shipping_address VÀ CÁC TRƯỜNG CẦN THIẾT
         const paginatedPipeline = [
             ...pipeline,
+            {
+                $project: {
+                    customer_id: 1,
+                    seller_id: 1,
+                    items: 1,
+                    total_price: 1,
+                    shipping_fee: 1,
+                    total_amount: 1,
+                    shipping_address: 1, // Khóa chính để frontend nhận được địa chỉ
+                    payment_method: 1,
+                    payment_status: 1,
+                    order_status: 1,
+                    history_logs: 1,
+                    note: 1,
+                    created_at: 1,
+                    updated_at: 1
+                }
+            },
             {
                 $facet: {
                     data: [{ $skip: (parseInt(page) - 1) * parseInt(limit) }, { $limit: parseInt(limit) }],

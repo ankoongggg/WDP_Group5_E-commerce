@@ -1,10 +1,14 @@
 const mongoose = require('mongoose');
 const User = require('./User');
 const Product = require('./Product');
+// Không cần require Store ở đây vì mongoose tự hiểu qua ref string
 
 const orderSchema = new mongoose.Schema({
     customer_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    seller_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    
+    // ĐÃ FIX: Đổi ref từ 'User' sang 'Store' để lấy được shop_name
+    seller_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true }, 
+    
     items: [
         {
             product_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },

@@ -164,9 +164,25 @@ const OrderDetail: React.FC = () => {
              </div>
           </div>
 
+          {/* ĐÃ CẬP NHẬT GIAO DIỆN HIỂN THỊ SHOP Ở ĐÂY */}
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden mb-6">
              <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-700/50">
-                <div className="flex items-center gap-2"><span className="font-bold dark:text-white">{order.seller_id?.shop_name || 'Shop'}</span><button className="text-xs bg-primary text-white px-2 py-0.5 rounded">Chat ngay</button></div>
+                <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-slate-500 text-2xl">storefront</span>
+                    {order.seller_id?._id ? (
+                        <>
+                            <Link to={`/store/${order.seller_id._id}`} className="font-bold text-lg text-slate-900 dark:text-white hover:text-primary transition-colors">
+                                {order.seller_id.shop_name}
+                            </Link>
+                            <Link to={`/store/${order.seller_id._id}`} className="bg-white dark:bg-slate-700 text-xs px-3 py-1.5 rounded-md font-medium hover:bg-slate-100 transition-colors dark:text-white border border-slate-200 dark:border-slate-600 flex items-center gap-1 shadow-sm">
+                                <span className="material-symbols-outlined text-[14px]">store</span> Xem Shop
+                            </Link>
+                        </>
+                    ) : (
+                        <span className="font-bold text-lg text-slate-900 dark:text-white">{order.seller_id?.shop_name || 'Shop'}</span>
+                    )}
+                    <button className="text-xs bg-primary text-white px-3 py-1.5 rounded-md font-medium hover:bg-primary/90 transition-colors shadow-sm ml-2">Chat ngay</button>
+                </div>
              </div>
              <div className="divide-y divide-slate-100 dark:divide-slate-700">
                 {order.items.map((item: any, idx: number) => (
