@@ -27,8 +27,8 @@ exports.getProducts = async (req, res) => {
         const { keyword, page = 1, limit = 12 } = req.query;
         const skip = (page - 1) * limit;
 
-        // Query cơ bản: Chỉ lấy sản phẩm đang active
-        let matchStage = { status: 'active' };
+        // Query cơ bản: Chỉ lấy sản phẩm đang active và chưa bị xoá mềm
+        let matchStage = { status: 'active', is_deleted: { $ne: true } };
 
         // Pipeline xử lý
         let pipeline = [
