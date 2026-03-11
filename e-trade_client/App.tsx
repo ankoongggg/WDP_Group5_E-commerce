@@ -51,6 +51,7 @@ import { AdminStores } from './src/pages/admin/Stores';
 import SellerOrders from './src/pages/seller/SellerOrders';
 import ProductsManager from './src/pages/seller/ProductsManager';
 import SellerProductForm from './src/pages/seller/SellerProductForm';
+import StoreManagement from './src/pages/seller/StoreManagement';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -96,6 +97,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/seller/products" element={<ProductsManager />} />
           <Route path="/seller/products/new" element={<SellerProductForm />} />
           <Route path="/seller/products/:id/edit" element={<SellerProductForm />} />
+          <Route path="/seller/settings" element={<StoreManagement />} />
         </Route>
 
         {/* Admin Routes */}
