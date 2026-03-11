@@ -24,7 +24,7 @@ exports.getStoreDetails = async (req, res) => {
         // 2. Dùng aggregation để lấy thống kê sản phẩm và đánh giá một cách hiệu quả
         const stats = await Product.aggregate([
             // Giai đoạn 1: Lọc các sản phẩm đang hoạt động của cửa hàng
-            { $match: { store_id: storeObjectId, status: 'active' } },
+            { $match: { store_id: storeObjectId, status: 'active', is_deleted: { $ne: true } } },
             // Giai đoạn 2: Nhóm để đếm sản phẩm và thu thập ID
             {
                 $group: {
@@ -103,7 +103,7 @@ exports.getStoreProducts = async (req, res) => {
         }
 
         // Xây dựng điều kiện lọc
-        const filter = { store_id: storeId, status: 'active' };
+        const filter = { store_id: storeId, status: 'active', is_deleted: { $ne: true } };
 
         if (search) {
             // Sử dụng regex để tìm kiếm không phân biệt chữ hoa/thường
