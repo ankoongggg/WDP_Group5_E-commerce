@@ -352,19 +352,47 @@ const getMyOrders = async (req, res) => {
         const customerId = req.user.id;
         const orders = await Order.find({ customer_id: customerId })
             .populate('items.product_id')
-            .populate('seller_id', 'shop_name avatar') // Thêm dòng này để lấy tên shop
-            .sort({ created_at: -1 });
+            .populate('seller_id', 'shop_name avatar')
+            .sort({ created_at: -1 })
+            .lean(); // Dùng .lean() để trả về plain object dễ thao tác
 
-        res.json({
-            success: true,
-            data: orders
+        // Lấy tất cả Order IDs để query Review
+        const orderIds = orders.map(o => o._id);
+        
+        // Tìm tất cả review của user này cho các đơn hàng trên
+        const userReviews = await Review.find({ 
+            order_id: { $in: orderIds }, 
+            user_id: customerId 
+        }).lean();
+
+        // Tạo Map để tra cứu nhanh: Key là `${orderId}-${productId}`, Value là review object
+        const reviewsMap = new Map();
+        userReviews.forEach(review => {
+            reviewsMap.set(`${review.order_id.toString()}-${review.product_id.toString()}`, review);
         });
+
+        // Gắn review vào từng item của order
+        const enrichedOrders = orders.map(order => {
+            order.items = order.items.map(item => {
+                if (!item.product_id) return item;
+                const reviewKey = `${order._id.toString()}-${item.product_id._id.toString()}`;
+                const review = reviewsMap.get(reviewKey);
+                return {
+                    ...item,
+                    user_review: review || null
+                };
+            });
+            return order;
+        });
+
+        res.json({ success: true, data: enrichedOrders });
     } catch (error) {
+        console.error('Get my orders error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// Lấy chi tiết một order
+// Lấy chi tiết một order (ĐÃ ĐƯỢC KHÔI PHỤC)
 const getOrderDetail = async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -413,5 +441,5 @@ module.exports = {
     createOrder,
     submitPayment,
     getMyOrders,
-    getOrderDetail
+    getOrderDetail // Đã thêm lại vào module.exports
 };

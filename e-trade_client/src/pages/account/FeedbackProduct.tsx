@@ -4,7 +4,6 @@ import axios from 'axios';
 import { Layout } from '../components/Layout';
 import { useToast } from '../../context/ToastContext';
 
-// A simplified product interface for this page
 interface Product {
   _id: string;
   name: string;
@@ -14,11 +13,11 @@ interface Product {
   };
 }
 
-// Interface for the review data
 interface Review {
   rating: number;
   comment: string;
   created_at: string;
+  is_edited: boolean; // Thêm trường này
 }
 
 const StarRating = ({ rating, setRating }: { rating: number, setRating: (r: number) => void }) => {
@@ -71,6 +70,9 @@ const FeedbackProduct: React.FC = () => {
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingReview, setExistingReview] = useState<Review | null>(null);
+  
+  // State để bật tắt chế độ Sửa
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     if (!productId || !orderId) {
@@ -84,7 +86,6 @@ const FeedbackProduct: React.FC = () => {
         const token = localStorage.getItem('accessToken');
         const headers = { Authorization: `Bearer ${token}` };
 
-        // Fetch product and check for existing review in parallel
         const [productResponse, reviewResponse] = await Promise.all([
           axios.get(`http://localhost:9999/api/products/${productId}`),
           axios.get(`http://localhost:9999/api/users/feedback/check`, {
@@ -93,16 +94,12 @@ const FeedbackProduct: React.FC = () => {
           }),
         ]);
 
-        // Handle product data
         if (productResponse.data && productResponse.data.product) {
           setProduct(productResponse.data.product);
         } else if (productResponse.data.success && productResponse.data.data) {
           setProduct(productResponse.data.data);
-        } else {
-          throw new Error('Product data not found in API response');
         }
 
-        // Handle existing review data
         if (reviewResponse.data.success && reviewResponse.data.data) {
           setExistingReview(reviewResponse.data.data);
         }
@@ -120,50 +117,48 @@ const FeedbackProduct: React.FC = () => {
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (rating === 0) {
-      toast.warning('Vui lòng chọn số sao đánh giá.');
-      return;
-    }
-    if (!comment.trim()) {
-      toast.warning('Vui lòng nhập nội dung đánh giá.');
-      return;
-    }
+    if (rating === 0) return toast.warning('Vui lòng chọn số sao đánh giá.');
+    if (!comment.trim()) return toast.warning('Vui lòng nhập nội dung đánh giá.');
 
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const payload = {
-        product_id: productId,
-        order_id: orderId, // Gửi kèm orderId để backend xác thực
-        rating,
-        comment,
-      };
+      const payload = { product_id: productId, order_id: orderId, rating, comment };
       
-      // The API is defined in user.routes.js, which seems to be mounted at /api, not /api/users
-      await axios.post('http://localhost:9999/api/users/feedback', payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      toast.success('Cảm ơn bạn đã đánh giá sản phẩm!');
-      navigate(`/account/orders/${orderId}`); // Điều hướng về trang chi tiết đơn hàng
+      // Nếu đang ở chế độ sửa thì gọi PUT, còn tạo mới thì gọi POST
+      if (isEditMode) {
+        await axios.put('http://localhost:9999/api/users/feedback', payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        toast.success('Cập nhật đánh giá thành công!');
+      } else {
+        await axios.post('http://localhost:9999/api/users/feedback', payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        toast.success('Cảm ơn bạn đã đánh giá sản phẩm!');
+      }
+      navigate(`/account/orders/${orderId}`); 
     } catch (error: any) {
       console.error('Failed to submit review', error);
-      toast.error(error.response?.data?.message || 'Gửi đánh giá thất bại. Có thể bạn đã đánh giá sản phẩm này rồi.');
+      toast.error(error.response?.data?.message || 'Gửi đánh giá thất bại.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (loading) {
-    return <Layout><div className="p-10 text-center">Đang tải trang đánh giá...</div></Layout>;
-  }
+  const enableEditMode = () => {
+    if (existingReview) {
+      setRating(existingReview.rating);
+      setComment(existingReview.comment);
+      setIsEditMode(true);
+    }
+  };
 
-  if (!product) {
-    return <Layout><div className="p-10 text-center">Không tìm thấy sản phẩm.</div></Layout>;
-  }
+  if (loading) return <Layout><div className="p-10 text-center">Đang tải trang đánh giá...</div></Layout>;
+  if (!product) return <Layout><div className="p-10 text-center">Không tìm thấy sản phẩm.</div></Layout>;
 
-  // If a review already exists, show a read-only view
-  if (existingReview) {
+  // Nếu ĐÃ REVIEW và KHÔNG bật Edit Mode -> Giao diện chỉ đọc
+  if (existingReview && !isEditMode) {
     return (
       <Layout>
         <div className="bg-slate-50 dark:bg-slate-900 min-h-screen py-8">
@@ -195,6 +190,20 @@ const FeedbackProduct: React.FC = () => {
                   <label className="block text-sm font-bold mb-2 text-slate-600 dark:text-slate-300">Nội dung đánh giá</label>
                   <div className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 dark:text-white min-h-[120px] whitespace-pre-wrap">{existingReview.comment || <span className="text-slate-400">Không có bình luận.</span>}</div>
                 </div>
+                
+                {/* NÚT CHỈNH SỬA (CHỈ HIỆN KHI is_edited LÀ FALSE) */}
+                {!existingReview.is_edited && (
+                  <button 
+                    onClick={enableEditMode}
+                    className="w-full mt-4 bg-primary/10 text-primary hover:bg-primary hover:text-white px-6 py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">edit</span>
+                    Sửa đánh giá (Còn 1 lần)
+                  </button>
+                )}
+                {existingReview.is_edited && (
+                  <p className="text-center text-sm text-amber-500 mt-4 italic">Đánh giá này đã được chỉnh sửa và không thể thay đổi thêm.</p>
+                )}
               </div>
             </div>
           </div>
@@ -203,19 +212,20 @@ const FeedbackProduct: React.FC = () => {
     );
   }
 
+  // Giao diện Form (Tạo mới HOẶC Sửa)
   return (
     <Layout>
       <div className="bg-slate-50 dark:bg-slate-900 min-h-screen py-8">
         <div className="max-w-2xl mx-auto px-4">
-          <div className="mb-6">
+          <div className="mb-6 flex justify-between">
             <Link to={`/account/orders/${orderId}`} className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors">
-              <span className="material-symbols-outlined">arrow_back</span> TRỞ LẠI ĐƠN HÀNG
+              <span className="material-symbols-outlined">arrow_back</span> {isEditMode ? 'HỦY SỬA' : 'TRỞ LẠI ĐƠN HÀNG'}
             </Link>
           </div>
 
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-8 border border-slate-100 dark:border-slate-700">
-            <h1 className="text-2xl font-bold text-center mb-2 dark:text-white">Đánh giá sản phẩm</h1>
-            <p className="text-slate-500 text-center mb-8">Chia sẻ cảm nhận của bạn về sản phẩm đã mua.</p>
+            <h1 className="text-2xl font-bold text-center mb-2 dark:text-white">{isEditMode ? 'Chỉnh sửa đánh giá' : 'Đánh giá sản phẩm'}</h1>
+            <p className="text-slate-500 text-center mb-8">{isEditMode ? 'Lưu ý: Bạn chỉ được chỉnh sửa đánh giá 1 lần duy nhất.' : 'Chia sẻ cảm nhận của bạn về sản phẩm đã mua.'}</p>
 
             <div className="flex gap-4 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-700 mb-8">
               <img src={product.main_image} alt={product.name} className="w-20 h-20 rounded-md object-cover" />
@@ -233,11 +243,11 @@ const FeedbackProduct: React.FC = () => {
 
               <div>
                 <label htmlFor="comment" className="block text-sm font-bold mb-2 text-slate-600 dark:text-slate-300">Viết đánh giá của bạn</label>
-                <textarea id="comment" rows={5} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Sản phẩm dùng rất tốt, đóng gói cẩn thận, giao hàng nhanh..." className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" />
+                <textarea id="comment" rows={5} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Sản phẩm dùng rất tốt, đóng gói cẩn thận..." className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" />
               </div>
 
               <button type="submit" disabled={isSubmitting} className="w-full bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/25 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                {isSubmitting ? (<><span className="material-symbols-outlined animate-spin text-lg">sync</span> Đang gửi...</>) : (<><span className="material-symbols-outlined text-lg">send</span> Gửi đánh giá</>)}
+                {isSubmitting ? (<><span className="material-symbols-outlined animate-spin text-lg">sync</span> Đang gửi...</>) : (<><span className="material-symbols-outlined text-lg">{isEditMode ? 'save' : 'send'}</span> {isEditMode ? 'Lưu thay đổi' : 'Gửi đánh giá'}</>)}
               </button>
             </form>
           </div>
