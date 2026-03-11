@@ -46,7 +46,7 @@ const OrderHistory: React.FC = () => {
 
   const tabs = [
     { id: 'all', label: 'Tất cả' },
-    { id: 'pending', label: 'Chờ thanh toán' },
+    { id: 'pending', label: 'Chờ xác nhận' },
     { id: 'confirmed', label: 'Vận chuyển' },
     { id: 'completed', label: 'Hoàn thành' },
     { id: 'cancelled', label: 'Đã hủy' },
@@ -90,7 +90,7 @@ const OrderHistory: React.FC = () => {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'pending': return 'Chờ thanh toán';
+      case 'pending': return 'Chờ xác nhận';
       case 'confirmed':
       case 'shipping':
       case 'shipped':
