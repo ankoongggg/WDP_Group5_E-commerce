@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom'; // THÊM useLocation
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Layout } from '../components/Layout';
 import { useCart } from '../../context/CartContext';
@@ -13,7 +13,7 @@ const Checkout: React.FC = () => {
   const { formatPrice } = useCurrency();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation(); // ĐỂ BẮT STATE
+  const location = useLocation();
   const { toast } = useToast();
 
   const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard');
@@ -31,7 +31,6 @@ const Checkout: React.FC = () => {
     city: ''
   });
 
-  // --- LOGIC PHÂN LUỒNG MUA NGAY VÀ GIỎ HÀNG ---
   const buyNowItems = location.state?.buyNowItems;
   const isBuyNowMode = !!buyNowItems;
   
@@ -39,7 +38,6 @@ const Checkout: React.FC = () => {
   const displayTotal = isBuyNowMode 
     ? buyNowItems.reduce((total: number, item: any) => total + (item.price * item.quantity), 0) 
     : cartTotal;
-  // -------------------------------------------
 
   const addresses = user?.addresses || [];
   const defaultAddress = addresses.find((addr: any) => addr.is_default || addr.isDefault) || addresses[0];
@@ -53,7 +51,7 @@ const Checkout: React.FC = () => {
   const currentAddress = getSelectedAddress();
 
   const shippingCost = shippingMethod === 'standard' ? 12000 : 25000;
-  const orderTotal = displayTotal + shippingCost; // Đổi thành displayTotal
+  const orderTotal = displayTotal + shippingCost; 
 
   const checkStockAndPlaceOrder = async () => {
     if (!currentAddress) {
@@ -61,7 +59,7 @@ const Checkout: React.FC = () => {
       return;
     }
 
-    if (displayItems.length === 0) {
+    if (!displayItems || displayItems.length === 0) {
       toast.error('Không có sản phẩm để thanh toán');
       return;
     }
@@ -70,43 +68,54 @@ const Checkout: React.FC = () => {
       setIsPlacingOrder(true);
 
       const orderData = {
-        // Dùng displayItems thay vì cart
-        items: displayItems.map((item: any) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-        })),
+        items: displayItems.map((item: any) => {
+          const pId = item.productId || item._id || item.product_id; // Lấy ID chắc chắn có
+          return {
+            productId: pId,   // Gửi field này cho Backend kiểu camelCase
+            product_id: pId,  // Gửi field này cho Backend kiểu snake_case (DB)
+            quantity: item.quantity,
+          };
+        }),
         
+        // CHỈ GỬI 1 OBJECT ĐỊA CHỈ, TRÁNH LÀM RỐI BACKEND
         shipping_address: { 
             recipient_name: user?.full_name || user?.account_name || 'Khách hàng',
             phone: user?.phone || '',
             full_address: `${currentAddress.street}, ${currentAddress.district}, ${currentAddress.city}`
-        },
-        shippingAddress: {
-          street: currentAddress.street,
-          district: currentAddress.district,
-          city: currentAddress.city,
         },
         shippingMethod,
         paymentMethod,
         shippingCost,
       };
 
-      const orderResponse = await shopApi.createOrder(orderData);
+      // Log dữ liệu ra console để kiểm tra nếu còn lỗi
+      console.log('SENDING ORDER DATA:', orderData);
+
+      // Sử dụng axios trực tiếp gọi vào endpoint /api/orders chuẩn và kèm Token
+      const token = localStorage.getItem('accessToken');
+      const orderResponse = await axios.post('http://localhost:9999/api/shop/orders', orderData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
       toast.success('Đặt hàng thành công!');
       setIsRedirecting(true); 
 
       setTimeout(() => {
-        // CHỈ CLEAR CART NẾU KHÔNG PHẢI MUA NGAY
         if (!isBuyNowMode) {
           clearCart();
         }
-        const orderId = orderResponse.data?.data?.orderId || orderResponse.data?.orderId || orderResponse?.data?.orderId;
-        navigate(`/account/orders/${orderId}`);
+        const orderId = orderResponse.data?.data?.orderId || orderResponse.data?.orderId || orderResponse?.data?.orderId || orderResponse?.data?._id;
+        
+        if(orderId) {
+            navigate(`/account/orders/${orderId}`);
+        } else {
+             navigate(`/account/orders`);
+        }
       }, 1200);
     } catch (error: any) {
       const message = error.response?.data?.message || 'Không thể đặt hàng. Vui lòng thử lại';
       toast.error(message);
+      console.error("CHI TIẾT LỖI TẠO ĐƠN: ", error.response?.data);
       setIsPlacingOrder(false); 
     }
   };
@@ -125,7 +134,6 @@ const Checkout: React.FC = () => {
     );
   }
 
-  // Chặn user nếu nhảy vào Checkout không có hàng
   if (!isBuyNowMode && cart.length === 0) {
     return (
         <Layout>
@@ -233,9 +241,8 @@ const Checkout: React.FC = () => {
               <h2 className="text-lg font-bold mb-6 dark:text-white">Tóm tắt đơn hàng</h2>
               
               <div className="space-y-4 mb-6 border-b border-slate-100 dark:border-primary/10 pb-6 max-h-64 overflow-y-auto">
-                {/* DÙNG displayItems THAY VÌ cart */}
                 {displayItems.map((item: any) => (
-                  <div key={item.productId} className="flex gap-3 text-sm">
+                  <div key={item.productId || item._id} className="flex gap-3 text-sm">
                     <img src={item.main_image} alt={item.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-slate-900 dark:text-white truncate">{item.name}</p>
