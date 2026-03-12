@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import ThemeToggle from '../../components/ThemeToggle';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -64,6 +65,7 @@ const Login: React.FC = () => {
           </div>
           <h2 className="text-xl font-bold tracking-tight text-background-dark dark:text-white uppercase italic">E-Shop Trading</h2>
         </Link>
+        <ThemeToggle size="sm" />
       </header>
       
       <main className="flex-1 flex items-center justify-center p-6 md:p-12">

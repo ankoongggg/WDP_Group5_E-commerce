@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useCurrency, CurrencyType } from '../../context/CurrencyContext';
 import { useCart } from '../../context/CartContext';
+import ThemeToggle from '../../components/ThemeToggle';
 
 // --- COMPONENT MỚI: Thanh công cụ nổi bên phải ---
 const FloatingSidebar: React.FC = () => {
@@ -140,6 +141,8 @@ export const Navbar: React.FC = () => {
 
                 {/* Auth & Cart Section */}
                 <div className="flex items-center gap-3">
+                    {/* Theme toggle */}
+                    <ThemeToggle className="hidden sm:flex" size="sm" />
                     
                     {/* BỘ CHỌN TIỀN TỆ ĐƯỢC REDESIGN */}
                     <div className="relative group">

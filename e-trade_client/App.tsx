@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './src/context/AuthContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { CartProvider } from './src/context/CartContext';
+import { ThemeProvider } from './src/context/ThemeContext';
 import ProtectedRoute from './src/components/ProtectedRoute';
 import { CurrencyProvider } from './src/context/CurrencyContext';
 
@@ -120,13 +121,15 @@ const AppRoutes: React.FC = () => {
 const App: React.FC = () => {
   return (
     <HashRouter>
-      <ToastProvider>
-        <CurrencyProvider>
-          <CartProvider>
-            <AppRoutes />
-          </CartProvider>
-        </CurrencyProvider>
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <CurrencyProvider>
+            <CartProvider>
+              <AppRoutes />
+            </CartProvider>
+          </CurrencyProvider>
+        </ToastProvider>
+      </ThemeProvider>
     </HashRouter>
   );
 };
