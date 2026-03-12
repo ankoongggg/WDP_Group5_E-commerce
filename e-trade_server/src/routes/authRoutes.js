@@ -10,4 +10,5 @@ router.post('/logout', protect, logout);
 router.get('/google', googleAuth);
 router.get('/google/callback', googleCallback);
 
+
 module.exports = router;
