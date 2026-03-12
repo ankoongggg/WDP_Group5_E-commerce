@@ -102,7 +102,12 @@ const createOrder = async (req, res) => {
                 return res.status(404).json({ success: false, message: `Sản phẩm với ID ${item.productId} không tồn tại.` });
             }
 
-            if (product.status !== 'active') {
+            // FIX: Status trong DB lưu dạng mảng ['active'] nhưng ở đây so sánh string
+            const isActive = Array.isArray(product.status) 
+                ? product.status.includes('active') 
+                : product.status === 'active';
+
+            if (!isActive) {
                 stockErrors.push(`Sản phẩm "${product.name}" không còn được bán.`);
                 continue; // Bỏ qua kiểm tra stock cho sản phẩm này và tiếp tục với sản phẩm khác
             }

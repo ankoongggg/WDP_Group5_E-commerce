@@ -21,16 +21,18 @@ exports.getSellerProducts = async (req, res) => {
         const skip = (page - 1) * limit;
         const { status, search } = req.query;
 
+        // ĐÃ FIX 1: Dùng $ne: true để lấy được cả những sản phẩm cũ bị thiếu trường is_deleted
         const filter = {
             store_id: store._id,
-            is_deleted: false,
+            is_deleted: { $ne: true },
         };
 
-        if (status) {
-            filter.status = status;
+        // ĐÃ FIX 2: Chặn đứng chữ 'undefined', 'all' và chuỗi rỗng lọt vào query
+        if (status && status !== 'undefined' && status !== 'all' && status.trim() !== '') {
+            filter.status = { $in: [status] }; 
         }
 
-        if (search) {
+        if (search && search !== 'undefined' && search.trim() !== '') {
             filter.name = { $regex: search, $options: 'i' };
         }
 
@@ -131,7 +133,7 @@ exports.updateSellerProduct = async (req, res) => {
         }
 
         const productId = req.params.id;
-        const product = await Product.findOne({ _id: productId, store_id: store._id, is_deleted: false });
+        const product = await Product.findOne({ _id: productId, store_id: store._id, is_deleted: { $ne: true } });
         if (!product) {
             return res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' });
         }
@@ -204,7 +206,7 @@ exports.updateSellerProductStatus = async (req, res) => {
         }
 
         const product = await Product.findOneAndUpdate(
-            { _id: productId, store_id: store._id, is_deleted: false },
+            { _id: productId, store_id: store._id, is_deleted: { $ne: true } },
             { $set: { status: [status], updated_at: new Date() } },
             { new: true },
         );
@@ -232,7 +234,7 @@ exports.softDeleteSellerProduct = async (req, res) => {
         const productId = req.params.id;
 
         const product = await Product.findOneAndUpdate(
-            { _id: productId, store_id: store._id, is_deleted: false },
+            { _id: productId, store_id: store._id, is_deleted: { $ne: true } },
             {
                 $set: {
                     is_deleted: true,
@@ -254,4 +256,39 @@ exports.softDeleteSellerProduct = async (req, res) => {
         res.status(500).json({ success: false, message: 'Lỗi máy chủ nội bộ' });
     }
 };
+// PATCH /api/seller/products/:id/stock
+exports.addSellerProductStock = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const store = await getCurrentSellerStore(userId); // Dùng lại hàm helper ở đầu file
+        if (!store) {
+            return res.status(400).json({ success: false, message: 'Bạn chưa có cửa hàng' });
+        }
 
+        const productId = req.params.id;
+        const { amount } = req.body;
+
+        if (!amount || isNaN(amount) || amount <= 0) {
+            return res.status(400).json({ success: false, message: 'Số lượng thêm phải lớn hơn 0' });
+        }
+
+        const product = await Product.findOne({ _id: productId, store_id: store._id, is_deleted: { $ne: true } });
+        if (!product) {
+            return res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' });
+        }
+
+        // Nếu sản phẩm có phân loại (size/màu), tạm thời cộng vào phân loại đầu tiên
+        // Nếu không có phân loại, cộng vào stock gốc
+        if (product.product_type && product.product_type.length > 0) {
+            product.product_type[0].stock = (product.product_type[0].stock || 0) + Number(amount);
+        } else {
+            product.stock = (product.stock || 0) + Number(amount);
+        }
+
+        await product.save();
+        res.json({ success: true, message: 'Cập nhật tồn kho thành công', data: product });
+    } catch (err) {
+        console.error('addSellerProductStock error:', err);
+        res.status(500).json({ success: false, message: 'Lỗi máy chủ nội bộ' });
+    }
+};

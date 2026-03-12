@@ -42,6 +42,35 @@ const ProductsManager: React.FC = () => {
     }
   };
 
+  // --- LOGIC MỚI: TĂNG SỐ LƯỢNG TỒN KHO ---
+  const handleAddStock = async (id: string) => {
+    const amountStr = window.prompt('Nhập số lượng hàng bạn vừa nhập thêm vào kho:');
+    if (!amountStr) return; // Người dùng ấn Cancel
+    
+    const amount = parseInt(amountStr, 10);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Số lượng không hợp lệ. Phải là số lớn hơn 0.');
+      return;
+    }
+
+    try {
+      await ProductService.addSellerProductStock(id, amount);
+      toast.success(`Đã thêm ${amount} sản phẩm vào kho thành công!`);
+      refresh(); // Reload lại bảng
+    } catch (error: any) {
+      toast.error(error?.message || 'Lỗi khi thêm số lượng');
+    }
+  };
+
+  // Hàm tính tổng tồn kho để hiển thị ra UI
+  const getStock = (p: any) => {
+    if (p.product_type && p.product_type.length > 0) {
+        return p.product_type.reduce((acc: number, item: any) => acc + (item.stock || 0), 0);
+    }
+    return p.stock || 0;
+  };
+  // ----------------------------------------
+
   const renderStatusBadge = (statusValue: string[] | string) => {
     const statuses = Array.isArray(statusValue) ? statusValue : [statusValue];
     if (statuses.includes('pending')) {
@@ -107,6 +136,7 @@ const ProductsManager: React.FC = () => {
                 <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-sm">
                   <th className="p-4 font-medium">Sản phẩm</th>
                   <th className="p-4 font-medium">Giá</th>
+                  <th className="p-4 font-medium w-32">Tồn kho</th>
                   <th className="p-4 font-medium">Trạng thái</th>
                   <th className="p-4 font-medium text-right">Hành động</th>
                 </tr>
@@ -114,14 +144,14 @@ const ProductsManager: React.FC = () => {
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
                 {loading && (
                   <tr>
-                    <td colSpan={4} className="p-6 text-center text-slate-500">
+                    <td colSpan={5} className="p-6 text-center text-slate-500">
                       Đang tải danh sách sản phẩm...
                     </td>
                   </tr>
                 )}
                 {!loading && products.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="p-6 text-center text-slate-500">
+                    <td colSpan={5} className="p-6 text-center text-slate-500">
                       Chưa có sản phẩm nào.
                     </td>
                   </tr>
@@ -154,6 +184,23 @@ const ProductsManager: React.FC = () => {
                           <p className="text-xs text-slate-400 line-through">{formatPrice(p.original_price)}</p>
                         )}
                       </td>
+                      
+                      {/* Cột hiển thị TỒN KHO và nút Tăng */}
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-700 dark:text-slate-300">
+                            {getStock(p)}
+                          </span>
+                          <button
+                            onClick={() => handleAddStock(p._id)}
+                            className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors"
+                            title="Nhập thêm hàng"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">add</span>
+                          </button>
+                        </div>
+                      </td>
+
                       <td className="p-4">{renderStatusBadge(p.status)}</td>
                       <td className="p-4">
                         <div className="flex justify-end gap-2">
@@ -194,4 +241,3 @@ const ProductsManager: React.FC = () => {
 };
 
 export default ProductsManager;
-

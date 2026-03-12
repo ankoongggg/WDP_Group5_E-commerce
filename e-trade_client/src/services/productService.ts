@@ -1,9 +1,8 @@
-// src/services/product.service.ts
 import axios from 'axios';
-import { api } from './api';
+import { api } from './api'; // IMPORT VŨ KHÍ BÍ MẬT VÀO ĐÂY
 import { ProductResponse } from '../types/home';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:9999/api';
+const API_BASE_URL = 'http://localhost:9999/api';
 
 export const ProductService = {
   // Lấy danh sách sản phẩm (có hỗ trợ filter, search, page) - public
@@ -14,7 +13,7 @@ export const ProductService = {
 
   // Lấy chi tiết 1 sản phẩm - public
   getById: async (id: string) => {
-    const response = await axios.get(`${API_BASE_URL}/${id}`);
+    const response = await axios.get(`${API_BASE_URL}/products/${id}`);
     return response.data;
   },
 
@@ -24,6 +23,8 @@ export const ProductService = {
   },
 
   // --------- Seller Product APIs (requireAuth) ----------
+  // DÙNG HÀM api() ĐỂ TỰ ĐỘNG GẮN TOKEN VÀ REFRESH TOKEN NẾU HẾT HẠN
+  
   getSellerProducts: async (params?: { page?: number; limit?: number; status?: string; search?: string }) => {
     const searchParams = new URLSearchParams();
     if (params?.status) searchParams.append('status', params.status);
@@ -56,6 +57,15 @@ export const ProductService = {
       method: 'PATCH',
       requireAuth: true,
       body: JSON.stringify({ status }),
+    });
+  },
+
+  // THÊM SỐ LƯỢNG TỒN KHO: 
+  addSellerProductStock: async (id: string, amount: number) => {
+    return api(`/seller/products/${id}/stock`, {
+      method: 'PATCH',
+      requireAuth: true, // Cờ này sẽ tự động gắn Token
+      body: JSON.stringify({ amount }),
     });
   },
 
