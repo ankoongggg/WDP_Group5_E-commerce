@@ -81,6 +81,7 @@ const createOrder = async (req, res) => {
         let totalPrice = 0;
         let orderItems = [];
         let sellerId = null;
+        let sellerType = 'Store'; // default, will change if we detect a user seller
         const stockErrors = []; // Mảng chứa các lỗi về tồn kho
 
         // OPTIMIZATION: Fetch tất cả sản phẩm 1 lần thay vì loop query (N+1 problem fix)
@@ -146,7 +147,14 @@ const createOrder = async (req, res) => {
             });
 
             if (!sellerId) {
-                sellerId = product.store_id;
+                if (product.store_id) {
+                    sellerId = product.store_id;
+                    sellerType = 'Store';
+                } else if (product.user_id) {
+                    // fallback for users who sell used goods without a store
+                    sellerId = product.user_id;
+                    sellerType = 'User';
+                }
             }
 
             // Cập nhật tồn kho
@@ -171,9 +179,15 @@ const createOrder = async (req, res) => {
 
         // Tạo order
         console.log('[LOG] 7. All items processed. Attempting to create order...');
+        if (!sellerId) {
+            // if we still don't have a seller, something went wrong with items
+            return res.status(400).json({ success: false, message: 'Không xác định được người bán cho đơn hàng.' });
+        }
+
         const order = await Order.create({
             customer_id: customerId,
             seller_id: sellerId,
+            seller_type: sellerType,
             items: orderItems,
             total_price: totalPrice,
             shipping_fee: shippingCost || 0, // Sử dụng shippingCost từ request, fallback về 0
@@ -352,7 +366,7 @@ const getMyOrders = async (req, res) => {
         const customerId = req.user.id;
         const orders = await Order.find({ customer_id: customerId })
             .populate('items.product_id')
-            .populate('seller_id', 'shop_name avatar') // Thêm dòng này để lấy tên shop
+            .populate({ path: 'seller_id', select: 'shop_name avatar full_name' }) // support both store and user sellers
             .sort({ created_at: -1 });
 
         res.json({
@@ -373,7 +387,7 @@ const getOrderDetail = async (req, res) => {
         const order = await Order.findById(orderId)
             .populate('items.product_id', '_id') // Chỉ cần _id để tạo link
             .populate('customer_id', 'full_name email phone')
-            .populate('seller_id', 'shop_name avatar');
+            .populate({ path: 'seller_id', select: 'shop_name avatar full_name' });
 
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });

@@ -3,7 +3,7 @@ const User = require('../models/User');
 const Store = require('../models/Store');
 const Product = require('../models/Product');
 const Review = require('../models/ReviewProduct'); // Thêm import Review của Thắng
-
+const BlacklistKeyword = require('../models/BlacklistKeyword');
 // ==========================================
 // CÁC HÀM CỦA TÚ (Quản lý tìm kiếm, lọc)
 // ==========================================
@@ -32,17 +32,31 @@ exports.getProducts = async (req, res) => {
         // Pipeline xử lý
         let pipeline = [
             { $match: matchStage },
+            
+            // 1. Lookup Store (Có thể null nếu là đồ pass của customer)
             {
-                $lookup: { // Join với Store để lấy tên shop
+                $lookup: {
                     from: 'stores',
                     localField: 'store_id',
                     foreignField: '_id',
                     as: 'store'
                 }
             },
-            { $unwind: '$store' }, // Giải nén mảng store
+            { $unwind: { path: '$store', preserveNullAndEmptyArrays: true } },
+            
+            // 2. Lookup User (Để lấy thông tin người đăng pass đồ)
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'user_id',
+                    foreignField: '_id',
+                    as: 'user'
+                }
+            },
+            { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } }
         ];
 
+        // 3. Search Keyword Logic
         if (keyword) {
             pipeline.push({
                 $addFields: {
@@ -62,22 +76,21 @@ exports.getProducts = async (req, res) => {
                 }
             });
 
-            // Sắp xếp: Relevance giảm dần (1 -> 0), sau đó mới đến ngày tạo
+            // Sắp xếp: Relevance giảm dần, sau đó mới đến ngày tạo
             pipeline.push({
                 $sort: { relevance: -1, created_at: -1 }
             });
         } else {
-            // Nếu không có keyword thì cứ mới nhất lên đầu
             pipeline.push({
                 $sort: { created_at: -1 }
             });
         }
 
-        // Phân trang
+        // 4. Phân trang
         pipeline.push({ $skip: skip });
         pipeline.push({ $limit: parseInt(limit) });
 
-        // Thêm stage để định hình lại output và bao gồm các trường cần thiết
+        // 5. Project (Định hình dữ liệu trả về an toàn)
         pipeline.push({
             $project: {
                 _id: 1,
@@ -85,7 +98,13 @@ exports.getProducts = async (req, res) => {
                 main_image: 1,
                 price: 1,
                 original_price: 1,
-                // Logic tính stock: Nếu có product_type (mảng) thì tính tổng stock bên trong, ngược lại lấy stock gốc
+                condition: 1,
+                status: 1,
+                product_type: 1,
+                created_at: 1,
+                category_id: 1,
+                
+                // Logic tính stock
                 stock: {
                     $cond: {
                         if: { $gt: [{ $size: { $ifNull: ["$product_type", []] } }, 0] },
@@ -93,12 +112,30 @@ exports.getProducts = async (req, res) => {
                         else: { $ifNull: ["$stock", 0] }
                     }
                 },
-                product_type: 1, // Thêm loại sản phẩm (chứa tồn kho chi tiết)
-                created_at: 1,
-                category_id: 1, // Thêm trường này để frontend có thể lọc
-                store_id: { // Đổi tên 'store' thành 'store_id' cho nhất quán
-                    _id: '$store._id',
-                    shop_name: '$store.shop_name'
+                
+                // Trả về thông tin Store NẾU tồn tại
+                store_id: {
+                    $cond: {
+                        if: { $ifNull: ["$store._id", false] }, // Nếu store._id có tồn tại
+                        then: {
+                            _id: '$store._id',
+                            shop_name: '$store.shop_name'
+                        },
+                        else: null // Trả về null nếu không có store
+                    }
+                },
+
+                // Trả về thông tin User NẾU tồn tại
+                user_id: {
+                    $cond: {
+                        if: { $ifNull: ["$user._id", false] }, // Nếu user._id có tồn tại
+                        then: {
+                            _id: '$user._id',
+                            // Lưu ý: User schema của bạn thường dùng full_name thay vì name
+                            name: '$user.full_name' 
+                        },
+                        else: null // Trả về null nếu không có user
+                    }
                 }
             }
         });
@@ -118,10 +155,11 @@ exports.getProducts = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Lỗi khi getProducts:", error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
 
 exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
     try {
@@ -347,5 +385,189 @@ exports.getProductReviews = async (req, res) => {
     }
 };
 
-// admin product functions (Tú)
-exports.adminGetProducts
+// customer product functions (Tú)
+// [GET] /api/past-item-listing/me
+// [GET] /api/products/customer_passed_products
+exports.getCustomerPassedProducts = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        // Tìm các sản phẩm do user này tạo, nhưng không thuộc về Store nào
+        const products = await Product.find({ 
+            user_id: userId, 
+        }).sort({ created_at: -1 });
+
+        res.status(200).json({ success: true, data: products });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};
+
+// [PUT] /api/products/pass/:id
+exports.updateCustomerPassedProduct = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+        const { name, description, category_id, main_image, price, original_price, quantity, display_files } = req.body;
+
+        const product = await Product.findById(id);
+        if (!product) return res.status(404).json({ message: 'Không tìm thấy sản phẩm.' });
+        if (product.user_id?.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Bạn không có quyền chỉnh sửa sản phẩm này.' });
+        }
+
+        // chỉ cho phép thay đổi một vài trường
+        if (name) product.name = name;
+        if (description) product.description = description;
+        if (category_id) product.category_id = category_id;
+        if (main_image) product.main_image = main_image;
+        if (display_files) product.display_files = display_files;
+        if (price !== undefined) product.price = price;
+        if (original_price !== undefined) product.original_price = original_price;
+
+        // nếu người dùng gửi số lượng mới (chỉ áp dụng cho hàng pass)
+        if (quantity !== undefined) {
+            let qty = parseInt(quantity, 10);
+            if (isNaN(qty) || qty < 1) qty = 1;
+            if (qty > 10) qty = 10;
+            if (product.product_type && product.product_type.length > 0) {
+                product.product_type[0].stock = qty;
+            } else {
+                product.product_type = [{ description: 'Mặc định', stock: qty, price_difference: 0 }];
+            }
+        }
+
+        // lưu lại thời gian cập nhật
+        product.updated_at = new Date();
+
+        await product.save();
+        res.status(200).json({ success: true, data: product, message: 'Đã cập nhật sản phẩm.' });
+    } catch (error) {
+        console.error('Error updating passed product:', error);
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};
+
+// [DELETE] /api/products/pass/:id
+exports.deleteCustomerPassedProduct = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+
+        const product = await Product.findById(id);
+        if (!product) return res.status(404).json({ message: 'Không tìm thấy sản phẩm.' });
+        if (product.user_id?.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Bạn không có quyền xóa sản phẩm này.' });
+        }
+
+        await product.deleteOne();
+        res.status(200).json({ success: true, message: 'Đã xóa sản phẩm.' });
+    } catch (error) {
+        console.error('Error deleting passed product:', error);
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};
+
+
+
+
+
+
+// [POST] /api/products/pass-item
+exports.createPassing2ndProduct = async (req, res) => {
+    try {
+        const userId = req.user.id; // Lấy từ token đăng nhập
+        const { name, description, category_id, main_image, display_files = [], price, original_price,
+             product_type, condition, quantity } = req.body;
+
+        // 1. Kiểm tra xem User này có Store hay không
+        const store = await Store.findOne({ user_id: userId, status: 'active' });
+        const isStore = !!store;
+
+        let finalCondition = condition;
+        let finalProductType = product_type || [];
+
+        // convert incoming quantity to integer and cap at 10
+        let qty = parseInt(quantity, 10);
+        if (isNaN(qty) || qty < 1) qty = 1;
+        if (qty > 10) qty = 10;
+
+        // 2. LOGIC CHỐNG LÁCH LUẬT CHO CUSTOMER (Không có store)
+        if (!isStore) {
+            // Kiểm tra giới hạn bài đăng (Ví dụ: tối đa 5 bài Pass đồ)
+            const activePostsCount = await Product.countDocuments({ user_id: userId, store_id: { $exists: false }, status: { $ne: 'inactive' } });
+            if (activePostsCount >= 10) {
+                return res.status(403).json({ message: 'Bạn đã đạt giới hạn đăng bán cá nhân. Vui lòng đăng ký Cửa hàng để bán thêm.' });
+            }
+
+            // Ép cứng tình trạng là đồ cũ
+            finalCondition = 'Used'; 
+
+            // cho phép số lượng do người dùng nhập (tối đa 10)
+            if (finalProductType.length > 0) {
+                finalProductType = finalProductType.map((pt, index) => ({
+                    ...pt,
+                    stock: index === 0 ? qty : 0 // chỉ vị trí đầu có số lượng
+                }));
+            } else {
+                finalProductType = [{ description: 'Mặc định', stock: qty, price_difference: 0 }];
+            }
+        }
+
+        
+        const blackListKeywords = await BlacklistKeyword.find();
+        const textToCheck = `${name} ${description || ''}`.toLowerCase();
+        
+        let finalStatus = 'active'; // Mặc định là pass
+        let rejectionReason = '';
+
+        for (const item of blackListKeywords) {
+            if (textToCheck.includes(item.keyword.toLowerCase())) {
+                if (item.level === 'high') {
+                    //xóa bài
+                    rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
+                    return; // Dừng vòng lặp ngay khi tìm thấy từ cấm
+                }
+                if (item.level === 'critical') {
+                    //khóa tài khoản
+                   rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
+                    return; // Dừng vòng lặp ngay khi tìm thấy từ cấm
+                }
+                if (item.level === 'medium') {
+                finalStatus = 'pending';
+                rejectionReason = `Hệ thống tự động tạm giữ vì chứa từ khóa nhạy cảm: "${item.keyword}"`;
+                break; 
+                }// Dừng vòng lặp ngay khi tìm thấy từ cấm
+            }
+        }
+
+        // 4. Tạo sản phẩm
+        const newProduct = new Product({
+            store_id: isStore ? store._id : undefined, // Nếu có store thì gán, không thì undefined
+            user_id: userId,                           // Luôn lưu user_id để biết ai đăng
+            category_id,
+            name,
+            description,
+            main_image,
+            display_files,
+            price,
+            original_price,
+            product_type: finalProductType,
+            condition: finalCondition,
+            status: finalStatus,
+            rejection_reason: rejectionReason
+        });
+
+        await newProduct.save();
+
+        res.status(201).json({
+            success: true,
+            message: finalStatus === 'active' ? 'Đăng bán sản phẩm thành công!' : 'Sản phẩm đang được chờ duyệt do chứa từ khóa nhạy cảm.',
+            data: newProduct
+        });
+
+    } catch (error) {
+        console.error('Lỗi tạo sản phẩm:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: error.message });
+    }
+};

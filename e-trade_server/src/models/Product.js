@@ -3,7 +3,8 @@ const Store = require('./Store');
 const Category = require('./Category');
 
 const productSchema = new mongoose.Schema({
-    store_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true },
+    store_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Store',},
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', },
     category_id: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true }],
     name: { type: String, required: true },
     description: String,

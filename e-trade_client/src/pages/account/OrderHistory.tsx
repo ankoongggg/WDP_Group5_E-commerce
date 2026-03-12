@@ -4,7 +4,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
 import { orderApi } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
-
+import { AccountLayout } from '../components/AccountLayout';
 interface OrderItem {
   product_id: {
     _id: string;
@@ -27,7 +27,8 @@ interface Order {
   created_at: string;
   seller_id?: {
     _id: string; // ĐÃ THÊM: Phải có dòng này TypeScript mới cho chạy Link to={order.seller_id._id}
-    shop_name: string;
+    shop_name?: string;
+    full_name?: string;
   }
 }
 
@@ -100,38 +101,23 @@ const OrderHistory: React.FC = () => {
       default: return status;
     }
   };
-
-  if (loading) return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
-        <div className="text-center">Đang tải đơn hàng...</div>
-    </div>
-  );
-
+  // if (loading) return (
+  //   <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
+  //       <div className="text-center">Đang tải đơn hàng...</div>
+  //   </div>
+  // );
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark font-display flex flex-col">
-      <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a110c] px-6 flex items-center justify-between sticky top-0 z-50">
-          <div className="flex items-center gap-3">
-             <Link to="/" className="bg-primary p-1.5 rounded-lg flex items-center justify-center">
-                <span className="material-symbols-outlined text-white text-2xl">dashboard</span>
-             </Link>
-             <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">My Orders</h1>
-          </div>
-          <div className="flex items-center gap-4">
-             <Link to="/account" className="text-sm font-bold text-slate-500 hover:text-primary">Back to Account</Link>
-             <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors font-bold text-sm text-slate-900 dark:text-white">
-                <span className="material-symbols-outlined text-lg">logout</span> Logout
-             </button>
-          </div>
-       </header>
+    <AccountLayout>
 
-      <main className="flex-1 bg-slate-50 dark:bg-slate-900 py-8">
-        <div className="max-w-5xl mx-auto px-4">
+          
           <div className="bg-white dark:bg-slate-800 rounded-t-xl shadow-sm border-b border-slate-200 dark:border-slate-700 flex overflow-x-auto">
             {tabs.map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 py-4 px-6 text-sm font-medium whitespace-nowrap transition-all border-b-2 ${activeTab === tab.id ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-primary/70'}`}>{tab.label}</button>
             ))}
           </div>
+          
           <div className="space-y-4 mt-4">
+            
             {filteredOrders.length > 0 ? (
               filteredOrders.map(order => (
                 <div key={order._id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 border border-slate-100 dark:border-slate-700">
@@ -141,14 +127,18 @@ const OrderHistory: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-slate-500">storefront</span>
                       {order.seller_id?._id ? (
-                        <>
-                          <Link to={`/stores/${order.seller_id._id}`} className="font-bold text-slate-900 dark:text-white hover:text-primary transition-colors">
-                            {order.seller_id.shop_name}
-                          </Link>
-                          <Link to={`/stores/${order.seller_id._id}`} className="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">store</span> Xem Shop
-                          </Link>
-                        </>
+                        order.seller_id.shop_name ? (
+                          <>
+                            <Link to={`/stores/${order.seller_id._id}`} className="font-bold text-slate-900 dark:text-white hover:text-primary transition-colors">
+                              {order.seller_id.shop_name}
+                            </Link>
+                            <Link to={`/stores/${order.seller_id._id}`} className="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[14px]">store</span> Xem Shop
+                            </Link>
+                          </>
+                        ) : (
+                          <span className="font-bold dark:text-white">{order.seller_id.full_name || 'Người bán'}</span>
+                        )
                       ) : (
                         <span className="font-bold dark:text-white">Cửa hàng</span>
                       )}
@@ -199,9 +189,8 @@ const OrderHistory: React.FC = () => {
               <div className="bg-white dark:bg-slate-800 rounded-xl p-12 text-center shadow-sm"><div className="w-24 h-24 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4"><span className="material-symbols-outlined text-4xl text-slate-400">receipt_long</span></div><h3 className="text-lg font-bold dark:text-white">Chưa có đơn hàng nào</h3><Link to="/products" className="inline-block px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 mt-4">Mua sắm ngay</Link></div>
             )}
           </div>
-        </div>
-      </main>
-    </div>
+   
+    </AccountLayout>
   );
 };
 export default OrderHistory;

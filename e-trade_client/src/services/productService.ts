@@ -19,7 +19,13 @@ export const ProductService = {
   getSaleProducts: async (params?: {limit?: number}) =>{
     const res = await axios.get(`${API_BASE_URL}/products/sale`, { params });
     return res.data;
-  }
+  },
+
+  // NOTE: creating / managing "pass" products is handled by customerPassService.ts
+  // This service only includes core shop APIs. Remove the previous helper to avoid confusion.
+
+  //admin
+  
 
   
 };
