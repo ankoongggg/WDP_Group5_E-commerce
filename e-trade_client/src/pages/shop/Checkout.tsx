@@ -6,7 +6,6 @@ import { useCart } from '../../context/CartContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { shopApi } from '../../services/api';
 
 const Checkout: React.FC = () => {
   const { cart, cartTotal, clearCart } = useCart();
@@ -69,15 +68,14 @@ const Checkout: React.FC = () => {
 
       const orderData = {
         items: displayItems.map((item: any) => {
-          const pId = item.productId || item._id || item.product_id; // Lấy ID chắc chắn có
+          const pId = item.productId || item._id || item.product_id; 
           return {
-            productId: pId,   // Gửi field này cho Backend kiểu camelCase
-            product_id: pId,  // Gửi field này cho Backend kiểu snake_case (DB)
+            productId: pId, 
+            product_id: pId,  
             quantity: item.quantity,
           };
         }),
         
-        // CHỈ GỬI 1 OBJECT ĐỊA CHỈ, TRÁNH LÀM RỐI BACKEND
         shipping_address: { 
             recipient_name: user?.full_name || user?.account_name || 'Khách hàng',
             phone: user?.phone || '',
@@ -88,30 +86,37 @@ const Checkout: React.FC = () => {
         shippingCost,
       };
 
-      // Log dữ liệu ra console để kiểm tra nếu còn lỗi
       console.log('SENDING ORDER DATA:', orderData);
 
-      // Sử dụng axios trực tiếp gọi vào endpoint /api/orders chuẩn và kèm Token
       const token = localStorage.getItem('accessToken');
+      
+      // GỌI API BACKEND (Đã được cập nhật logic tách đơn ở backend)
       const orderResponse = await axios.post('http://localhost:9999/api/shop/orders', orderData, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      toast.success('Đặt hàng thành công!');
+      // Kiểm tra xem Backend có báo tách thành nhiều đơn không
+      const isSplit = orderResponse.data?.data?.isSplit;
+      if (isSplit) {
+          toast.success('Đơn hàng đã được tách theo từng Shop!');
+      } else {
+          toast.success('Đặt hàng thành công!');
+      }
+
       setIsRedirecting(true); 
 
       setTimeout(() => {
         if (!isBuyNowMode) {
           clearCart();
         }
-        const orderId = orderResponse.data?.data?.orderId || orderResponse.data?.orderId || orderResponse?.data?.orderId || orderResponse?.data?._id;
         
-        if(orderId) {
-            navigate(`/account/orders/${orderId}`);
-        } else {
-             navigate(`/account/orders`);
-        }
+        // --- PHẦN FIX ĐIỀU HƯỚNG ---
+        // Bất kể là 1 hay nhiều đơn, cứ đá về trang danh sách đơn hàng
+        // Để khách hàng có thể nhìn thấy toàn bộ các bill vừa tạo rõ ràng.
+        navigate(`/account/orders`); 
+        
       }, 1200);
+
     } catch (error: any) {
       const message = error.response?.data?.message || 'Không thể đặt hàng. Vui lòng thử lại';
       toast.error(message);
@@ -127,7 +132,7 @@ const Checkout: React.FC = () => {
           <div>
             <div className="text-6xl mb-4">✅</div>
             <h2 className="text-3xl font-bold mb-2 dark:text-white">Đặt hàng thành công!</h2>
-            <p className="text-slate-600 dark:text-slate-400">Đang chuyển bạn đến trang chi tiết đơn hàng...</p>
+            <p className="text-slate-600 dark:text-slate-400">Đang chuyển bạn đến trang quản lý đơn hàng...</p>
           </div>
         </div>
       </Layout>

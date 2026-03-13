@@ -76,6 +76,7 @@ const ProductDetail: React.FC = () => {
         const response = await axios.get<ProductDetailsResponse>(`http://localhost:9999/api/products/${id}`);
         setDetails(response.data);
         const product = response.data.product;
+        console.log("=== THÔNG TIN SẢN PHẨM TỪ BACKEND ===", product);
         setActiveImage(product.main_image || (product.display_files.length > 0 ? product.display_files[0] : ''));
       } catch (err) {
         if (axios.isAxiosError(err) && err.response?.status === 404) {
@@ -110,13 +111,25 @@ const ProductDetail: React.FC = () => {
     fetchReviews();
   }, [activeTab, id, reviews.length, totalReviews]);
 
+  // --- PHẦN PHẪU THUẬT: LOGIC TÍNH TỒN KHO THÔNG MINH ---
   const currentStock = React.useMemo(() => {
     if (!product) return 0;
+    
+    let variantStock = 0;
+    // Kiểm tra xem mảng có tồn tại và có phần tử nào không
     if (product.product_type && product.product_type.length > 0) {
-      return product.product_type.reduce((acc, item) => acc + item.stock, 0);
+      variantStock = product.product_type.reduce((acc, item) => acc + (item.stock || 0), 0);
     }
+
+    // Nếu tổng trong phân loại lớn hơn 0, dùng nó
+    if (variantStock > 0) {
+        return variantStock;
+    }
+
+    // Nếu không có phân loại, hoặc phân loại đang bằng 0, fallback về stock gốc
     return product.stock || 0;
   }, [product]);
+  // -----------------------------------------------------
 
   const isOutOfStock = currentStock <= 0;
 
@@ -131,7 +144,6 @@ const ProductDetail: React.FC = () => {
     setQuantity(1); 
   };
 
-  // --- LOGIC MUA NGAY ĐƯỢC LÀM LẠI ---
   const handleBuyNow = () => {
     if (!product) return;
     if (isOutOfStock) {
@@ -139,9 +151,8 @@ const ProductDetail: React.FC = () => {
       return;
     }
     
-    // Tạo object item mua ngay giống cấu trúc trong giỏ hàng
     const buyNowItem = {
-      productId: product._id, // Cần truyền ID xuống Checkout
+      productId: product._id, 
       name: product.name,
       price: product.price,
       main_image: product.main_image,
@@ -151,12 +162,10 @@ const ProductDetail: React.FC = () => {
 
     toast.success('Đang chuyển tới thanh toán...');
     
-    // Đẩy thông tin qua URL State, không đụng tới Giỏ hàng
     setTimeout(() => {
         navigate('/checkout', { state: { buyNowItems: [buyNowItem] } });
     }, 500);
   };
-  // ------------------------------------
 
   const handleQuantityChange = (amount: number) => {
     setQuantity(prev => {
