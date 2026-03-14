@@ -8,6 +8,10 @@ const {
     updateUserRole,
     banAccount,
     createUserByAdmin,
+    toggleWishlist,
+    toggleFollowStore,
+    getWishlist,
+    getFollowingStores,
 } = require('../controllers/UserController');
 const { createProductReview, getProductReviewByUser } = require('../controllers/reviewController');
 const { protect, isAdmin } = require('../middlewares/auth');
@@ -27,5 +31,11 @@ router.patch('/admin/users/:id/ban', protect, isAdmin, banAccount);
 // APIs for product reviews
 router.post('/feedback', protect, createProductReview);
 router.get('/feedback/check', protect, getProductReviewByUser);
+
+// APIs for wishlist and following stores
+router.post('/wishlist/toggle', protect, toggleWishlist);
+router.post('/follow/toggle', protect, toggleFollowStore);
+router.get('/wishlist', protect, getWishlist);
+router.get('/following', protect, getFollowingStores);
 
 module.exports = router;

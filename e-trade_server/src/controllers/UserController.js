@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const Product = require('../models/Product');
+const Store = require('../models/Store');
 
 const getProfile = async (req, res) => {
     try {
@@ -42,6 +44,187 @@ const updateProfile = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+const toggleWishlist = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { productId } = req.body;
+
+        if (!productId) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp ID sản phẩm' });
+        }
+
+        const productExists = await Product.findById(productId);
+        if (!productExists) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm' });
+        }
+
+        const user = await User.findById(userId);
+        const isWishlisted = user.wishlist.includes(productId);
+
+        const updateOperation = isWishlisted ? { $pull: { wishlist: productId } } : { $addToSet: { wishlist: productId } };
+        const message = isWishlisted ? 'Đã xóa khỏi danh sách yêu thích' : 'Đã thêm vào danh sách yêu thích';
+
+        const updatedUser = await User.findByIdAndUpdate(userId, updateOperation, { new: true }).select('wishlist');
+
+        res.json({ success: true, message, data: updatedUser.wishlist });
+
+    } catch (error) {
+        console.error("Lỗi khi xử lý wishlist:", error);
+        res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
+    }
+};
+
+const toggleFollowStore = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { storeId } = req.body;
+
+        if (!storeId) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp ID cửa hàng' });
+        }
+
+        const storeExists = await Store.findById(storeId);
+        if (!storeExists) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy cửa hàng' });
+        }
+
+        const user = await User.findById(userId);
+        const isFollowing = user.following_stores.includes(storeId);
+
+        const updateOperation = isFollowing ? { $pull: { following_stores: storeId } } : { $addToSet: { following_stores: storeId } };
+        const message = isFollowing ? 'Đã bỏ theo dõi cửa hàng' : 'Đã theo dõi cửa hàng';
+
+        const updatedUser = await User.findByIdAndUpdate(userId, updateOperation, { new: true }).select('following_stores');
+
+        res.json({ success: true, message, data: updatedUser.following_stores });
+
+    } catch (error) {
+        console.error("Lỗi khi theo dõi cửa hàng:", error);
+        res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
+    }
+};
+
+const getWishlist = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { page = 1, limit = 12, search } = req.query;
+        const pageInt = parseInt(page);
+        const limitInt = parseInt(limit);
+        const skip = (pageInt - 1) * limitInt;
+
+        // 1. Lấy danh sách ID sản phẩm yêu thích của người dùng
+        const user = await User.findById(userId).select('wishlist').lean();
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+        }
+
+        if (user.wishlist.length === 0) {
+            return res.json({
+                success: true,
+                data: [],
+                pagination: { currentPage: 1, totalPages: 0, totalItems: 0, limit: limitInt }
+            });
+        }
+
+        // 2. Xây dựng bộ lọc cho sản phẩm
+        const productFilter = {
+            _id: { $in: user.wishlist }
+        };
+        if (search) {
+            productFilter.name = { $regex: search, $options: 'i' };
+        }
+
+        // 3. Truy vấn sản phẩm với bộ lọc, phân trang và lấy tổng số lượng
+        const [products, totalItems] = await Promise.all([
+            Product.find(productFilter)
+                .select('name main_image price original_price store_id')
+                .populate('store_id', 'shop_name')
+                .sort({ created_at: -1 })
+                .skip(skip)
+                .limit(limitInt)
+                .lean(),
+            Product.countDocuments(productFilter)
+        ]);
+
+        const totalPages = Math.ceil(totalItems / limitInt);
+
+        res.json({
+            success: true,
+            data: products,
+            pagination: {
+                currentPage: pageInt,
+                totalPages: totalPages,
+                totalItems: totalItems,
+                limit: limitInt
+            }
+        });
+    } catch (error) {
+        console.error("Lỗi khi lấy danh sách yêu thích:", error);
+        res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
+    }
+};
+
+const getFollowingStores = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { page = 1, limit = 12, search } = req.query;
+        const pageInt = parseInt(page);
+        const limitInt = parseInt(limit);
+        const skip = (pageInt - 1) * limitInt;
+        
+        // 1. Lấy danh sách ID cửa hàng đang theo dõi của người dùng
+        const user = await User.findById(userId).select('following_stores').lean();
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+        }
+
+        if (user.following_stores.length === 0) {
+            return res.json({
+                success: true,
+                data: [],
+                pagination: { currentPage: 1, totalPages: 0, totalItems: 0, limit: limitInt }
+            });
+        }
+
+        // 2. Xây dựng bộ lọc cho cửa hàng
+        const storeFilter = {
+            _id: { $in: user.following_stores }
+        };
+        if (search) {
+            storeFilter.shop_name = { $regex: search, $options: 'i' };
+        }
+
+        // 3. Truy vấn cửa hàng với bộ lọc, phân trang và lấy tổng số lượng
+        const [stores, totalItems] = await Promise.all([
+            Store.find(storeFilter)
+                .select('shop_name description user_id')
+                .populate('user_id', 'avatar')
+                .sort({ created_at: -1 })
+                .skip(skip)
+                .limit(limitInt)
+                .lean(),
+            Store.countDocuments(storeFilter)
+        ]);
+
+        const totalPages = Math.ceil(totalItems / limitInt);
+
+        res.json({
+            success: true,
+            data: stores,
+            pagination: {
+                currentPage: pageInt,
+                totalPages: totalPages,
+                totalItems: totalItems,
+                limit: limitInt
+            }
+        });
+    } catch (error) {
+        console.error("Lỗi khi lấy danh sách cửa hàng theo dõi:", error);
+        res.status(500).json({ success: false, message: 'Lỗi máy chủ' });
+    }
+};
+
 
 // Admin User functions
 const getUserList = async (req, res) => {
@@ -237,13 +420,17 @@ const getTotalUsersNumberAndComparison = async (req,res) => {
 }
 
 module.exports = {
-    getProfile,
-    updateProfile,
-    getUserList,
-    updateUserRole,
-    banAccount,
-    upSellerRequest,
-    createUserByAdmin,
-    getTotalUsersNumberAndComparison,
+  getProfile,
+  updateProfile,
+  getUserList,
+  updateUserRole,
+  banAccount,
+  upSellerRequest,
+  createUserByAdmin,
+  getTotalUsersNumberAndComparison,
+  toggleWishlist,
+  toggleFollowStore,
+  getWishlist,
+  getFollowingStores
 };
 
