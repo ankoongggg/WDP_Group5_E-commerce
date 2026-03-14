@@ -396,7 +396,7 @@ const getOrderDetail = async (req, res) => {
         const order = await Order.findById(orderId)
             .populate('items.product_id', '_id') // Chỉ cần _id để tạo link
             .populate('customer_id', 'full_name email phone')
-            .populate('seller_id', 'shop_name avatar');
+            .populate({ path: 'seller_id', select: 'shop_name avatar full_name' });
 
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });

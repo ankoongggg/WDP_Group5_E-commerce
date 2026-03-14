@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Layout } from '../components/Layout';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
 import { orderApi } from '../../services/api';
+import {AccountLayout} from '../components/AccountLayout';
 
 // Helper component for displaying stars
 const StarRatingDisplay = ({ rating, size = 'text-sm' }: { rating: number, size?: string }) => {
@@ -108,7 +108,7 @@ const OrderDetail: React.FC = () => {
     fetchOrderDetail();
   }, [id, navigate, toast]);
 
-  if (loading) return <Layout><div className="p-10 text-center">Đang tải chi tiết đơn hàng...</div></Layout>;
+  if (loading) return <AccountLayout><div className="p-10 text-center">Đang tải chi tiết đơn hàng...</div></AccountLayout>;
   if (!order) return null;
 
   const steps = [
@@ -139,7 +139,7 @@ const OrderDetail: React.FC = () => {
   }
 
   return (
-    <Layout>
+    <AccountLayout>
       {selectedReviewItem && (
         <ReviewDetailModal 
             item={selectedReviewItem}
@@ -147,10 +147,11 @@ const OrderDetail: React.FC = () => {
             onClose={() => setSelectedReviewItem(null)} 
         />
       )}
-      <div className="bg-slate-50 dark:bg-slate-900 min-h-screen py-8">
-        <div className="max-w-5xl mx-auto px-4">
+        <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-6">
-             <Link to="/account/orders" className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors"><span className="material-symbols-outlined">arrow_back</span> TRỞ LẠI</Link>
+             <Link to="/account/orders" className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors">
+                <span className="material-symbols-outlined">arrow_back</span> TRỞ LẠI DANH SÁCH
+             </Link>
              <div className="text-sm uppercase font-bold text-primary">MÃ ĐƠN HÀNG: {order._id.slice(-8).toUpperCase()} | <span className="text-slate-500">{order.order_status.toUpperCase()}</span></div>
           </div>
 
@@ -202,16 +203,20 @@ const OrderDetail: React.FC = () => {
                 <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-slate-500 text-2xl">storefront</span>
                     {order.seller_id?._id ? (
-                        <>
-                            <Link to={`/store/${order.seller_id._id}`} className="font-bold text-lg text-slate-900 dark:text-white hover:text-primary transition-colors">
-                                {order.seller_id.shop_name}
-                            </Link>
-                            <Link to={`/store/${order.seller_id._id}`} className="bg-white dark:bg-slate-700 text-xs px-3 py-1.5 rounded-md font-medium hover:bg-slate-100 transition-colors dark:text-white border border-slate-200 dark:border-slate-600 flex items-center gap-1 shadow-sm">
-                                <span className="material-symbols-outlined text-[14px]">store</span> Xem Shop
-                            </Link>
-                        </>
+                        order.seller_id.shop_name ? (
+                            <>
+                                <Link to={`/store/${order.seller_id._id}`} className="font-bold text-lg text-slate-900 dark:text-white hover:text-primary transition-colors">
+                                    {order.seller_id.shop_name}
+                                </Link>
+                                <Link to={`/store/${order.seller_id._id}`} className="bg-white dark:bg-slate-700 text-xs px-3 py-1.5 rounded-md font-medium hover:bg-slate-100 transition-colors dark:text-white border border-slate-200 dark:border-slate-600 flex items-center gap-1 shadow-sm">
+                                    <span className="material-symbols-outlined text-[14px]">store</span> Xem Shop
+                                </Link>
+                            </>
+                        ) : (
+                            <span className="font-bold text-lg text-slate-900 dark:text-white">{order.seller_id.full_name || 'Người bán'}</span>
+                        )
                     ) : (
-                        <span className="font-bold text-lg text-slate-900 dark:text-white">{order.seller_id?.shop_name || 'Shop'}</span>
+                        <span className="font-bold text-lg text-slate-900 dark:text-white">{order.seller_id?.shop_name || order.seller_id?.full_name || order.seller_id?.full_name || 'Shop'}</span>
                     )}
                     <button className="text-xs bg-primary text-white px-3 py-1.5 rounded-md font-medium hover:bg-primary/90 transition-colors shadow-sm ml-2">Chat ngay</button>
                 </div>
@@ -257,8 +262,7 @@ const OrderDetail: React.FC = () => {
              </div>
           </div>
         </div>
-      </div>
-    </Layout>
+    </AccountLayout>
   );
 };
 export default OrderDetail;

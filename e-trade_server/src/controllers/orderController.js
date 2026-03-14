@@ -20,7 +20,7 @@ exports.getSellerOrders = async (req, res) => {
         }
 
         // 2. Xây dựng pipeline tổng hợp để lọc, tìm kiếm và phân trang
-        const matchStage = { seller_id: store._id };
+        const matchStage = { seller_id: store._id, seller_type: 'Store' };
         if (status && ['pending', 'confirmed', 'shipping', 'completed', 'cancelled'].includes(status)) {
             matchStage.order_status = status;
         }
@@ -147,7 +147,7 @@ exports.getSellerDashboardStats = async (req, res) => {
         }
 
         const statsPipeline = Order.aggregate([
-            { $match: { seller_id: store._id } },
+            { $match: { seller_id: store._id, seller_type: 'Store' } },
             {
                 $facet: {
                     totalRevenue: [
@@ -176,7 +176,7 @@ exports.getSellerDashboardStats = async (req, res) => {
             }
         ]);
 
-        const recentOrdersQuery = Order.find({ seller_id: store._id })
+        const recentOrdersQuery = Order.find({ seller_id: store._id, seller_type: 'Store' })
             .sort({ created_at: -1 })
             .limit(5)
             .populate('customer_id', 'full_name');
@@ -297,5 +297,62 @@ exports.updateOrderStatusBySeller = async (req, res) => {
     } catch (error) {
         console.error('Lỗi khi cập nhật trạng thái đơn hàng:', error);
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
+
+// GET /api/users/passed-orders
+exports.getCustomerPassedOrders = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { status } = req.query;
+
+        let matchStage = { 
+            seller_id: userId, // Vì lúc tạo Order, nếu mua của Customer thì seller_id chính là userId
+            seller_type: 'User' 
+        };
+
+        if (status) matchStage.order_status = status;
+
+        const orders = await Order.find(matchStage)
+            .populate('customer_id', 'full_name email phone') // Lấy thông tin người mua
+            .populate('items.product_id', 'name main_image')
+            .sort({ created_at: -1 });
+
+        res.status(200).json({ success: true, data: orders });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};
+
+// PUT /api/users/passed-orders/:orderId/status
+exports.updatePassedOrderStatus = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const userId = req.user.id;
+        const { status, reason } = req.body;
+
+        const order = await Order.findById(orderId);
+        
+        if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
+        
+        // Kiểm tra xem đơn hàng này có đúng là do User này bán không
+        if (order.seller_type !== 'User' || order.seller_id.toString() !== userId) {
+            return res.status(403).json({ message: 'Bạn không có quyền xử lý đơn này.' });
+        }
+
+        // Logic chuyển trạng thái (Giống hệt Seller)
+        order.order_status = status;
+        if (status === 'cancelled') {
+            order.note = reason;
+            // Hoàn lại stock (cộng lại 1 vào product)
+            // ... (Copy logic hoàn stock từ hàm updateOrderStatusBySeller)
+        }
+
+        order.history_logs.push({ action: `Chủ hàng đã chuyển trạng thái thành ${status}`, created_at: new Date() });
+        await order.save();
+
+        res.status(200).json({ success: true, message: 'Đã cập nhật đơn hàng', data: order });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server' });
     }
 };

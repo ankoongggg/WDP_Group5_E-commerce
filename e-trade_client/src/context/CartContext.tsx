@@ -51,6 +51,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
       }
 
+      // defensive extraction of store info
+      const storeObj = product.store_id || {};
+      const storeId = storeObj._id || storeObj || '';
+      const shopName = storeObj.shop_name || '';
+
       return [
         ...prevCart,
         {
@@ -59,8 +64,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           price: product.price,
           quantity,
           main_image: product.main_image,
-          store_id: product.store_id._id || product.store_id,
-          shop_name: product.store_id.shop_name || '',
+          store_id: storeId,
+          shop_name: shopName,
         },
       ];
     });

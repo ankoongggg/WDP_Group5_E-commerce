@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Layout } from '../components/Layout';
 import ProductCard from '../components/ProductCard';
+import { useAuth } from '../../context/AuthContext';
+import { authApi } from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 
 // --- Interfaces ---
 interface Store {
@@ -67,6 +70,12 @@ function useDebounce<T>(value: T, delay: number): T {
 
 const StoreDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user, setUser, isAuthenticated, refreshUser } = useAuth();
+  const { toast } = useToast();
+
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isTogglingFollow, setIsTogglingFollow] = useState(false);
 
   // Store data state
   const [storeDetails, setStoreDetails] = useState<StoreDetailsResponse | null>(null);
@@ -108,6 +117,14 @@ const StoreDetail: React.FC = () => {
     fetchStoreDetails();
   }, [id]);
 
+  // Effect to refresh user data to get the latest follow status
+  useEffect(() => {
+    // Chỉ gọi khi người dùng đã đăng nhập để đảm bảo có thông tin mới nhất
+    if (isAuthenticated && refreshUser) {
+      refreshUser();
+    }
+  }, [isAuthenticated, refreshUser]);
+
   // Effect to fetch products based on filters
   useEffect(() => {
     const fetchProducts = async () => {
@@ -142,6 +159,44 @@ const StoreDetail: React.FC = () => {
     setPage(1);
   }, [debouncedSearchTerm, debouncedMinPrice, debouncedMaxPrice, sortBy]);
 
+  // Effect to check follow status
+  useEffect(() => {
+    if (isAuthenticated && user?.following_stores && storeDetails?.store._id) {
+        setIsFollowing(user.following_stores.includes(storeDetails.store._id));
+    } else {
+        setIsFollowing(false);
+    }
+  }, [user, storeDetails, isAuthenticated]);
+
+  const handleToggleFollow = async () => {
+    if (!isAuthenticated) {
+        toast.info('Vui lòng đăng nhập để theo dõi cửa hàng.');
+        navigate('/login');
+        return;
+    }
+    if (!storeDetails?.store._id || isTogglingFollow) return;
+
+    setIsTogglingFollow(true);
+    try {
+        const response = await authApi.toggleFollowStore(storeDetails.store._id);
+        toast.success(response.message);
+        
+        const newFollowing: string[] = response.data || [];
+        // Cập nhật trạng thái local ngay lập tức để UI phản hồi nhanh
+        setIsFollowing(newFollowing.includes(storeDetails.store._id));
+
+        // Cập nhật AuthContext để trạng thái được đồng bộ trên toàn ứng dụng.
+        // Sử dụng functional update để đảm bảo luôn cập nhật dựa trên state mới nhất.
+        if (setUser) {
+            setUser(currentUser => currentUser ? { ...currentUser, following_stores: newFollowing } : null);
+        }
+    } catch (error: any) {
+        toast.error(error.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+    } finally {
+        setIsTogglingFollow(false);
+    }
+  };
+
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSortBy(e.target.value);
   };
@@ -170,9 +225,23 @@ const StoreDetail: React.FC = () => {
             alt={store.shop_name}
             className="w-32 h-32 rounded-full object-cover border-4 border-white dark:border-slate-700 shadow-lg"
           />
-          <div className="text-center md:text-left">
-            <h1 className="text-4xl font-extrabold dark:text-white">{store.shop_name}</h1>
-            <p className="mt-2 text-slate-600 dark:text-slate-300">{store.description}</p>
+          <div className="flex-1 text-center md:text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-center md:justify-start gap-4 mb-2">
+              <h1 className="text-4xl font-extrabold dark:text-white">{store.shop_name}</h1>
+              <button
+                  onClick={handleToggleFollow}
+                  disabled={isTogglingFollow}
+                  className={`px-5 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-70 ${
+                      isFollowing
+                          ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
+                          : 'bg-primary text-white hover:bg-primary/90'
+                  }`}
+              >
+                  <span className="material-symbols-outlined text-base">{isFollowing ? 'check' : 'add'}</span>
+                  {isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
+              </button>
+            </div>
+            <p className="text-slate-600 dark:text-slate-300">{store.description}</p>
             <div className="mt-4 flex flex-wrap justify-center md:justify-start items-center gap-6 text-sm text-slate-500 dark:text-slate-400">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-lg">inventory_2</span>

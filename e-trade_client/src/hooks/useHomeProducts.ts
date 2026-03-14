@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Category, Product } from '../types/home';
 import { ProductService } from '../services/productService';
-import { getInterests } from '../utils/tracker';
+// import { getInterests } from '../utils/tracker';
 import {CategoryService} from '../services/categoryService';
 export const useHomeProducts = () => {
     const [saleProducts, setSaleProducts] = useState<Product[]>([]);
@@ -16,11 +16,11 @@ export const useHomeProducts = () => {
       try {
         setLoading(true);
         // 1. Lấy keyword từ lịch sử xem
-        const interests = getInterests();
+        // const interests = getInterests();
         
       
 
-        const saleRes = await ProductService.getSaleProducts({ limit: 4 });
+        const saleRes = await ProductService.getSaleProducts({ limit: 6 });
         // calculate the largest discount without relying on state inside loop
         let maxDiscount = 0;
         saleRes.data.forEach((product: Product) => {
@@ -52,11 +52,7 @@ export const useHomeProducts = () => {
         // 2. Gọi API: Gửi keyword lên để Backend ưu tiên tìm sản phẩm đó
         // Backend của bạn đã có logic: if (keyword) tìm theo keyword
         // Chúng ta lấy limit=8 cho đẹp layout
-        const res = await ProductService.getAll({ 
-          keyword: interests, 
-          limit: 8, 
-          page: 1 
-        });
+        const res = await ProductService.getRecommendations(18);
         
         setProducts(res.data);
       } catch (error) {

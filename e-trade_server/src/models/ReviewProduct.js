@@ -11,7 +11,6 @@ const reviewProductSchema = new mongoose.Schema({
     fileUploads: [String],
     comment: { type: String},
     
-    // ĐÃ THÊM: Cờ đánh dấu đã sửa hay chưa (mặc định là chưa)
     is_edited: { type: Boolean, default: false }, 
     
     created_at: { type: Date, default: Date.now },

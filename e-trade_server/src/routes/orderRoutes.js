@@ -11,7 +11,11 @@ router.get('/dashboard', protect, isSeller, orderController.getSellerDashboardSt
 // [SELLER] GET /api/seller/orders - Lấy danh sách đơn hàng cho cửa hàng của người bán
 router.get('/orders', protect, isSeller, orderController.getSellerOrders);
 
+router.get('/2nd_orders', protect, orderController.getCustomerPassedOrders);
+
 // [SELLER] PUT /api/seller/orders/:orderId/status - Xác nhận hoặc từ chối một đơn hàng
 router.put('/:orderId/status', protect, isSeller, orderController.updateOrderStatusBySeller);
+
+router.put('/update_passed_order_status/:orderId', protect, orderController.updatePassedOrderStatus);
 
 module.exports = router;
