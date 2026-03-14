@@ -133,10 +133,8 @@ const ProductDetail: React.FC = () => {
   const finalPrice = React.useMemo(() => {
     if (!product) return 0;
     if (selectedVariant) {
-      // Theo yêu cầu: Khi chọn một loại, giá cuối cùng sẽ là giá của loại đó.
-      // Giá này được cho là lưu trong trường `price_difference`.
-      // Nếu `price_difference` không tồn tại, sẽ quay về giá gốc của sản phẩm.
-      return selectedVariant.price_difference ?? product.price;
+      // Yêu cầu mới: Giá cuối cùng = Giá gốc của sản phẩm + Mức chênh lệch của phân loại.
+      return product.price + (selectedVariant.price_difference || 0);
     }
     // Khi chưa chọn loại nào, hiển thị giá gốc của sản phẩm.
     return product.price;
