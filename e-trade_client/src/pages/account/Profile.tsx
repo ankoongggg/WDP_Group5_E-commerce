@@ -36,15 +36,35 @@ const Profile: React.FC = () => {
         }
     }, [user, editing]);
 
+    // HÀM LƯU ĐÃ ĐƯỢC PHẪU THUẬT: KHÔNG GHI ĐÈ ĐỊA CHỈ KHÁC
     const onSave = async () => {
         setSaving(true);
         try {
+            let updatedAddresses = [];
+            
+            if (user?.addresses && user.addresses.length > 0) {
+                // Copy mảng cũ để không làm mất các địa chỉ từ Checkout
+                updatedAddresses = [...user.addresses];
+                
+                // Tìm địa chỉ mặc định (hoặc đang hiển thị trên form) để cập nhật
+                const defaultIndex = updatedAddresses.findIndex((a: any) => a.is_default);
+                
+                if (defaultIndex !== -1) {
+                    updatedAddresses[defaultIndex] = { ...updatedAddresses[defaultIndex], ...addr };
+                } else {
+                    updatedAddresses[0] = { ...updatedAddresses[0], ...addr };
+                }
+            } else {
+                // Nếu chưa có địa chỉ nào, tạo mảng mới
+                updatedAddresses = [addr];
+            }
+
             const payload = {
                 full_name: form.name,
                 phone: form.phone,
                 gender: form.gender,
                 dob: form.dob || null, 
-                addresses: [addr],
+                addresses: updatedAddresses, // Truyền mảng đã được bảo tồn vào đây
             };
 
             await authApi.updateProfile(payload);
@@ -104,9 +124,12 @@ const Profile: React.FC = () => {
                     <h3 className="text-lg font-bold mb-6 dark:text-white">Delivery Address</h3>
                     {!editing ? (
                         user?.addresses?.length > 0 ? user.addresses.map((item: any, i: number) => (
-                            <div key={i} className="p-4 border-2 border-primary/20 bg-primary/5 rounded-xl mb-3">
-                                <p className="font-bold dark:text-white">{item.label || "Home"}</p>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">{item.street}, {item.district}, {item.city}</p>
+                            <div key={i} className={`p-4 border-2 rounded-xl mb-3 ${item.is_default ? 'border-primary/20 bg-primary/5' : 'border-slate-100 dark:border-slate-800'}`}>
+                                <div className="flex justify-between items-start">
+                                    <p className="font-bold dark:text-white">{item.label || "Address"}</p>
+                                    {item.is_default && <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-primary text-white rounded">Mặc định</span>}
+                                </div>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{item.street}, {item.district}, {item.city}</p>
                             </div>
                         )) : <p className="text-slate-500">Chưa có địa chỉ</p>
                     ) : (
@@ -116,6 +139,7 @@ const Profile: React.FC = () => {
                                 <input className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={addr.district} onChange={(e) => setAddr({...addr, district: e.target.value})} placeholder="District" />
                                 <input className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={addr.city} onChange={(e) => setAddr({...addr, city: e.target.value})} placeholder="City" />
                             </div>
+                            <p className="text-xs text-slate-500 mt-2">* Việc chỉnh sửa ở đây sẽ cập nhật địa chỉ mặc định của bạn.</p>
                         </div>
                     )}
                 </div>
