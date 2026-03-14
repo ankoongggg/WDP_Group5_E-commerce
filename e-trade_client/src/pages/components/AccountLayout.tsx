@@ -15,6 +15,17 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
     const { toast } = useToast();
     const location = useLocation();
 
+     const { pathname } = useLocation();
+
+    const getLinkClassName = (path: string, isExact: boolean = false) => {
+        const baseClass = "flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all";
+        const activeClass = "rounded-lg bg-primary/10 border-r-4 border-primary text-primary font-medium";
+
+        const isActive = isExact ? pathname === path : pathname.startsWith(path);
+
+        return isActive ? `${baseClass} ${activeClass}` : baseClass;
+    };
+
     // Các state liên quan đến đăng ký Seller
     const [showSellerModal, setShowSellerModal] = useState(false);
     const [sellerRegistrationStatus, setSellerRegistrationStatus] = useState<any>(null);
@@ -243,6 +254,9 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
                         </Link>
                         <Link to="/account/orders" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive('/account/orders') ? 'bg-primary/10 border-r-4 border-primary text-primary font-medium' : 'text-slate-500 hover:text-primary'}`}>
                             <span className="material-symbols-outlined">shopping_bag</span> Orders
+                        </Link>
+                        <Link to="/account/wishlist" className={getLinkClassName('/account/wishlist')}>
+                            <span className="material-symbols-outlined">favorite</span> Wishlist & Following
                         </Link>
                         
                         {/* 2 tab mới cho tính năng Pass đồ */}

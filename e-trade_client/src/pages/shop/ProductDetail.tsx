@@ -28,7 +28,7 @@ interface Product {
     stock: number;
     price_difference: number;
   }[];
-  stock?: number; // For products without types
+  stock?: number; 
   condition: string;
 }
 
@@ -76,6 +76,7 @@ const ProductDetail: React.FC = () => {
         const response = await axios.get<ProductDetailsResponse>(`http://localhost:9999/api/products/${id}`);
         setDetails(response.data);
         const product = response.data.product;
+        console.log("=== THÔNG TIN SẢN PHẨM TỪ BACKEND ===", product);
         setActiveImage(product.main_image || (product.display_files.length > 0 ? product.display_files[0] : ''));
       } catch (err) {
         if (axios.isAxiosError(err) && err.response?.status === 404) {
@@ -83,12 +84,10 @@ const ProductDetail: React.FC = () => {
         } else {
           setError('Không thể tải chi tiết sản phẩm. Vui lòng thử lại sau.');
         }
-        console.error('Error fetching product details:', err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchProductDetails();
   }, [id]);
 
@@ -96,39 +95,43 @@ const ProductDetail: React.FC = () => {
 
   useEffect(() => {
     const fetchReviews = async () => {
-      // Tải đánh giá khi tab được chọn, chưa có dữ liệu và có đánh giá để tải
       if (activeTab === 'reviews' && id && reviews.length === 0 && totalReviews && totalReviews > 0) {
         setReviewsLoading(true);
         setReviewsError(null);
         try {
-          // LƯU Ý: Giả định endpoint API để lấy đánh giá của sản phẩm là như sau.
           const response = await axios.get<{ reviews: Review[] }>(`http://localhost:9999/api/products/${id}/reviews`);
           setReviews(response.data.reviews);
         } catch (err) {
-          console.error('Error fetching reviews:', err);
           setReviewsError('Không thể tải danh sách đánh giá. Vui lòng thử lại.');
         } finally {
           setReviewsLoading(false);
         }
       }
     };
-
     fetchReviews();
   }, [activeTab, id, reviews.length, totalReviews]);
 
-  // --- FIX: Thêm logic tính toán stock và biến isOutOfStock ---
+  // --- PHẦN PHẪU THUẬT: LOGIC TÍNH TỒN KHO THÔNG MINH ---
   const currentStock = React.useMemo(() => {
     if (!product) return 0;
-    // Nếu có product_type, cộng tổng stock của các type
+    
+    let variantStock = 0;
+    // Kiểm tra xem mảng có tồn tại và có phần tử nào không
     if (product.product_type && product.product_type.length > 0) {
-      return product.product_type.reduce((acc, item) => acc + item.stock, 0);
+      variantStock = product.product_type.reduce((acc, item) => acc + (item.stock || 0), 0);
     }
-    // Nếu không, dùng stock gốc (fallback về 0 nếu undefined)
+
+    // Nếu tổng trong phân loại lớn hơn 0, dùng nó
+    if (variantStock > 0) {
+        return variantStock;
+    }
+
+    // Nếu không có phân loại, hoặc phân loại đang bằng 0, fallback về stock gốc
     return product.stock || 0;
   }, [product]);
+  // -----------------------------------------------------
 
   const isOutOfStock = currentStock <= 0;
-  // -----------------------------------------------------------
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -138,7 +141,7 @@ const ProductDetail: React.FC = () => {
     }
     addToCart({ ...product, stock: currentStock }, quantity);
     toast.success('Đã thêm vào giỏ hàng!');
-    setQuantity(1); // Reset quantity
+    setQuantity(1); 
   };
 
   const handleBuyNow = () => {
@@ -147,10 +150,23 @@ const ProductDetail: React.FC = () => {
       toast.error('Sản phẩm này đã hết hàng!');
       return;
     }
-    addToCart({ ...product, stock: currentStock }, quantity);
-    toast.success('Thêm vào giỏ hàng thành công, đang chuyển tới thanh toán...');
-    setTimeout(() => navigate('/checkout'), 500);
+    
+    const buyNowItem = {
+      productId: product._id, 
+      name: product.name,
+      price: product.price,
+      main_image: product.main_image,
+      stock: currentStock,
+      quantity: quantity
+    };
+
+    toast.success('Đang chuyển tới thanh toán...');
+    
+    setTimeout(() => {
+        navigate('/checkout', { state: { buyNowItems: [buyNowItem] } });
+    }, 500);
   };
+
   const handleQuantityChange = (amount: number) => {
     setQuantity(prev => {
       const newValue = prev + amount;
@@ -172,17 +188,9 @@ const ProductDetail: React.FC = () => {
     );
   };
 
-  if (loading) {
-    return <Layout><div className="flex justify-center items-center h-screen">Đang tải...</div></Layout>;
-  }
-
-  if (error) {
-    return <Layout><div className="text-center py-20 text-red-500">{error}</div></Layout>;
-  }
-
-  if (!product) {
-    return <Layout><div className="text-center py-20">Không có chi tiết sản phẩm.</div></Layout>;
-  }
+  if (loading) return <Layout><div className="flex justify-center items-center h-screen">Đang tải...</div></Layout>;
+  if (error) return <Layout><div className="text-center py-20 text-red-500">{error}</div></Layout>;
+  if (!product) return <Layout><div className="text-center py-20">Không có chi tiết sản phẩm.</div></Layout>;
 
   const allImages = [product.main_image, ...product.display_files].filter(Boolean);
   const discount = (product.original_price && product.price && product.original_price > product.price) ? Math.round(((product.original_price - product.price) / product.original_price) * 100) : 0;

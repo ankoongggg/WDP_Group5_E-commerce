@@ -10,6 +10,9 @@ const reviewProductSchema = new mongoose.Schema({
     rating: { type: Number, required: true, min: 1, max: 5 },
     fileUploads: [String],
     comment: { type: String},
+    
+    is_edited: { type: Boolean, default: false }, 
+    
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
 });

@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './src/context/AuthContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { CartProvider } from './src/context/CartContext';
+import { ThemeProvider } from './src/context/ThemeContext';
 import ProtectedRoute from './src/components/ProtectedRoute';
 import { CurrencyProvider } from './src/context/CurrencyContext';
 
@@ -35,12 +36,14 @@ import OrderDetail from './src/pages/account/OrderDetail';
 import Settings from './src/pages/account/Settings';
 import My2ndListing from './src/pages/account/My2ndListing';
 import PassingProductSalesOrder from './src/pages/account/PassingProductSalesOrder';
+import WishlistAndFollowing from './src/pages/account/WishlistAndFollowing';
 
 // Admin Pages
 import AdminDashboard from './src/pages/admin/Dashboard';
 import {AdminBlacklist} from './src/pages/admin/BlackList';
 import {AdminProducts} from './src/pages/admin/Products';
 import {AdminReports} from './src/pages/admin/Reports';
+import { AdminUsers } from './src/pages/admin/Accounts';
 import OrderHistory from './src/pages/account/OrderHistory';
 // import UserManagement from './src/pages/admin/UserManagement';
 import { AdminCategories } from './src/pages/admin/Categories';
@@ -50,6 +53,9 @@ import { AdminStores } from './src/pages/admin/Stores';
 // Seller Pages
 // import { SellerDashboard as SellerDashboardPage } from './Dashboard';
 import SellerOrders from './src/pages/seller/SellerOrders';
+import ProductsManager from './src/pages/seller/ProductsManager';
+import SellerProductForm from './src/pages/seller/SellerProductForm';
+import StoreManagement from './src/pages/seller/StoreManagement';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -89,14 +95,19 @@ const AppRoutes: React.FC = () => {
         <Route path="/account/feedback" element={<ProtectedRoute><FeedbackProduct /></ProtectedRoute>} />
         <Route path="/account/my-2nd-listings" element={<ProtectedRoute><My2ndListing /></ProtectedRoute>} />
         <Route path="/account/passing-product-orders" element={<ProtectedRoute><PassingProductSalesOrder /></ProtectedRoute>} />
+        <Route path="/account/wishlist" element={<ProtectedRoute><WishlistAndFollowing /></ProtectedRoute>} />
 
         {/* Seller Routes */}
         <Route element={<SellerRoute />}>
           <Route path="/seller/dashboard" element={<SellerDashboard />} />
           <Route path="/seller/orders" element={<OrderManagement />} />
+          <Route path="/seller/products" element={<ProductsManager />} />
+          <Route path="/seller/products/new" element={<SellerProductForm />} />
+          <Route path="/seller/products/:id/edit" element={<SellerProductForm />} />
+          <Route path="/seller/settings" element={<StoreManagement />} />
         </Route>
 
-        {/* Admin Routes (Có thể thêm sau) */}
+        {/* Admin Routes */}
         <Route element={<AdminRoute />}>
         <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/blacklist" element={<ProtectedRoute><AdminBlacklist /></ProtectedRoute>} />
@@ -105,6 +116,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/admin/categories" element={<ProtectedRoute><AdminCategories /></ProtectedRoute>} />
         <Route path="/admin/seller-requests" element={<ProtectedRoute><SellerRequests /></ProtectedRoute>} />
         <Route path="/admin/stores" element={<ProtectedRoute><AdminStores /></ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
         
         </Route>
       </Routes>
@@ -115,13 +127,15 @@ const AppRoutes: React.FC = () => {
 const App: React.FC = () => {
   return (
     <HashRouter>
-      <ToastProvider>
-        <CurrencyProvider>
-          <CartProvider>
-            <AppRoutes />
-          </CartProvider>
-        </CurrencyProvider>
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <CurrencyProvider>
+            <CartProvider>
+              <AppRoutes />
+            </CartProvider>
+          </CurrencyProvider>
+        </ToastProvider>
+      </ThemeProvider>
     </HashRouter>
   );
 };

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Layout } from '../components/Layout';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
 import { orderApi } from '../../services/api';
+import AccountLayout from '../components/AccountLayout';
 
 // Helper component for displaying stars
 const StarRatingDisplay = ({ rating, size = 'text-sm' }: { rating: number, size?: string }) => {
@@ -22,6 +22,8 @@ const StarRatingDisplay = ({ rating, size = 'text-sm' }: { rating: number, size?
 // Modal component to display review details
 const ReviewDetailModal = ({ review, item, onClose }: { review: any, item: any, onClose: () => void }) => {
     if (!review || !item) return null;
+
+    const productId = typeof item.product_id === 'object' ? item.product_id._id : item.product_id;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
@@ -54,6 +56,22 @@ const ReviewDetailModal = ({ review, item, onClose }: { review: any, item: any, 
                         <div className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 dark:text-white min-h-[100px] whitespace-pre-wrap">{review.comment || <span className="text-slate-400">Không có bình luận.</span>}</div>
                     </div>
                 </div>
+
+                <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+                   {!review.is_edited ? (
+                      <Link 
+                        to={`/account/feedback?productId=${productId}&orderId=${review.order_id}`}
+                        className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary hover:bg-primary hover:text-white py-3 rounded-xl font-bold transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                        Sửa đánh giá (Còn 1 lần)
+                      </Link>
+                   ) : (
+                      <div className="text-center text-amber-500 text-sm italic font-medium bg-amber-50 dark:bg-amber-500/10 py-3 rounded-lg">
+                         Đánh giá này đã được chỉnh sửa và không thể thay đổi thêm.
+                      </div>
+                   )}
+                </div>
             </div>
         </div>
     );
@@ -70,7 +88,6 @@ const OrderDetail: React.FC = () => {
 
   useEffect(() => {
     const fetchOrderDetail = async () => {
-      // Fix: Kiểm tra id hợp lệ trước khi gọi API
       if (!id) {
         toast.error('Invalid Order ID');
         navigate('/account/orders');
@@ -91,7 +108,7 @@ const OrderDetail: React.FC = () => {
     fetchOrderDetail();
   }, [id, navigate, toast]);
 
-  if (loading) return <Layout><div className="p-10 text-center">Đang tải chi tiết đơn hàng...</div></Layout>;
+  if (loading) return <AccountLayout><div className="p-10 text-center">Đang tải chi tiết đơn hàng...</div></AccountLayout>;
   if (!order) return null;
 
   const steps = [
@@ -107,8 +124,22 @@ const OrderDetail: React.FC = () => {
   else if (order.order_status === 'completed') currentStepIndex = 3;
   else if (order.order_status === 'cancelled') currentStepIndex = -1;
 
+  // Xử lý địa chỉ để hiển thị chuẩn xác nhất
+  const recipientName = order.shipping_address?.recipient_name || order.customer_id?.full_name || 'Khách hàng';
+  const phoneNumber = order.shipping_address?.phone || order.customer_id?.phone || 'Chưa có SĐT';
+  
+  // Ghép chuỗi địa chỉ
+  let fullAddress = '';
+  if (order.shipping_address?.full_address) {
+      fullAddress = order.shipping_address.full_address;
+  } else if (order.shipping_address?.street) {
+      fullAddress = `${order.shipping_address.street}, ${order.shipping_address.district}, ${order.shipping_address.city}`;
+  } else {
+      fullAddress = 'Chưa có thông tin địa chỉ cụ thể';
+  }
+
   return (
-    <Layout>
+    <AccountLayout>
       {selectedReviewItem && (
         <ReviewDetailModal 
             item={selectedReviewItem}
@@ -116,10 +147,11 @@ const OrderDetail: React.FC = () => {
             onClose={() => setSelectedReviewItem(null)} 
         />
       )}
-      <div className="bg-slate-50 dark:bg-slate-900 min-h-screen py-8">
-        <div className="max-w-5xl mx-auto px-4">
+        <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-6">
-             <Link to="/account/orders" className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors"><span className="material-symbols-outlined">arrow_back</span> TRỞ LẠI</Link>
+             <Link to="/account/orders" className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors">
+                <span className="material-symbols-outlined">arrow_back</span> TRỞ LẠI DANH SÁCH
+             </Link>
              <div className="text-sm uppercase font-bold text-primary">MÃ ĐƠN HÀNG: {order._id.slice(-8).toUpperCase()} | <span className="text-slate-500">{order.order_status.toUpperCase()}</span></div>
           </div>
 
@@ -147,9 +179,11 @@ const OrderDetail: React.FC = () => {
              <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-stripes"><h3 className="font-bold text-lg flex items-center gap-2 dark:text-white"><span className="material-symbols-outlined text-primary">location_on</span> Địa chỉ nhận hàng</h3></div>
              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
-                    <h4 className="font-bold dark:text-white mb-1">{order.customer_id?.full_name || 'Khách hàng'}</h4>
-                    <p className="text-slate-500 text-sm mb-1">{order.customer_id?.phone || 'Số điện thoại'}</p>
-                    <p className="text-slate-600 dark:text-slate-300 text-sm">{order.shipping_address?.street}, {order.shipping_address?.district}, {order.shipping_address?.city}</p>
+                    <h4 className="font-bold dark:text-white mb-1">{recipientName}</h4>
+                    <p className="text-slate-500 text-sm mb-2">{phoneNumber}</p>
+                    <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
+                        {fullAddress}
+                    </p>
                 </div>
                 <div className="border-l border-slate-100 dark:border-slate-700 pl-0 md:pl-8">
                     <div className="flex items-start gap-4 mb-4">
@@ -164,7 +198,6 @@ const OrderDetail: React.FC = () => {
              </div>
           </div>
 
-          {/* ĐÃ CẬP NHẬT GIAO DIỆN HIỂN THỊ SHOP Ở ĐÂY */}
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden mb-6">
              <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-700/50">
                 <div className="flex items-center gap-3">
@@ -229,8 +262,7 @@ const OrderDetail: React.FC = () => {
              </div>
           </div>
         </div>
-      </div>
-    </Layout>
+    </AccountLayout>
   );
 };
 export default OrderDetail;

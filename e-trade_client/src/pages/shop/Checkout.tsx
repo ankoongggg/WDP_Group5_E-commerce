@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Layout } from '../components/Layout';
 import { useCart } from '../../context/CartContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { shopApi } from '../../services/api';
 
 const Checkout: React.FC = () => {
   const { cart, cartTotal, clearCart } = useCart();
   const { formatPrice } = useCurrency();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
   const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard');
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'cod'>('credit');
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -29,23 +30,27 @@ const Checkout: React.FC = () => {
     city: ''
   });
 
+  const buyNowItems = location.state?.buyNowItems;
+  const isBuyNowMode = !!buyNowItems;
+  
+  const displayItems = isBuyNowMode ? buyNowItems : cart;
+  const displayTotal = isBuyNowMode 
+    ? buyNowItems.reduce((total: number, item: any) => total + (item.price * item.quantity), 0) 
+    : cartTotal;
+
   const addresses = user?.addresses || [];
   const defaultAddress = addresses.find((addr: any) => addr.is_default || addr.isDefault) || addresses[0];
   
   const getSelectedAddress = () => {
-    if (useCustomAddress) {
-      return customAddress;
-    }
-    if (selectedAddressId) {
-      return addresses.find((addr: any) => addr._id === selectedAddressId);
-    }
+    if (useCustomAddress) return customAddress;
+    if (selectedAddressId) return addresses.find((addr: any) => addr._id === selectedAddressId);
     return defaultAddress;
   };
   
   const currentAddress = getSelectedAddress();
 
   const shippingCost = shippingMethod === 'standard' ? 12000 : 25000;
-  const orderTotal = cartTotal + shippingCost;
+  const orderTotal = displayTotal + shippingCost; 
 
   const checkStockAndPlaceOrder = async () => {
     if (!currentAddress) {
@@ -53,8 +58,8 @@ const Checkout: React.FC = () => {
       return;
     }
 
-    if (cart.length === 0) {
-      toast.error('Giỏ hàng trống');
+    if (!displayItems || displayItems.length === 0) {
+      toast.error('Không có sản phẩm để thanh toán');
       return;
     }
 
@@ -62,43 +67,60 @@ const Checkout: React.FC = () => {
       setIsPlacingOrder(true);
 
       const orderData = {
-        items: cart.map(item => ({
-          productId: item.productId,
-          quantity: item.quantity,
-        })),
+        items: displayItems.map((item: any) => {
+          const pId = item.productId || item._id || item.product_id; 
+          return {
+            productId: pId, 
+            product_id: pId,  
+            quantity: item.quantity,
+          };
+        }),
         
-        // ĐÃ FIX: Gửi đúng chuẩn model Order.js xuống DB
         shipping_address: { 
             recipient_name: user?.full_name || user?.account_name || 'Khách hàng',
             phone: user?.phone || '',
             full_address: `${currentAddress.street}, ${currentAddress.district}, ${currentAddress.city}`
         },
-        // Giữ lại cái này đề phòng API cũ của bạn cần dùng để tính phí ship
-        shippingAddress: {
-          street: currentAddress.street,
-          district: currentAddress.district,
-          city: currentAddress.city,
-        },
-
         shippingMethod,
         paymentMethod,
         shippingCost,
       };
 
-      const orderResponse = await shopApi.createOrder(orderData);
+      console.log('SENDING ORDER DATA:', orderData);
 
-      toast.success('Đặt hàng thành công!');
+      const token = localStorage.getItem('accessToken');
+      
+      // GỌI API BACKEND (Đã được cập nhật logic tách đơn ở backend)
+      const orderResponse = await axios.post('http://localhost:9999/api/shop/orders', orderData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      // Kiểm tra xem Backend có báo tách thành nhiều đơn không
+      const isSplit = orderResponse.data?.data?.isSplit;
+      if (isSplit) {
+          toast.success('Đơn hàng đã được tách theo từng Shop!');
+      } else {
+          toast.success('Đặt hàng thành công!');
+      }
+
       setIsRedirecting(true); 
 
       setTimeout(() => {
-        clearCart();
-        const orderId = orderResponse.data?.data?.orderId || orderResponse.data?.orderId || orderResponse?.data?.orderId;
-        navigate(`/account/orders/${orderId}`);
+        if (!isBuyNowMode) {
+          clearCart();
+        }
+        
+        // --- PHẦN FIX ĐIỀU HƯỚNG ---
+        // Bất kể là 1 hay nhiều đơn, cứ đá về trang danh sách đơn hàng
+        // Để khách hàng có thể nhìn thấy toàn bộ các bill vừa tạo rõ ràng.
+        navigate(`/account/orders`); 
+        
       }, 1200);
+
     } catch (error: any) {
       const message = error.response?.data?.message || 'Không thể đặt hàng. Vui lòng thử lại';
       toast.error(message);
-      console.error('Order placement error:', error);
+      console.error("CHI TIẾT LỖI TẠO ĐƠN: ", error.response?.data);
       setIsPlacingOrder(false); 
     }
   };
@@ -110,11 +132,25 @@ const Checkout: React.FC = () => {
           <div>
             <div className="text-6xl mb-4">✅</div>
             <h2 className="text-3xl font-bold mb-2 dark:text-white">Đặt hàng thành công!</h2>
-            <p className="text-slate-600 dark:text-slate-400">Đang chuyển bạn đến trang chi tiết đơn hàng...</p>
+            <p className="text-slate-600 dark:text-slate-400">Đang chuyển bạn đến trang quản lý đơn hàng...</p>
           </div>
         </div>
       </Layout>
     );
+  }
+
+  if (!isBuyNowMode && cart.length === 0) {
+    return (
+        <Layout>
+            <div className="flex justify-center items-center h-screen text-center">
+            <div>
+                <span className="material-symbols-outlined text-6xl text-slate-300 mb-4">remove_shopping_cart</span>
+                <h2 className="text-2xl font-bold mb-2 dark:text-white">Chưa có gì để thanh toán</h2>
+                <button onClick={() => navigate('/')} className="text-primary hover:underline mt-2">Quay lại mua sắm</button>
+            </div>
+            </div>
+        </Layout>
+    )
   }
 
   return (
@@ -210,8 +246,8 @@ const Checkout: React.FC = () => {
               <h2 className="text-lg font-bold mb-6 dark:text-white">Tóm tắt đơn hàng</h2>
               
               <div className="space-y-4 mb-6 border-b border-slate-100 dark:border-primary/10 pb-6 max-h-64 overflow-y-auto">
-                {cart.map((item) => (
-                  <div key={item.productId} className="flex gap-3 text-sm">
+                {displayItems.map((item: any) => (
+                  <div key={item.productId || item._id} className="flex gap-3 text-sm">
                     <img src={item.main_image} alt={item.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-slate-900 dark:text-white truncate">{item.name}</p>
@@ -225,7 +261,7 @@ const Checkout: React.FC = () => {
               <div className="space-y-4 text-sm border-b border-slate-100 dark:border-primary/10 pb-4 mb-4">
                 <div className="flex justify-between text-slate-600 dark:text-slate-400">
                   <span>Tạm tính</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{formatPrice(cartTotal)}</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{formatPrice(displayTotal)}</span>
                 </div>
                 <div className="flex justify-between text-slate-600 dark:text-slate-400">
                   <span>Vận chuyển</span>

@@ -12,14 +12,18 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => 
   const { logout } = useAuth();
 
   // Danh sách menu admin được tổng hợp từ cả 2 nhánh conflict
-  const navItems = useMemo(() => [
-    { path: '/admin', icon: 'dashboard', label: 'Dashboard' },
-    { path: '/admin/products', icon: 'inventory_2', label: 'Products' },
-    { path: '/admin/categories', icon: 'category', label: 'Categories' },
-    { path: '/admin/seller-requests', icon: 'store', label: 'Seller Requests' },
-    { path: '/admin/reports', icon: 'analytics', label: 'Reports' },
-    { path: '/admin/blacklist', icon: 'block', label: 'Blacklist' },
-  ], []);
+  const navItems = useMemo(
+    () => [
+      { path: '/admin', icon: 'dashboard', label: 'Dashboard' },
+      { path: '/admin/products', icon: 'inventory_2', label: 'Products' },
+      { path: '/admin/categories', icon: 'category', label: 'Categories' },
+      { path: '/admin/seller-requests', icon: 'store', label: 'Seller Requests' },
+      { path: '/admin/reports', icon: 'analytics', label: 'Reports' },
+      { path: '/admin/users', icon: 'group', label: 'Users' },
+      { path: '/admin/blacklist', icon: 'block', label: 'Blacklist' },
+    ],
+    [],
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex font-display">

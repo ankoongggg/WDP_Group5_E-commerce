@@ -59,11 +59,11 @@ const getPaymentMethods = async (req, res) => {
 // =====================================================
 
 // Tạo đơn hàng từ cart
+// Tạo đơn hàng từ cart (ĐÃ FIX: TỰ ĐỘNG TÁCH ĐƠN THEO SHOP)
 const createOrder = async (req, res) => {
     try {
         console.log('[LOG] 1. Received createOrder request.');
         
-        // --- CHỖ SỬA SỐ 1: Bóc thêm shipping_address từ req.body ---
         const { items, shippingAddress, shipping_address, shippingMethod, paymentMethod, shippingCost } = req.body;
         const customerId = req.user.id;
 
@@ -72,72 +72,60 @@ const createOrder = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Cart is empty' });
         }
 
-        // --- CHỖ SỬA SỐ 2: Check điều kiện lấy 1 trong 2 ---
-        if (!shippingAddress && !shipping_address) {
+        const finalAddress = shipping_address || shippingAddress;
+        if (!finalAddress) {
             return res.status(400).json({ success: false, message: 'Shipping address is required' });
         }
 
-        // Kiểm tra stock + tính giá từ hàng thật trong DB
-        let totalPrice = 0;
-        let orderItems = [];
-        let sellerId = null;
-        let sellerType = 'Store'; // default, will change if we detect a user seller
-        const stockErrors = []; // Mảng chứa các lỗi về tồn kho
-
-        // OPTIMIZATION: Fetch tất cả sản phẩm 1 lần thay vì loop query (N+1 problem fix)
-        const productIds = items.map(item => item.productId);
-        console.log(`[LOG] 2. Fetching products from DB for IDs: ${productIds.join(', ')}`);
+        // Fetch tất cả sản phẩm
+        const productIds = items.map(item => item.productId || item.product_id);
         const products = await Product.find({ _id: { $in: productIds } });
-        console.log(`[LOG] 3. Found ${products.length} products in DB.`);
-        // Tạo Map để tra cứu nhanh O(1)
         const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
-        // --- VÒNG LẶP KIỂM TRA (VALIDATION) ---
-        // Kiểm tra tất cả sản phẩm trước khi thực hiện bất kỳ thay đổi nào
+        const stockErrors = [];
+        
+        // BƯỚC 1: Gom nhóm sản phẩm theo Shop (seller_id)
+        // Cấu trúc: { "shopId_1": { items: [], total_price: 0 }, "shopId_2": { ... } }
+        const ordersByShop = {};
+
+        // --- VÒNG LẶP KIỂM TRA VÀ GOM NHÓM ---
         for (const item of items) {
-            console.log(`[LOG] 4. Processing item: ${item.productId}, quantity: ${item.quantity}`);
-            const product = productMap.get(item.productId);
+            const pId = item.productId || item.product_id;
+            const product = productMap.get(pId);
             
             if (!product) {
-                // Lỗi nghiêm trọng, có thể dừng ngay lập tức
-                return res.status(404).json({ success: false, message: `Sản phẩm với ID ${item.productId} không tồn tại.` });
+                return res.status(404).json({ success: false, message: `Sản phẩm không tồn tại.` });
             }
 
-            if (product.status !== 'active') {
+            const isActive = Array.isArray(product.status) ? product.status.includes('active') : product.status === 'active';
+            if (!isActive) {
                 stockErrors.push(`Sản phẩm "${product.name}" không còn được bán.`);
-                continue; // Bỏ qua kiểm tra stock cho sản phẩm này và tiếp tục với sản phẩm khác
+                continue; 
             }
 
-            let availableStock = 0;
-            if (product.product_type && product.product_type.length > 0) {
-                availableStock = product.product_type.reduce((acc, curr) => acc + (curr.stock || 0), 0);
-            } else {
-                availableStock = product.stock || 0;
-            }
+            // Check stock
+            let availableStock = product.product_type && product.product_type.length > 0 
+                ? product.product_type.reduce((acc, curr) => acc + (curr.stock || 0), 0)
+                : (product.stock || 0);
 
             if (availableStock < item.quantity) {
-                stockErrors.push(`"${product.name}" không đủ hàng (còn ${availableStock}, cần ${item.quantity})`);
+                stockErrors.push(`"${product.name}" không đủ hàng (còn ${availableStock})`);
+                continue;
             }
-        }
 
-        // --- KIỂM TRA KẾT QUẢ VALIDATION ---
-        if (stockErrors.length > 0) {
-            const errorMessage = "Một hoặc nhiều sản phẩm không đủ hàng:\n- " + stockErrors.join('\n- ');
-            return res.status(400).json({ 
-                success: false, 
-                message: errorMessage
-            });
-        }
+            // Nếu qua ải kiểm tra, tiến hành đưa vào nhóm của Shop đó
+            const sellerIdStr = product.store_id.toString();
+            if (!ordersByShop[sellerIdStr]) {
+                ordersByShop[sellerIdStr] = {
+                    seller_id: product.store_id,
+                    items: [],
+                    total_price: 0
+                };
+            }
 
-        // --- VÒNG LẶP THỰC THI (EXECUTION) ---
-        // Chỉ chạy nếu tất cả sản phẩm đều hợp lệ
-        for (const item of items) {
-            const product = productMap.get(item.productId);
-            
             const itemPrice = product.price * item.quantity;
-            totalPrice += itemPrice;
-
-            orderItems.push({
+            ordersByShop[sellerIdStr].total_price += itemPrice;
+            ordersByShop[sellerIdStr].items.push({
                 product_id: product._id,
                 name_snapshot: product.name,
                 price_snapshot: product.price,
@@ -146,18 +134,7 @@ const createOrder = async (req, res) => {
                 type: item.type || 'default'
             });
 
-            if (!sellerId) {
-                if (product.store_id) {
-                    sellerId = product.store_id;
-                    sellerType = 'Store';
-                } else if (product.user_id) {
-                    // fallback for users who sell used goods without a store
-                    sellerId = product.user_id;
-                    sellerType = 'User';
-                }
-            }
-
-            // Cập nhật tồn kho
+            // CẬP NHẬT TỒN KHO DB TRONG BỘ NHỚ TRƯỚC (Sẽ save ở vòng sau)
             let quantityToDecrement = item.quantity;
             if (product.product_type && product.product_type.length > 0) {
                 for (const type of product.product_type) {
@@ -169,53 +146,57 @@ const createOrder = async (req, res) => {
             } else {
                 product.stock = (product.stock || 0) - quantityToDecrement;
             }
-            
-            // Đánh dấu là đã thay đổi để Mongoose biết cần save
-            product.markModified('product_type'); 
-            console.log(`[LOG] 5. Attempting to save product ${product._id}...`);
-            await product.save();
-            console.log(`[LOG] 6. Product ${product._id} saved successfully.`);
+            product.markModified('product_type');
         }
 
-        // Tạo order
-        console.log('[LOG] 7. All items processed. Attempting to create order...');
-        if (!sellerId) {
-            // if we still don't have a seller, something went wrong with items
-            return res.status(400).json({ success: false, message: 'Không xác định được người bán cho đơn hàng.' });
+        if (stockErrors.length > 0) {
+            return res.status(400).json({ success: false, message: stockErrors.join('\n') });
         }
 
-        const order = await Order.create({
-            customer_id: customerId,
-            seller_id: sellerId,
-            seller_type: sellerType,
-            items: orderItems,
-            total_price: totalPrice,
-            shipping_fee: shippingCost || 0, // Sử dụng shippingCost từ request, fallback về 0
-            total_amount: totalPrice + (shippingCost || 0),
+        // BƯỚC 2: Lưu các sản phẩm đã bị trừ kho xuống DB
+        const savePromises = Array.from(productMap.values()).map(p => p.save());
+        await Promise.all(savePromises);
 
-            // --- CHỖ SỬA SỐ 3: Ép cứng lấy đúng địa chỉ lấy từ req.body ---
-            shipping_address: shipping_address || shippingAddress, 
+        // BƯỚC 3: TẠO CÁC ĐƠN HÀNG RIÊNG BIỆT CHO TỪNG SHOP
+        const shopKeys = Object.keys(ordersByShop);
+        const numberOfShops = shopKeys.length;
+        
+        // Chia tiền ship (hoặc tính full cho mỗi đơn tùy policy của anh, ở đây em chia đều)
+        const totalShippingCost = shippingCost || 0;
+        const shippingPerOrder = Math.round(totalShippingCost / numberOfShops);
 
-            payment_method: paymentMethod,
-            payment_status: 'pending',
-            order_status: 'pending',
-            history_logs: [
-                {
-                    action: 'Order created',
-                    created_at: new Date()
-                }
-            ]
+        const orderCreationPromises = shopKeys.map(sellerStr => {
+            const shopOrderData = ordersByShop[sellerStr];
+            return Order.create({
+                customer_id: customerId,
+                seller_id: shopOrderData.seller_id,
+                items: shopOrderData.items,
+                total_price: shopOrderData.total_price,
+                shipping_fee: shippingPerOrder,
+                total_amount: shopOrderData.total_price + shippingPerOrder,
+                shipping_address: finalAddress,
+                payment_method: paymentMethod,
+                payment_status: 'pending',
+                order_status: 'pending',
+                history_logs: [{ action: 'Order created', created_at: new Date() }]
+            });
         });
 
-        console.log(`[LOG] 8. Order ${order._id} created. Sending response to client.`);
+        // Chạy song song việc tạo các đơn hàng
+        const createdOrders = await Promise.all(orderCreationPromises);
+        console.log(`[LOG] Successfully created ${createdOrders.length} split orders.`);
+
+        // Lấy ID của đơn đầu tiên để Frontend vẫn không bị lỗi (nếu frontend chỉ chờ 1 ID)
+        // Hoặc tốt nhất là trả về mảng. Ở đây em trả về ID đầu tiên để tương thích code cũ
         res.status(201).json({
             success: true,
-            message: 'Order created successfully',
+            message: `Tạo thành công ${createdOrders.length} đơn hàng`,
             data: {
-                orderId: order._id,
-                totalAmount: order.total_amount,
+                orderId: createdOrders[0]._id, // Vẫn trả về để Frontend Navigate
+                orderIds: createdOrders.map(o => o._id), // Trả thêm mảng ID
+                totalAmount: createdOrders.reduce((sum, o) => sum + o.total_amount, 0),
                 paymentMethod: paymentMethod,
-                orderStatus: order.order_status
+                isSplit: createdOrders.length > 1
             }
         });
 
@@ -366,19 +347,47 @@ const getMyOrders = async (req, res) => {
         const customerId = req.user.id;
         const orders = await Order.find({ customer_id: customerId })
             .populate('items.product_id')
-            .populate({ path: 'seller_id', select: 'shop_name avatar full_name' }) // support both store and user sellers
-            .sort({ created_at: -1 });
+            .populate('seller_id', 'shop_name avatar')
+            .sort({ created_at: -1 })
+            .lean(); // Dùng .lean() để trả về plain object dễ thao tác
 
-        res.json({
-            success: true,
-            data: orders
+        // Lấy tất cả Order IDs để query Review
+        const orderIds = orders.map(o => o._id);
+        
+        // Tìm tất cả review của user này cho các đơn hàng trên
+        const userReviews = await Review.find({ 
+            order_id: { $in: orderIds }, 
+            user_id: customerId 
+        }).lean();
+
+        // Tạo Map để tra cứu nhanh: Key là `${orderId}-${productId}`, Value là review object
+        const reviewsMap = new Map();
+        userReviews.forEach(review => {
+            reviewsMap.set(`${review.order_id.toString()}-${review.product_id.toString()}`, review);
         });
+
+        // Gắn review vào từng item của order
+        const enrichedOrders = orders.map(order => {
+            order.items = order.items.map(item => {
+                if (!item.product_id) return item;
+                const reviewKey = `${order._id.toString()}-${item.product_id._id.toString()}`;
+                const review = reviewsMap.get(reviewKey);
+                return {
+                    ...item,
+                    user_review: review || null
+                };
+            });
+            return order;
+        });
+
+        res.json({ success: true, data: enrichedOrders });
     } catch (error) {
+        console.error('Get my orders error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// Lấy chi tiết một order
+// Lấy chi tiết một order (ĐÃ ĐƯỢC KHÔI PHỤC)
 const getOrderDetail = async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -427,5 +436,5 @@ module.exports = {
     createOrder,
     submitPayment,
     getMyOrders,
-    getOrderDetail
+    getOrderDetail // Đã thêm lại vào module.exports
 };

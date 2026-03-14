@@ -1,5 +1,5 @@
-// src/services/product.service.ts
 import axios from 'axios';
+import { api } from './api'; // IMPORT VŨ KHÍ BÍ MẬT VÀO ĐÂY
 import { ProductResponse } from '../types/home';
 import { getInterestsParams } from '../utils/tracker';
 import { trackInterest } from '../utils/tracker';
@@ -29,7 +29,7 @@ export const ProductService = {
 
   // Lấy chi tiết 1 sản phẩm
   getById: async (id: string) => {
-    const response = await axios.get(`${API_BASE_URL}/${id}`);
+    const response = await axios.get(`${API_BASE_URL}/products/${id}`);
     return response.data;
   },
 
@@ -44,8 +44,57 @@ export const ProductService = {
   //admin
   
 
+  // --------- Seller Product APIs (requireAuth) ----------
+  // DÙNG HÀM api() ĐỂ TỰ ĐỘNG GẮN TOKEN VÀ REFRESH TOKEN NẾU HẾT HẠN
   
-};
+  getSellerProducts: async (params?: { page?: number; limit?: number; status?: string; search?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.append('status', params.status);
+    if (params?.search) searchParams.append('search', params.search);
+    if (params?.page) searchParams.append('page', String(params.page));
+    if (params?.limit) searchParams.append('limit', String(params.limit));
 
-// src/services/category.service.ts
-// (Giả sử bạn có API lấy category, nếu chưa có thì hardcode tạm ở frontend cũng được)
+    const endpoint = `/seller/products${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return api(endpoint, { requireAuth: true });
+  },
+
+  createSellerProduct: async (payload: any) => {
+    return api('/seller/products', {
+      method: 'POST',
+      requireAuth: true,
+      body: JSON.stringify(payload),
+    });
+  },
+
+  updateSellerProduct: async (id: string, payload: any) => {
+    return api(`/seller/products/${id}`, {
+      method: 'PUT',
+      requireAuth: true,
+      body: JSON.stringify(payload),
+    });
+  },
+
+  updateSellerProductStatus: async (id: string, status: 'active' | 'inactive') => {
+    return api(`/seller/products/${id}/status`, {
+      method: 'PATCH',
+      requireAuth: true,
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  // THÊM SỐ LƯỢNG TỒN KHO: 
+  addSellerProductStock: async (id: string, amount: number) => {
+    return api(`/seller/products/${id}/stock`, {
+      method: 'PATCH',
+      requireAuth: true, // Cờ này sẽ tự động gắn Token
+      body: JSON.stringify({ amount }),
+    });
+  },
+
+  softDeleteSellerProduct: async (id: string) => {
+    return api(`/seller/products/${id}`, {
+      method: 'DELETE',
+      requireAuth: true,
+    });
+  },
+};

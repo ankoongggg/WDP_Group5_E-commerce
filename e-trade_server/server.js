@@ -10,9 +10,11 @@ const userRoutes = require("./src/routes/user.routes"); // Của Ann
 const devRoutes = require("./src/routes/dev.routes"); // Của Ann
 const productRoutes = require('./src/routes/productRoutes'); // Của Thắng
 const storeRoutes = require('./src/routes/storeRoutes'); // Của Thắng
+const sellerProductRoutes = require('./src/routes/sellerProductRoutes');
 const categoryRoutes = require('./src/routes/categoryRoutes'); // Của Tú
 const shopRoutes = require('./src/routes/shopRoutes'); // Của Ann - Order, Payment
 const orderRoutes = require('./src/routes/orderRoutes'); // Của Thắng - quan lý đơn hàng
+const blacklistRoutes = require('./src/routes/blacklistRoutes'); // Của Tú - quản lý blacklist keywords
 
 const app = express();
 
@@ -43,7 +45,7 @@ app.use("/api/dev", devRoutes);
 
 // Route Shop - Orders & Payments (Ann)
 app.use('/api/shop', shopRoutes);
-
+app.use('/api/blacklist', blacklistRoutes); // Route quản lý blacklist keywords của Tú
 // Route Products (Tú & Thắng)
 // Thống nhất dùng tiền tố /api/products cho chuẩn RESTful
 app.use('/api/products', productRoutes); 
@@ -51,8 +53,9 @@ app.use('/api/categories', categoryRoutes);
 
 // Use store routes
 app.use('/api/store', storeRoutes);
-// Use order routes
+// Use order routes & seller product routes
 app.use('/api/seller', orderRoutes); // Các route liên quan đến quản lý đơn hàng của người bán
+app.use('/api/seller', sellerProductRoutes); // Các route quản lý sản phẩm của người bán
 
 const PORT = process.env.PORT || 9999;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

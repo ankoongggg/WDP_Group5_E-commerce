@@ -301,9 +301,9 @@ exports.getProductDetails = async (req, res) => {
     try {
         const productId = req.params.id;
 
-        // 1. Fetch product details
+        // ĐÃ THÊM CHỮ "stock" VÀO SELECT ĐỂ FRONTEND LẤY ĐƯỢC SỐ LƯỢNG
         const product = await Product.findById(productId)
-            .select("_id store_id category_id name description main_image display_files price original_price product_type condition status rejection_reason")
+            .select("_id store_id category_id name description main_image display_files price original_price product_type stock condition status rejection_reason")
             .populate('store_id', 'shop_name description')
             .populate('category_id', 'name description');
 

@@ -8,4 +8,5 @@ const blacklistKeywordSchema = new mongoose.Schema({
     updated_at: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model('BlacklistKeyword', blacklistKeywordSchema);
+// avoid OverwriteModelError when this file is required multiple times
+module.exports = mongoose.models.BlacklistKeyword || mongoose.model('BlacklistKeyword', blacklistKeywordSchema);
