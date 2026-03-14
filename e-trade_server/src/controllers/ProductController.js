@@ -4,161 +4,176 @@ const Store = require('../models/Store');
 const Product = require('../models/Product');
 const Review = require('../models/ReviewProduct'); // Thêm import Review của Thắng
 const BlacklistKeyword = require('../models/BlacklistKeyword');
+const Order = require('../models/Order');
+const Category = require('../models/Category');
 // ==========================================
 // CÁC HÀM CỦA TÚ (Quản lý tìm kiếm, lọc)
 // ==========================================
-
-const getProductsByShop = async (req, res) => {
-    // Đang chờ code
-}
-
-const filterProductsBySearch = async (req, res) => {
-    // Đang chờ code
-}
 
 // GET /api/products
 // Query params: 
 // - keyword: tìm kiếm theo tên hoặc mô tả
 // - limit: giới hạn số lượng (mặc định 10)
 // - page: phân trang
+// Helper function: Đếm số order của từng sản phẩm để xếp hạng "Bán chạy"
+const getTopSellingProductIds = async () => {
+    const orderStats = await Order.aggregate([
+        { $unwind: "$items" },
+        { $group: { _id: "$items.product_id", totalOrders: { $sum: 1 } } }
+    ]);
+    
+    const map = {};
+    orderStats.forEach(stat => {
+        if (stat._id) map[stat._id.toString()] = stat.totalOrders;
+    });
+    return map;
+};
+
+// Hàm Helper đếm số lượng Order để tối ưu hiệu suất
+const getOrderCounts = async () => {
+    const stats = await Order.aggregate([
+        { $unwind: "$items" },
+        { $group: { _id: "$items.product_id", totalOrders: { $sum: 1 } } }
+    ]);
+    const map = {};
+    stats.forEach(s => { if (s._id) map[s._id.toString()] = s.totalOrders; });
+    return map;
+};
+
 exports.getProducts = async (req, res) => {
     try {
-        const { keyword, page = 1, limit = 12 } = req.query;
+        const { keyword, interests, category_interests, page = 1, limit = 18 } = req.query;
         const skip = (page - 1) * limit;
 
-        // Query cơ bản: Chỉ lấy sản phẩm đang active
-        let matchStage = { status: 'active' };
-
-        // Pipeline xử lý
-        let pipeline = [
-            { $match: matchStage },
-            
-            // 1. Lookup Store (Có thể null nếu là đồ pass của customer)
-            {
-                $lookup: {
-                    from: 'stores',
-                    localField: 'store_id',
-                    foreignField: '_id',
-                    as: 'store'
-                }
-            },
-            { $unwind: { path: '$store', preserveNullAndEmptyArrays: true } },
-            
-            // 2. Lookup User (Để lấy thông tin người đăng pass đồ)
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'user_id',
-                    foreignField: '_id',
-                    as: 'user'
-                }
-            },
-            { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } }
-        ];
-
-        // 3. Search Keyword Logic
-        if (keyword) {
-            pipeline.push({
-                $addFields: {
-                    relevance: {
-                        $cond: {
-                            if: {
-                                $regexMatch: {
-                                    input: "$name",
-                                    regex: keyword,
-                                    options: "i"
-                                }
-                            },
-                            then: 1, // Nếu tên chứa keyword -> 1 điểm
-                            else: 0  // Không chứa -> 0 điểm
-                        }
-                    }
-                }
-            });
-
-            // Sắp xếp: Relevance giảm dần, sau đó mới đến ngày tạo
-            pipeline.push({
-                $sort: { relevance: -1, created_at: -1 }
-            });
-        } else {
-            pipeline.push({
-                $sort: { created_at: -1 }
-            });
+        // Xử lý biến đầu vào
+        const searchKeyword = keyword ? keyword.trim().toLowerCase() : null;
+        const interestWords = interests ? interests.replace(/,/g, ' ').trim() : null;
+        
+        let catIds = [];
+        if (category_interests) {
+            catIds = category_interests.split(',')
+                .map(id => id.trim())
+                .filter(id => mongoose.Types.ObjectId.isValid(id))
+                .map(id => new mongoose.Types.ObjectId(id));
         }
 
-        // 4. Phân trang
-        pipeline.push({ $skip: skip });
-        pipeline.push({ $limit: parseInt(limit) });
+        // 1. CHỈ LẤY SẢN PHẨM ACTIVE (Không lọc theo keyword ở bước này để đảm bảo có đủ data bù đắp)
+        let pipeline = [ { $match: { status: 'active' } } ];
 
-        // 5. Project (Định hình dữ liệu trả về an toàn)
+        // 2. TÍNH TOÁN STOCK TRONG PIPELINE
         pipeline.push({
-            $project: {
-                _id: 1,
-                name: 1,
-                main_image: 1,
-                price: 1,
-                original_price: 1,
-                condition: 1,
-                status: 1,
-                product_type: 1,
-                created_at: 1,
-                category_id: 1,
-                
-                // Logic tính stock
-                stock: {
+            $addFields: {
+                calculated_stock: {
                     $cond: {
-                        if: { $gt: [{ $size: { $ifNull: ["$product_type", []] } }, 0] },
+                        if: { $isArray: "$product_type" }, 
                         then: { $sum: "$product_type.stock" },
                         else: { $ifNull: ["$stock", 0] }
                     }
-                },
-                
-                // Trả về thông tin Store NẾU tồn tại
-                store_id: {
-                    $cond: {
-                        if: { $ifNull: ["$store._id", false] }, // Nếu store._id có tồn tại
-                        then: {
-                            _id: '$store._id',
-                            shop_name: '$store.shop_name'
-                        },
-                        else: null // Trả về null nếu không có store
-                    }
-                },
-
-                // Trả về thông tin User NẾU tồn tại
-                user_id: {
-                    $cond: {
-                        if: { $ifNull: ["$user._id", false] }, // Nếu user._id có tồn tại
-                        then: {
-                            _id: '$user._id',
-                            // Lưu ý: User schema của bạn thường dùng full_name thay vì name
-                            name: '$user.full_name' 
-                        },
-                        else: null // Trả về null nếu không có user
-                    }
                 }
+            }
+        }, {
+            $addFields: {
+                is_in_stock: { $cond: { if: { $gt: ["$calculated_stock", 0] }, then: 1, else: 0 } }
             }
         });
 
-        // Thực thi
-        const products = await Product.aggregate(pipeline);
+        // 3. THUẬT TOÁN CHẤM ĐIỂM (SCORING)
+        let scoreLogic = { $add: [0] }; // Mặc định 0 điểm
 
-        // Đếm tổng (để phân trang)
-        const total = await Product.countDocuments(matchStage);
+        // +100 Điểm nếu khớp Keyword (Người dùng chủ động search)
+        if (searchKeyword) {
+            const regex = new RegExp(searchKeyword.split(/\s+/).join('|'), 'i');
+            scoreLogic.$add.push({ $cond: [{ $regexMatch: { input: { $ifNull: ["$name", ""] }, regex: regex } }, 100, 0] });
+        }
+        
+        // Nếu không có Keyword, check lịch sử duyệt (Trang chủ)
+        if (!searchKeyword) {
+            // +50 Điểm nếu thuộc Category đã xem
+            if (catIds.length > 0) {
+                scoreLogic.$add.push({ $cond: [{ $in: ["$category_id", catIds] }, 50, 0] });
+            }
+            // +30 Điểm nếu tên na ná các sản phẩm đã xem
+            if (interestWords) {
+                const regexInt = new RegExp(interestWords.split(/\s+/).join('|'), 'i');
+                scoreLogic.$add.push({ $cond: [{ $regexMatch: { input: { $ifNull: ["$name", ""] }, regex: regexInt } }, 30, 0] });
+            }
+        }
+
+        // Gắn điểm vào sản phẩm
+        pipeline.push({ $addFields: { match_score: scoreLogic } });
+
+        // 4. LẤY TOÀN BỘ (HOẶC GIỚI HẠN LỚN) LÊN ĐỂ JS GẮN TOTAL_ORDERS RỒI MỚI SORT
+        // (Do Order nằm ở bảng khác, việc lookup toàn bộ DB trong pipeline rất chậm, ta xử lý bằng JS)
+        let products = await Product.aggregate(pipeline);
+        const orderCountMap = await getOrderCounts();
+
+        // Gắn số order vào từng SP
+        products = products.map(p => {
+            p.totalOrders = orderCountMap[p._id.toString()] || 0;
+            return p;
+        });
+
+        // 5. THUẬT TOÁN SORT CUỐI CÙNG BẰNG JAVASCRIPT
+        products.sort((a, b) => {
+            // Ưu tiên 1: Còn hàng lên trước, Hết hàng xuống cuối
+            if (a.is_in_stock !== b.is_in_stock) return b.is_in_stock - a.is_in_stock;
+            // Ưu tiên 2: Điểm liên quan (Keyword, Category) cao lên trước
+            if (a.match_score !== b.match_score) return b.match_score - a.match_score;
+            // Ưu tiên 3: Bán chạy (Nhiều Order) lên trước
+            if (a.totalOrders !== b.totalOrders) return b.totalOrders - a.totalOrders;
+            // Ưu tiên 4: Cùng điểm, cùng order -> Mới nhất lên trước
+            return new Date(b.created_at) - new Date(a.created_at);
+        });
+
+        // 6. PHÂN TRANG VÀ BÙ ĐẮP SẢN PHẨM (Pagination)
+        const total = products.length;
+        const paginatedProducts = products.slice(skip, skip + parseInt(limit));
+
+        // 7. CHỈ LOOKUP STORE & USER CHO CÁC SẢN PHẨM NẰM TRONG TRANG HIỆN TẠI (Tối ưu cực mạnh)
+        await Product.populate(paginatedProducts, [
+            { path: 'store_id', select: 'shop_name' },
+            { path: 'user_id', select: 'full_name' }
+        ]);
+
+        // LOG NGẮN GỌN 1 DÒNG
+        //console.log(`[GET PRODUCTS] Search: '${keyword||'none'}' | Category: ${catIds.length} | Interests: '${interestWords||'none'}' -> Trả về ${paginatedProducts.length}/${total}`);
 
         res.json({
             success: true,
-            count: products.length,
+            count: paginatedProducts.length,
             total_pages: Math.ceil(total / limit),
             current_page: parseInt(page),
-            data: products
+            data: paginatedProducts
         });
 
     } catch (error) {
-        console.error("Lỗi khi getProducts:", error);
+        console.error("[GET PRODUCTS ERROR]", error.message);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
+exports.getProductGotMostOrders = async (req, res) => {
+    try{
+
+        const { keyword, page = 1, limit = 12 } = req.query;
+        const skip = (page - 1) * limit;
+
+        const matchStage = {
+            status: 'active',
+            conditon: 'New',
+            
+        }
+
+    }catch(err){
+        console.error("Error in getProductGotMostOrders:", err);
+        res.status(500).json({ success: false, message: 'Server Error', error: err.message });
+    }
+}
+
+exports.getProductsGotSaleMoreThan50PercentRecommendedByAdmin = async (req, res) => {
+
+
+}
 
 
 exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
@@ -171,7 +186,8 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
             { 
                 $match: { 
                     status: 'active', 
-                    original_price: { $gt: 0 } 
+                    original_price: { $gt: 0 },
+                    condition: 'New'
                 } 
             }
         ];
@@ -408,7 +424,7 @@ exports.updateCustomerPassedProduct = async (req, res) => {
     try {
         const userId = req.user.id;
         const { id } = req.params;
-        const { name, description, category_id, main_image, price, original_price, quantity, display_files } = req.body;
+        const { name, description, category_id, main_image, price, original_price, product_type, display_files } = req.body;
 
         const product = await Product.findById(id);
         if (!product) return res.status(404).json({ message: 'Không tìm thấy sản phẩm.' });
@@ -425,16 +441,12 @@ exports.updateCustomerPassedProduct = async (req, res) => {
         if (price !== undefined) product.price = price;
         if (original_price !== undefined) product.original_price = original_price;
 
-        // nếu người dùng gửi số lượng mới (chỉ áp dụng cho hàng pass)
-        if (quantity !== undefined) {
-            let qty = parseInt(quantity, 10);
-            if (isNaN(qty) || qty < 1) qty = 1;
-            if (qty > 10) qty = 10;
-            if (product.product_type && product.product_type.length > 0) {
-                product.product_type[0].stock = qty;
-            } else {
-                product.product_type = [{ description: 'Mặc định', stock: qty, price_difference: 0 }];
-            }
+        // nếu client gửi product_type array thì thay toàn bộ (với điều kiện số lượng và giới hạn)
+        if (product_type && Array.isArray(product_type)) {
+            product.product_type = product_type.map(pt => ({
+                ...pt,
+                stock: Math.min(10, Math.max(0, Number(pt.stock) || 0))
+            }));
         }
 
         // lưu lại thời gian cập nhật
@@ -478,19 +490,14 @@ exports.createPassing2ndProduct = async (req, res) => {
     try {
         const userId = req.user.id; // Lấy từ token đăng nhập
         const { name, description, category_id, main_image, display_files = [], price, original_price,
-             product_type, condition, quantity } = req.body;
+             product_type, condition } = req.body;
 
         // 1. Kiểm tra xem User này có Store hay không
         const store = await Store.findOne({ user_id: userId, status: 'active' });
         const isStore = !!store;
 
         let finalCondition = condition;
-        let finalProductType = product_type || [];
-
-        // convert incoming quantity to integer and cap at 10
-        let qty = parseInt(quantity, 10);
-        if (isNaN(qty) || qty < 1) qty = 1;
-        if (qty > 10) qty = 10;
+        let finalProductType = Array.isArray(product_type) ? product_type : [];
 
         // 2. LOGIC CHỐNG LÁCH LUẬT CHO CUSTOMER (Không có store)
         if (!isStore) {
@@ -501,16 +508,16 @@ exports.createPassing2ndProduct = async (req, res) => {
             }
 
             // Ép cứng tình trạng là đồ cũ
-            finalCondition = 'Used'; 
+            finalCondition = 'Used';
 
-            // cho phép số lượng do người dùng nhập (tối đa 10)
+            // ensure each type has numeric stock and cap at 10 per type
             if (finalProductType.length > 0) {
-                finalProductType = finalProductType.map((pt, index) => ({
+                finalProductType = finalProductType.map((pt) => ({
                     ...pt,
-                    stock: index === 0 ? qty : 0 // chỉ vị trí đầu có số lượng
+                    stock: Math.min(10, Math.max(0, Number(pt.stock) || 0))
                 }));
             } else {
-                finalProductType = [{ description: 'Mặc định', stock: qty, price_difference: 0 }];
+                finalProductType = [{ description: 'Mặc định', stock: 1, price_difference: 0 }];
             }
         }
 

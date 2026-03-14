@@ -17,9 +17,14 @@ const My2ndListings: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null); // nếu khác null => đang sửa
     const [formData, setFormData] = useState({
-        name: '', description: '', price: '', original_price: '', main_image: '', category_id: [] as string[],
+        name: '',
+        description: '',
+        price: '',
+        original_price: '',
+        main_image: '',
+        category_id: [] as string[],
         display_files: [] as string[],
-        quantity: '1'
+        product_type: [{ description: '', stock: '' }]
         // category_id is array of ids now
     });
 
@@ -125,8 +130,14 @@ const My2ndListings: React.FC = () => {
             };
             // already array
             if (formData.category_id && formData.category_id.length) payload.category_id = formData.category_id;
-            // include quantity and display files
-            if (formData.quantity) payload.quantity = formData.quantity;
+            // convert product types
+            if (formData.product_type && formData.product_type.length) {
+                payload.product_type = formData.product_type.map((pt: any) => ({
+                    description: pt.description,
+                    stock: Number(pt.stock) || 0
+                }));
+            }
+            // include display files
             if (formData.display_files && formData.display_files.length) payload.display_files = formData.display_files;
 
             if (editingItem) {
@@ -139,7 +150,7 @@ const My2ndListings: React.FC = () => {
 
             setShowModal(false);
             setEditingItem(null);
-            setFormData({ name: '', description: '', price: '', original_price: '', main_image: '', category_id: [], display_files: [], quantity: '1' });
+            setFormData({ name: '', description: '', price: '', original_price: '', main_image: '', category_id: [], display_files: [], product_type: [{ description: '', stock: '' }] });
             fetchListings();
         } catch (error: any) {
             toast.error(error.response?.data?.message || (editingItem ? "Cập nhật thất bại." : "Đăng bán thất bại."));
@@ -158,7 +169,10 @@ const My2ndListings: React.FC = () => {
             main_image: item.main_image || '',
             category_id: item.category_id || [],
             display_files: item.display_files || [],
-            quantity: item.product_type && item.product_type.length ? String(item.product_type[0].stock || '') : '1'
+            product_type: (item.product_type || []).map((pt: any) => ({
+                description: pt.description || '',
+                stock: pt.stock != null ? String(pt.stock) : ''
+            }))
         });
         // rebuild image slots based on existing files
         setImageSlots(Array.from({ length: (item.display_files ? item.display_files.length : 0) || 1 }, (_, i) => i));
@@ -263,40 +277,63 @@ const My2ndListings: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* số lượng cho phép tối đa 10 */}
+                            {/* Product types section */}
                             <div>
-                                <label className="block text-sm font-bold mb-1 dark:text-white">Số lượng (1-10) *</label>
-                                <input required type="number" min="1" max="10" className="w-full p-3 rounded-lg border dark:bg-slate-800 dark:border-slate-700 dark:text-white outline-none focus:border-primary" value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} />
-                            </div>
-
-                            {/* upload ảnh */}
-                            <div>
-                                <label className="block text-sm font-bold mb-1 dark:text-white">Ảnh bổ sung</label>
-                                {imageSlots.map((slot, idx) => (
-                                    <div key={slot} className="flex items-center gap-2 mb-2">
+                                <label className="block text-sm font-bold mb-1 dark:text-white">Loại sản phẩm (màu, size...) *</label>
+                                {formData.product_type.map((pt, idx) => (
+                                    <div key={idx} className="flex gap-2 mb-2 items-center">
                                         <input
-                                            type="file"
-                                            accept="image/*"
+                                            type="text"
+                                            placeholder="Màu/Size"
+                                            value={pt.description}
                                             onChange={e => {
-                                                const f = e.target.files?.[0];
-                                                if (f) handleImageSelection(idx, f);
+                                                const val = e.target.value;
+                                                setFormData(prev => {
+                                                    const arr = [...prev.product_type];
+                                                    arr[idx] = { ...arr[idx], description: val };
+                                                    return { ...prev, product_type: arr };
+                                                });
                                             }}
+                                            className="flex-1 p-2 rounded-lg border dark:bg-slate-800 dark:border-slate-700 dark:text-white outline-none focus:border-primary"
                                         />
-                                        {formData.display_files[idx] && (
-                                            <img src={formData.display_files[idx]} alt="preview" className="w-12 h-12 object-cover rounded" />
-                                        )}
-                                        {imageSlots.length > 1 && (
-                                            <button type="button" className="text-red-500" onClick={() => removeImageSlot(idx)}>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            placeholder="Số lượng"
+                                            value={pt.stock}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setFormData(prev => {
+                                                    const arr = [...prev.product_type];
+                                                    arr[idx] = { ...arr[idx], stock: val };
+                                                    return { ...prev, product_type: arr };
+                                                });
+                                            }}
+                                            className="w-24 p-2 rounded-lg border dark:bg-slate-800 dark:border-slate-700 dark:text-white outline-none focus:border-primary"
+                                        />
+                                        {formData.product_type.length > 1 && (
+                                            <button type="button" className="text-red-500" onClick={() => {
+                                                setFormData(prev => {
+                                                    const arr = [...prev.product_type];
+                                                    arr.splice(idx,1);
+                                                    return { ...prev, product_type: arr };
+                                                });
+                                            }}>
                                                 x
                                             </button>
                                         )}
                                     </div>
                                 ))}
-                                <button type="button" className="text-blue-500 text-sm" onClick={addImageSlot}>
-                                    + Thêm ảnh
+                                <button type="button" className="text-blue-500 text-sm" onClick={() => {
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        product_type: [...prev.product_type, { description: '', stock: '' }]
+                                    }));
+                                }}>
+                                    + Thêm loại
                                 </button>
-                                {uploadingImages && <p className="text-xs text-slate-500">Đang tải ảnh...</p>}
                             </div>
+
                             <div>
                                 <label className="block text-sm font-bold mb-1 dark:text-white">Danh mục (có thể chọn nhiều)</label>
                                 {categories.length > 0 ? (
@@ -334,7 +371,6 @@ const My2ndListings: React.FC = () => {
                                 <input
                                     type="file"
                                     accept="image/*"
-                                    required
                                     onChange={e => {
                                         const f = e.target.files?.[0];
                                         if (f) handleMainImageSelection(f);
@@ -345,12 +381,41 @@ const My2ndListings: React.FC = () => {
                                     <img src={formData.main_image} alt="main" className="w-24 h-24 object-cover rounded mt-2" />
                                 )}
                             </div>
+
+                            {/* upload ảnh bổ sung (di chuyển xuống sau ảnh chính) */}
+                            <div>
+                                <label className="block text-sm font-bold mb-1 dark:text-white">Ảnh bổ sung</label>
+                                {imageSlots.map((slot, idx) => (
+                                    <div key={slot} className="flex items-center gap-2 mb-2">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={e => {
+                                                const f = e.target.files?.[0];
+                                                if (f) handleImageSelection(idx, f);
+                                            }}
+                                        />
+                                        {formData.display_files[idx] && (
+                                            <img src={formData.display_files[idx]} alt="preview" className="w-12 h-12 object-cover rounded" />
+                                        )}
+                                        {imageSlots.length > 1 && (
+                                            <button type="button" className="text-red-500" onClick={() => removeImageSlot(idx)}>
+                                                x
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                                <button type="button" className="text-blue-500 text-sm" onClick={addImageSlot}>
+                                    + Thêm ảnh
+                                </button>
+                                {uploadingImages && <p className="text-xs text-slate-500">Đang tải ảnh...</p>}
+                            </div>
                             <div>
                                 <label className="block text-sm font-bold mb-1 dark:text-white">Mô tả tình trạng *</label>
                                 <textarea required className="w-full p-3 rounded-lg border dark:bg-slate-800 dark:border-slate-700 dark:text-white outline-none focus:border-primary min-h-[80px]" placeholder="Áo còn mới 90%, đã mặc 2 lần..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                             </div>
                             
-                            <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">Lưu ý: Đồ pass sẽ tự động mặc định số lượng kho (stock) là 1.</p>
+                            <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">Lưu ý: với mỗi loại (màu, size…) bạn có thể nhập số lượng <strong>riêng biệt</strong>.</p>
                             
                             <div className="pt-4 flex gap-3">
                                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 font-bold rounded-lg text-slate-700 dark:text-slate-300">Hủy</button>

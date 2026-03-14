@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ProductService } from '../services/productService';
 import { removeVietnameseTones } from '../utils/format'; // Import hàm mới
+import { trackInterest } from '../utils/tracker';
 import React from 'react';
 export const useSearch = () => {
     const [search, setSearch] = useState('');
@@ -60,27 +61,21 @@ export const useSearch = () => {
         const finalKeyword = keywordOverride !== undefined ? keywordOverride : search.trim();
         setShowSuggestions(false);
 
-        if (location.pathname === '/products') {
-            // If on product page, update params accordingly
-            setSearchParams(prev => {
-                if (finalKeyword) {
+        if (finalKeyword) {
+            // 2. GỌI HÀM LƯU TỪ KHÓA VÀO LOCAL STORAGE
+            trackInterest(finalKeyword); 
+
+            if (location.pathname === '/products') {
+                setSearchParams(prev => {
                     prev.set('keyword', finalKeyword);
-                } else {
-                    prev.delete('keyword');
-                }
-                prev.delete('page');
-                return prev;
-            });
-            if (!finalKeyword && location.pathname !== '/products') {
-                navigate('/products');
+                    prev.delete('page');
+                    return prev;
+                });
+            } else {
+                navigate(`/products?keyword=${encodeURIComponent(finalKeyword)}`);
             }
         } else {
-            // not on product page
-            if (finalKeyword) {
-                navigate(`/products?keyword=${encodeURIComponent(finalKeyword)}`);
-            } else {
-                navigate('/products');
-            }
+            if (location.pathname !== '/products') navigate('/products');
         }
     };
 
@@ -89,8 +84,8 @@ export const useSearch = () => {
     };
 
     const handleSelectSuggestion = (suggestion: string) => {
-        setSearch(suggestion); // Cập nhật input ngay lập tức
-        handleSearch(suggestion); // Gọi search
+        setSearch(suggestion);
+        handleSearch(suggestion);
     };
 
     return { 
