@@ -107,6 +107,36 @@ export const authApi = {
     updateProfile: (payload: any) => api('/users/me', { method: 'PUT', requireAuth: true, body: JSON.stringify(payload) }),
     
     logout: () => api('/auth/logout', { method: 'POST', requireAuth: true }),
+
+    toggleWishlist: (productId: string) => 
+        api('/users/wishlist/toggle', {
+            method: 'POST',
+            requireAuth: true,
+            body: JSON.stringify({ productId })
+        }),
+
+    toggleFollowStore: (storeId: string) =>
+        api('/users/follow/toggle', {
+            method: 'POST',
+            requireAuth: true,
+            body: JSON.stringify({ storeId })
+        }),
+
+    getWishlist: (params: { page?: number, search?: string, limit?: number }) => {
+        const query = new URLSearchParams();
+        if (params.page) query.append('page', params.page.toString());
+        if (params.search) query.append('search', params.search);
+        if (params.limit) query.append('limit', params.limit.toString());
+        return api(`/users/wishlist?${query.toString()}`, { requireAuth: true });
+    },
+
+    getFollowingStores: (params: { page?: number, search?: string, limit?: number }) => {
+        const query = new URLSearchParams();
+        if (params.page) query.append('page', params.page.toString());
+        if (params.search) query.append('search', params.search);
+        if (params.limit) query.append('limit', params.limit.toString());
+        return api(`/users/following?${query.toString()}`, { requireAuth: true });
+    },
 };
 
 export const shopApi = {

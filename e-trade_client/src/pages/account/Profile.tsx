@@ -7,7 +7,7 @@ import { CategoryService } from '../../services/categoryService';
 import { Layout } from '../components/Layout'; // IMPORT LAYOUT CHUẨN
 
 const Profile: React.FC = () => {
-    const [categories, setCategories] = useState<Array<{_id: string, name: string}>>([]);
+    const [categories, setCategories] = useState<Array<{ _id: string, name: string }>>([]);
     const { user, logout, refreshUser } = useAuth();
     const { toast } = useToast();
     const [editing, setEditing] = useState(false);
@@ -32,20 +32,20 @@ const Profile: React.FC = () => {
     useEffect(() => {
         if (user) {
             setForm({
-                name: user.full_name || user.name || "", 
+                name: user.full_name || user.name || "",
                 phone: user.phone || "",
                 gender: user.gender || "",
-                dob: user.dob ? user.dob.split('T')[0] : "", 
+                dob: user.dob ? user.dob.split('T')[0] : "",
                 avatar: user.avatar || "",
             });
             const dAddr = user.addresses?.find((a: any) => a.is_default) || user.addresses?.[0];
             if (dAddr) {
-                setAddr({ 
-                    label: dAddr.label || "Home", 
-                    street: dAddr.street || "", 
-                    district: dAddr.district || "", 
-                    city: dAddr.city || "", 
-                    is_default: true 
+                setAddr({
+                    label: dAddr.label || "Home",
+                    street: dAddr.street || "",
+                    district: dAddr.district || "",
+                    city: dAddr.city || "",
+                    is_default: true
                 });
             }
         }
@@ -89,15 +89,15 @@ const Profile: React.FC = () => {
         setSaving(true);
         try {
             const payload = {
-                full_name: form.name, 
+                full_name: form.name,
                 phone: form.phone,
                 gender: form.gender,
-                dob: form.dob || null, 
+                dob: form.dob || null,
                 addresses: [addr],
             };
 
             await authApi.updateProfile(payload);
-            
+
             if (refreshUser) await refreshUser();
             setEditing(false);
             toast.success("Cập nhật thành công! ✅");
@@ -124,7 +124,7 @@ const Profile: React.FC = () => {
                 await storeApi.registerSeller(sellerForm);
                 toast.success("Gửi đơn đăng kí seller thành công! ✅ Vui lòng chờ admin phê duyệt.");
             }
-            
+
             setShowSellerModal(false);
             setIsEditingSeller(false);
             setSellerForm({
@@ -146,7 +146,7 @@ const Profile: React.FC = () => {
 
     const handleEditSellerRegistration = () => {
         if (!sellerRegistrationStatus) return;
-        
+
         setSellerForm({
             shop_name: sellerRegistrationStatus.shop_name || "",
             shop_description: sellerRegistrationStatus.shop_description || "",
@@ -166,13 +166,13 @@ const Profile: React.FC = () => {
             {showSellerModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="bg-white dark:bg-[#2d1e16] rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-2xl relative max-h-[90vh] overflow-y-auto">
-                        <button 
-                            onClick={() => { setShowSellerModal(false); setIsEditingSeller(false); }} 
+                        <button
+                            onClick={() => { setShowSellerModal(false); setIsEditingSeller(false); }}
                             className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
                         >
                             <span className="material-symbols-outlined">close</span>
                         </button>
-                        
+
                         <div className="text-center mb-8">
                             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <span className="material-symbols-outlined text-3xl text-primary">storefront</span>
@@ -188,27 +188,27 @@ const Profile: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="md:col-span-1">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Tên Shop <span className="text-red-500">*</span></label>
-                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.shop_name} onChange={e => setSellerForm({...sellerForm, shop_name: e.target.value})} placeholder="Nhập tên shop của bạn" />
+                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.shop_name} onChange={e => setSellerForm({ ...sellerForm, shop_name: e.target.value })} placeholder="Nhập tên shop của bạn" />
                             </div>
                             <div className="md:col-span-1">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Số điện thoại liên hệ</label>
-                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.phone} onChange={e => setSellerForm({...sellerForm, phone: e.target.value})} placeholder="SĐT liên hệ với shop" />
+                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.phone} onChange={e => setSellerForm({ ...sellerForm, phone: e.target.value })} placeholder="SĐT liên hệ với shop" />
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Mô tả Shop <span className="text-red-500">*</span></label>
-                                <textarea className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none min-h-[100px]" value={sellerForm.shop_description} onChange={e => setSellerForm({...sellerForm, shop_description: e.target.value})} placeholder="Giới thiệu ngắn về shop để thu hút khách hàng" />
+                                <textarea className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none min-h-[100px]" value={sellerForm.shop_description} onChange={e => setSellerForm({ ...sellerForm, shop_description: e.target.value })} placeholder="Giới thiệu ngắn về shop để thu hút khách hàng" />
                             </div>
                             <div className="md:col-span-1">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Số CMND/CCCD <span className="text-red-500">*</span></label>
-                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.identity_card} onChange={e => setSellerForm({...sellerForm, identity_card: e.target.value})} placeholder="Nhập số định danh cá nhân" />
+                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.identity_card} onChange={e => setSellerForm({ ...sellerForm, identity_card: e.target.value })} placeholder="Nhập số định danh cá nhân" />
                             </div>
                             <div className="md:col-span-1">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Ảnh CMND/CCCD (Link)</label>
-                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.identity_card_image} onChange={e => setSellerForm({...sellerForm, identity_card_image: e.target.value})} placeholder="https://..." />
+                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.identity_card_image} onChange={e => setSellerForm({ ...sellerForm, identity_card_image: e.target.value })} placeholder="https://..." />
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Địa chỉ lấy hàng <span className="text-red-500">*</span></label>
-                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.pickup_address} onChange={e => setSellerForm({...sellerForm, pickup_address: e.target.value})} placeholder="Địa chỉ kho hàng/nơi lấy hàng" />
+                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.pickup_address} onChange={e => setSellerForm({ ...sellerForm, pickup_address: e.target.value })} placeholder="Địa chỉ kho hàng/nơi lấy hàng" />
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Ngành hàng kinh doanh <span className="text-red-500">*</span></label>
@@ -226,7 +226,7 @@ const Profile: React.FC = () => {
                                                     } else {
                                                         arr = arr.filter(c => c !== cat.name);
                                                     }
-                                                    setSellerForm({...sellerForm, business_category: arr.join(',')});
+                                                    setSellerForm({ ...sellerForm, business_category: arr.join(',') });
                                                 }}
                                             />
                                             <span className="text-sm dark:text-slate-300">{cat.name}</span>
@@ -235,17 +235,17 @@ const Profile: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div className="mt-8 flex gap-4 pt-6 border-t border-slate-100 dark:border-slate-800">
-                            <button 
+                            <button
                                 onClick={() => { setShowSellerModal(false); setIsEditingSeller(false); }}
                                 className="flex-1 px-6 py-3 rounded-xl font-bold text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all"
                             >
                                 Hủy bỏ
                             </button>
-                            <button 
-                                onClick={onSubmitSellerForm} 
-                                disabled={submittingSellerForm} 
+                            <button
+                                onClick={onSubmitSellerForm}
+                                disabled={submittingSellerForm}
                                 className="flex-1 bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/25 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
                                 {submittingSellerForm ? (
@@ -264,6 +264,9 @@ const Profile: React.FC = () => {
                     <nav className="flex flex-col gap-1">
                         <Link to="/account" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary/10 border-r-4 border-primary text-primary font-medium">
                             <span className="material-symbols-outlined">person</span> Profile
+                        </Link>
+                        <Link to="/account/wishlist" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
+                            <span className="material-symbols-outlined">favorite</span> Wishlist & Following
                         </Link>
                         <Link to="/account/orders" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all">
                             <span className="material-symbols-outlined">shopping_bag</span> Orders
@@ -305,15 +308,15 @@ const Profile: React.FC = () => {
                                     </>
                                 ) : (
                                     <div className="grid gap-3 max-w-xl">
-                                        <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} placeholder="Full Name" />
-                                        <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} placeholder="Phone" />
+                                        <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Full Name" />
+                                        <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone" />
                                         <div className="grid grid-cols-2 gap-3">
-                                            <select className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={form.gender} onChange={(e) => setForm({...form, gender: e.target.value})}>
+                                            <select className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
                                                 <option value="">-- Gender --</option>
                                                 <option value="Male">Male</option>
                                                 <option value="Female">Female</option>
                                             </select>
-                                            <input type="date" className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={form.dob} onChange={(e) => setForm({...form, dob: e.target.value})} />
+                                            <input type="date" className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={form.dob} onChange={(e) => setForm({ ...form, dob: e.target.value })} />
                                         </div>
                                         <div className="mt-4 flex gap-3">
                                             <button onClick={onSave} disabled={saving} className="bg-primary text-white px-6 py-2 rounded-xl font-bold text-sm">{saving ? "Saving..." : "Save Changes"}</button>
@@ -330,7 +333,7 @@ const Profile: React.FC = () => {
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="text-lg font-bold dark:text-white">Seller Registration Status</h3>
                                     {(sellerRegistrationStatus.status === 'pending' || sellerRegistrationStatus.status === 'rejected') && (
-                                        <button 
+                                        <button
                                             onClick={handleEditSellerRegistration}
                                             className="flex items-center gap-1 text-sm font-bold text-primary hover:underline"
                                         >
@@ -342,11 +345,10 @@ const Profile: React.FC = () => {
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
                                         <span className="font-medium dark:text-white">Status:</span>
-                                        <span className={`px-4 py-2 rounded-lg font-bold text-sm ${
-                                            sellerRegistrationStatus.status === 'approved' ? 'bg-green-100 text-green-700' :
-                                            sellerRegistrationStatus.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                                            'bg-yellow-100 text-yellow-700'
-                                        }`}>
+                                        <span className={`px-4 py-2 rounded-lg font-bold text-sm ${sellerRegistrationStatus.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                                sellerRegistrationStatus.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                    'bg-yellow-100 text-yellow-700'
+                                            }`}>
                                             {sellerRegistrationStatus.status === 'approved' && '✅ Approved'}
                                             {sellerRegistrationStatus.status === 'rejected' && '❌ Rejected'}
                                             {sellerRegistrationStatus.status === 'pending' && '⏳ Pending'}
@@ -397,10 +399,10 @@ const Profile: React.FC = () => {
                                 )) : <p className="text-slate-500">Chưa có địa chỉ</p>
                             ) : (
                                 <div className="grid gap-3">
-                                    <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={addr.street} onChange={(e) => setAddr({...addr, street: e.target.value})} placeholder="Street" />
+                                    <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={addr.street} onChange={(e) => setAddr({ ...addr, street: e.target.value })} placeholder="Street" />
                                     <div className="grid grid-cols-2 gap-3">
-                                        <input className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={addr.district} onChange={(e) => setAddr({...addr, district: e.target.value})} placeholder="District" />
-                                        <input className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={addr.city} onChange={(e) => setAddr({...addr, city: e.target.value})} placeholder="City" />
+                                        <input className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={addr.district} onChange={(e) => setAddr({ ...addr, district: e.target.value })} placeholder="District" />
+                                        <input className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={addr.city} onChange={(e) => setAddr({ ...addr, city: e.target.value })} placeholder="City" />
                                     </div>
                                 </div>
                             )}
