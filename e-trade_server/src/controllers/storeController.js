@@ -6,10 +6,171 @@ const Review = require('../models/ReviewProduct');
 const SellerRegistration = require('../models/SellerRegistration');
 const mongoose = require('mongoose');
 
+// Lấy thông tin store + stats cho seller hiện tại
+exports.getMyStore = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Tìm store theo user_id
+        const store = await Store.findOne({ user_id: userId })
+            .populate('user_id', 'avatar account_name full_name email')
+            .select('-identity_card -__v');
+
+        if (!store) {
+            return res.status(404).json({
+                success: false,
+                message: 'Bạn chưa có cửa hàng nào. Vui lòng đăng ký seller hoặc chờ admin phê duyệt.',
+            });
+        }
+
+        const storeObjectId = new mongoose.Types.ObjectId(store._id);
+
+        // Tính stats tương tự getStoreDetails nhưng theo store_id
+        const statsAgg = await Product.aggregate([
+            { $match: { store_id: storeObjectId, status: 'active', is_deleted: { $ne: true } } },
+            {
+                $group: {
+                    _id: '$store_id',
+                    productIds: { $push: '$_id' },
+                    totalProducts: { $sum: 1 },
+                },
+            },
+            {
+                $lookup: {
+                    from: 'reviewproducts',
+                    localField: 'productIds',
+                    foreignField: 'product_id',
+                    as: 'reviews',
+                },
+            },
+            { $unwind: { path: '$reviews', preserveNullAndEmptyArrays: true } },
+            {
+                $group: {
+                    _id: '$_id',
+                    totalProducts: { $first: '$totalProducts' },
+                    totalReviews: { $sum: { $cond: [{ $ifNull: ['$reviews', false] }, 1, 0] } },
+                    totalRating: { $sum: { $ifNull: ['$reviews.rating', 0] } },
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    totalProducts: 1,
+                    totalReviews: 1,
+                    averageRating: {
+                        $cond: [
+                            { $eq: ['$totalReviews', 0] },
+                            0,
+                            { $divide: ['$totalRating', '$totalReviews'] },
+                        ],
+                    },
+                },
+            },
+        ]);
+
+        const statsRaw = statsAgg[0] || { totalProducts: 0, totalReviews: 0, averageRating: 0 };
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                store,
+                stats: {
+                    totalProducts: statsRaw.totalProducts,
+                    totalReviews: statsRaw.totalReviews,
+                    averageRating: parseFloat(statsRaw.averageRating.toFixed(1)),
+                },
+            },
+        });
+    } catch (error) {
+        console.error('Lỗi khi lấy thông tin store của seller hiện tại:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi máy chủ nội bộ',
+        });
+    }
+};
+
+// Cập nhật thông tin store cho seller hiện tại
+exports.updateMyStore = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const {
+            shop_name,
+            logo,
+            description,
+            pickup_address,
+            phone,
+            contact_email,
+        } = req.body;
+
+        const errors = {};
+
+        if (!shop_name || typeof shop_name !== 'string' || shop_name.trim().length < 2) {
+            errors.shop_name = 'Tên cửa hàng là bắt buộc và phải có độ dài tối thiểu 2 ký tự.';
+        }
+
+        if (phone && !/^[0-9+\-\s]{8,20}$/.test(phone)) {
+            errors.phone = 'Số điện thoại không hợp lệ.';
+        }
+
+        if (contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact_email)) {
+            errors.contact_email = 'Email liên hệ không hợp lệ.';
+        }
+
+        if (logo && !/^https?:\/\//i.test(logo)) {
+            errors.logo = 'Logo URL phải bắt đầu bằng http hoặc https.';
+        }
+
+        if (pickup_address && pickup_address.trim().length < 5) {
+            errors.pickup_address = 'Địa chỉ nhận hàng quá ngắn.';
+        }
+
+        if (Object.keys(errors).length > 0) {
+            return res.status(400).json({
+                success: false,
+                errors,
+            });
+        }
+
+        const store = await Store.findOne({ user_id: userId });
+        if (!store) {
+            return res.status(404).json({
+                success: false,
+                message: 'Bạn chưa có cửa hàng nào. Vui lòng đăng ký seller hoặc chờ admin phê duyệt.',
+            });
+        }
+
+        // Cập nhật các field cho phép
+        store.shop_name = shop_name;
+        if (logo !== undefined) store.logo = logo;
+        if (description !== undefined) store.description = description;
+        if (pickup_address !== undefined) store.pickup_address = pickup_address;
+        if (phone !== undefined) store.phone = phone;
+        if (contact_email !== undefined) store.contact_email = contact_email;
+        store.updated_at = Date.now();
+
+        await store.save();
+
+        return res.status(200).json({
+            success: true,
+            data: store,
+        });
+    } catch (error) {
+        console.error('Lỗi khi cập nhật thông tin store của seller hiện tại:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi máy chủ nội bộ',
+        });
+    }
+};
+
 // Controller: Lấy thông tin chi tiết công khai của một cửa hàng
 exports.getStoreDetails = async (req, res) => {
     try {
         const storeId = req.params.id;
+        if (!mongoose.Types.ObjectId.isValid(storeId)) {
+            return res.status(400).json({ message: 'ID cửa hàng không hợp lệ' });
+        }
         const storeObjectId = new mongoose.Types.ObjectId(storeId);
 
         // 1. Lấy thông tin cửa hàng và thông tin avatar, tên của chủ cửa hàng
@@ -24,7 +185,7 @@ exports.getStoreDetails = async (req, res) => {
         // 2. Dùng aggregation để lấy thống kê sản phẩm và đánh giá một cách hiệu quả
         const stats = await Product.aggregate([
             // Giai đoạn 1: Lọc các sản phẩm đang hoạt động của cửa hàng
-            { $match: { store_id: storeObjectId, status: 'active' } },
+            { $match: { store_id: storeObjectId, status: 'active', is_deleted: { $ne: true } } },
             // Giai đoạn 2: Nhóm để đếm sản phẩm và thu thập ID
             {
                 $group: {
@@ -103,7 +264,7 @@ exports.getStoreProducts = async (req, res) => {
         }
 
         // Xây dựng điều kiện lọc
-        const filter = { store_id: storeId, status: 'active' };
+        const filter = { store_id: storeId, status: 'active', is_deleted: { $ne: true } };
 
         if (search) {
             // Sử dụng regex để tìm kiếm không phân biệt chữ hoa/thường

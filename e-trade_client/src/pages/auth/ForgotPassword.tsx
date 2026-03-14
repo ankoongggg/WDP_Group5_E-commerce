@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { authApi } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
+import ThemeToggle from '../../components/ThemeToggle';
 
 const ForgotPassword: React.FC = () => {
   const { toast } = useToast();
@@ -38,6 +39,7 @@ const ForgotPassword: React.FC = () => {
           </div>
           <h2 className="text-xl font-bold tracking-tight text-background-dark dark:text-white">ShopModern</h2>
         </Link>
+        <ThemeToggle size="sm" />
       </header>
 
       <main className="flex-1 flex items-center justify-center p-6 md:p-12">

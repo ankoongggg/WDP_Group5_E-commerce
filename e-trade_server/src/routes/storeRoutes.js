@@ -5,15 +5,6 @@ const storeController = require('../controllers/storeController');
 const { protect } = require('../middlewares/auth');
 
 // =====================================================
-// PUBLIC ROUTES
-// =====================================================
-// API: Lấy thông tin chi tiết công khai của một cửa hàng
-router.get('/:id', storeController.getStoreDetails);
-
-// GET /api/stores/:id/products - Lấy tất cả sản phẩm của một cửa hàng
-router.get('/:id/products', storeController.getStoreProducts);
-
-// =====================================================
 // PROTECTED ROUTES (Yêu cầu đăng nhập)
 // =====================================================
 // API: Gửi đơn đăng kí để trở thành seller
@@ -24,6 +15,21 @@ router.get('/registration/status', protect, storeController.getSellerRegistratio
 
 // PUT /api/stores/registration - Cập nhật thông tin đơn đăng kí seller
 router.put('/registration', protect, storeController.updateSellerRegistration);
+
+// GET /api/stores/my-store - Lấy thông tin store + stats cho seller hiện tại
+router.get('/my-store', protect, storeController.getMyStore);
+
+// PUT /api/stores/my-store - Cập nhật thông tin store cho seller hiện tại
+router.put('/my-store', protect, storeController.updateMyStore);
+
+// =====================================================
+// PUBLIC ROUTES
+// =====================================================
+// API: Lấy thông tin chi tiết công khai của một cửa hàng
+router.get('/:id', storeController.getStoreDetails);
+
+// GET /api/stores/:id/products - Lấy tất cả sản phẩm của một cửa hàng
+router.get('/:id/products', storeController.getStoreProducts);
 
 // =====================================================
 // ADMIN ROUTES

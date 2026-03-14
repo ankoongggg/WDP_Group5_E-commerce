@@ -190,6 +190,14 @@ export const storeApi = {
     // Lấy thông tin store của seller hiện tại
     getMyStore: () => api('/store/my-store', { requireAuth: true }),
 
+    // Cập nhật thông tin store của seller hiện tại
+    updateMyStore: (payload: any) =>
+        api('/store/my-store', {
+            method: 'PUT',
+            requireAuth: true,
+            body: JSON.stringify(payload),
+        }),
+
     // Lấy thống kê dashboard (Tổng quan)
     getSellerStats: () => api('/store/stats', { requireAuth: true }),
 

@@ -49,10 +49,16 @@ exports.getPendingProductsWithBlacklistedKeywords = async (req, res) => {
         const blackListKeywords = await BlacklistKeyword.find().select('keyword');
         const blackListKeywordArray = blackListKeywords.map(item => item.keyword);
 
-        const pendingProducts = await Product.find({ status: 'pending' });
-        // const productsWithBlacklistedKeywordsAndPendingStatus = pendingProducts.filter(product => {
-        //     return blackListKeywordArray.some(keyword => product.name.toLowerCase().includes(keyword));
-        // });
+        // Chỉ lấy sản phẩm pending, chưa bị xoá mềm và populate thông tin cửa hàng
+        const pendingProducts = await Product.find({
+            status: 'pending',
+            is_deleted: { $ne: true },
+        })
+            .populate('store_id', 'shop_name')
+            .sort({ created_at: -1 });
+
+        // (Hiện tại frontend chỉ dùng danh sách pending, chưa filter theo keyword;
+        // nếu sau này cần, có thể áp dụng blackListKeywordArray để lọc tiếp)
 
         res.status(200).json({ products: pendingProducts });
     } catch (err) {

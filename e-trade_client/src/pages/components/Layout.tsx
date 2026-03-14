@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useCurrency, CurrencyType } from '../../context/CurrencyContext';
 import { useCart } from '../../context/CartContext';
+import ThemeToggle from '../../components/ThemeToggle';
 
 // --- COMPONENT MỚI: Thanh công cụ nổi bên phải ---
 const FloatingSidebar: React.FC = () => {
@@ -140,6 +141,8 @@ export const Navbar: React.FC = () => {
 
                 {/* Auth & Cart Section */}
                 <div className="flex items-center gap-3">
+                    {/* Theme toggle */}
+                    <ThemeToggle className="hidden sm:flex" size="sm" />
                     
                     {/* BỘ CHỌN TIỀN TỆ ĐƯỢC REDESIGN */}
                     <div className="relative group">
@@ -214,6 +217,16 @@ export const Navbar: React.FC = () => {
                                             <span className="material-symbols-outlined text-lg">settings</span>
                                             Settings
                                         </Link>
+                                        {user?.role?.includes('seller') && (
+                                            <Link
+                                                to="/seller/dashboard"
+                                                onClick={() => setShowDropdown(false)}
+                                                className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                                            >
+                                                <span className="material-symbols-outlined text-lg">storefront</span>
+                                                Seller Dashboard
+                                            </Link>
+                                        )}
                                         <div className="border-t border-slate-100 dark:border-white/10 mt-1 pt-1">
                                             <button
                                                 onClick={() => { setShowDropdown(false); logout().then(() => toast.success('Logged out successfully')); }}
