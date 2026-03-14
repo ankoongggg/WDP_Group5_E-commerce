@@ -26,7 +26,7 @@ const ReviewDetailModal = ({ review, item, onClose }: { review: any, item: any, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-lg relative" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-2xl relative" onClick={e => e.stopPropagation()}>
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors"
@@ -52,8 +52,18 @@ const ReviewDetailModal = ({ review, item, onClose }: { review: any, item: any, 
           </div>
           <div>
             <label className="block text-sm font-bold mb-2 text-slate-600 dark:text-slate-300">Nội dung đánh giá</label>
-            <div className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 dark:text-white min-h-[100px] whitespace-pre-wrap">{review.comment || <span className="text-slate-400">Không có bình luận.</span>}</div>
+            <div className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 dark:text-white whitespace-pre-wrap">{review.comment || <span className="text-slate-400">Không có bình luận.</span>}</div>
           </div>
+          {review.fileUploads && review.fileUploads.length > 0 && (
+            <div>
+              <label className="block text-sm font-bold mb-2 text-slate-600 dark:text-slate-300">Hình ảnh đính kèm</label>
+              <div className="flex flex-wrap gap-3">
+                {review.fileUploads.map((url: string, index: number) => (
+                  <img key={index} src={url} alt={`Review image ${index + 1}`} className="w-24 h-24 rounded-lg object-cover border border-slate-200 dark:border-slate-600" />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
@@ -237,14 +247,26 @@ const OrderHistory: React.FC = () => {
 
                         <div className="space-y-4">
                           {order.items.map((item, idx) => (
-                            <div key={idx} className="flex gap-4">
-                              <div className="w-20 h-20 rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden shrink-0">
-                                <img src={item.image_snapshot || 'https://via.placeholder.com/100'} alt={item.name_snapshot} className="w-full h-full object-cover" />
-                              </div>
-                              <div className="flex-1">
-                                <h3 className="font-medium line-clamp-2 dark:text-white">{item.name_snapshot}</h3>
-                                <p className="text-sm text-slate-500 mt-1">x{item.quantity}</p>
-                              </div>
+                            <div key={idx} className="flex gap-4 items-center">
+                              {item.product_id?._id ? (
+                                <Link to={`/products/${item.product_id._id}`} className="flex gap-4 items-center flex-1 group">
+                                  <div className="w-20 h-20 rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden shrink-0">
+                                    <img src={item.image_snapshot || 'https://via.placeholder.com/100'} alt={item.name_snapshot} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <h3 className="font-medium line-clamp-2 dark:text-white group-hover:text-primary transition-colors">{item.name_snapshot}</h3>
+                                    <p className="text-sm text-slate-500 mt-1">x{item.quantity}</p>
+                                  </div>
+                                </Link>
+                              ) : (
+                                <div className="flex gap-4 items-center flex-1 opacity-60">
+                                  <div className="w-20 h-20 rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden shrink-0"><img src={item.image_snapshot || 'https://via.placeholder.com/100'} alt={item.name_snapshot} className="w-full h-full object-cover" /></div>
+                                  <div className="flex-1">
+                                    <h3 className="font-medium line-clamp-2 dark:text-white">{item.name_snapshot} <span className="text-xs">(Sản phẩm không còn tồn tại)</span></h3>
+                                    <p className="text-sm text-slate-500 mt-1">x{item.quantity}</p>
+                                  </div>
+                                </div>
+                              )}
                               <div className="text-right">
                                 <span className="text-primary font-medium">{formatPrice(item.price_snapshot)}</span>
                               </div>
