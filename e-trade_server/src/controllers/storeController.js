@@ -470,6 +470,7 @@ exports.getPendingSellers = async (req, res) => {
 exports.approveSeller = async (req, res) => {
     try {
         const registrationId = req.params.id;
+
         // SỬA: Tìm trong SellerRegistration, không phải Store
         const registration = await SellerRegistration.findById(registrationId);
 
@@ -479,6 +480,7 @@ exports.approveSeller = async (req, res) => {
         if (registration.status !== 'pending') {
             return res.status(400).json({ message: 'Đơn đăng kí này đã được xử lý' });
         }
+        
 
         // Tạo cửa hàng mới từ thông tin đăng kí
         const newStore = new Store({

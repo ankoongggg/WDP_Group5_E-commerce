@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCurrency } from '../../context/CurrencyContext';
 import { orderApi } from '../../services/api';
-import AccountLayout from '../components/AccountLayout';
+import {AccountLayout } from '../components/AccountLayout';
 
 // --- THÀNH PHẦN HIỂN THỊ SAO ---
 const StarRatingDisplay = ({ rating, size = 'text-sm' }: { rating: number, size?: string }) => {
@@ -76,7 +76,7 @@ const ReviewDetailModal = ({ review, item, onClose }: { review: any, item: any, 
   );
 };
 
-// --- INTERFACE ---
+// --- INTERFACE ---import { AccountLayout } from '../components/AccountLayout';
 interface OrderItem {
   product_id: {
     _id: string;
@@ -99,8 +99,9 @@ interface Order {
   items: OrderItem[];
   created_at: string;
   seller_id?: {
-    _id: string;
-    shop_name: string;
+    _id: string; // ĐÃ THÊM: Phải có dòng này TypeScript mới cho chạy Link to={order.seller_id._id}
+    shop_name?: string;
+    full_name?: string;
   }
 }
 

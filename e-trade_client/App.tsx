@@ -34,6 +34,8 @@ import FeedbackProduct from './src/pages/account/FeedbackProduct';
 import Profile from './src/pages/account/Profile';
 import OrderDetail from './src/pages/account/OrderDetail';
 import Settings from './src/pages/account/Settings';
+import My2ndListing from './src/pages/account/My2ndListing';
+import PassingProductSalesOrder from './src/pages/account/PassingProductSalesOrder';
 import WishlistAndFollowing from './src/pages/account/WishlistAndFollowing';
 
 // Admin Pages
@@ -91,6 +93,8 @@ const AppRoutes: React.FC = () => {
         <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
         <Route path="/account/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/account/feedback" element={<ProtectedRoute><FeedbackProduct /></ProtectedRoute>} />
+        <Route path="/account/my-2nd-listings" element={<ProtectedRoute><My2ndListing /></ProtectedRoute>} />
+        <Route path="/account/passing-product-orders" element={<ProtectedRoute><PassingProductSalesOrder /></ProtectedRoute>} />
         <Route path="/account/wishlist" element={<ProtectedRoute><WishlistAndFollowing /></ProtectedRoute>} />
 
         {/* Seller Routes */}

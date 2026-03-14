@@ -34,7 +34,7 @@ export const useProductList = () => {
       try {
         const [catRes, prodRes] = await Promise.all([
             CategoryService.getAllOnHomePage({}),
-            ProductService.getAll({ limit: 1000 })
+            ProductService.getAll({ })
         ]);
 
         if (Array.isArray(catRes)) setCategories(catRes);

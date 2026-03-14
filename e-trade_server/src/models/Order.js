@@ -6,8 +6,10 @@ const Product = require('./Product');
 const orderSchema = new mongoose.Schema({
     customer_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     
-    // ĐÃ FIX: Đổi ref từ 'User' sang 'Store' để lấy được shop_name
-    seller_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Store', required: true }, 
+    // seller_id may refer to a Store or a User depending on who is selling the item.
+    // We keep an explicit seller_type field and use refPath for dynamic population.
+    seller_id: { type: mongoose.Schema.Types.ObjectId, refPath: 'seller_type', required: true },
+    seller_type: { type: String, enum: ['Store', 'User'], required: true, default: 'Store' },
     
     items: [
         {
@@ -38,6 +40,14 @@ const orderSchema = new mongoose.Schema({
     note: String,
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
+});
+
+// ensure older documents without seller_type still default to Store
+orderSchema.pre('save', function(next) {
+    if (!this.seller_type) {
+        this.seller_type = 'Store';
+    }
+    next();
 });
 
 module.exports = mongoose.model('Order', orderSchema);

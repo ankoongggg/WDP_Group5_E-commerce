@@ -3,126 +3,178 @@ const User = require('../models/User');
 const Store = require('../models/Store');
 const Product = require('../models/Product');
 const Review = require('../models/ReviewProduct'); // Thêm import Review của Thắng
-const BlackListKeyword = require('../models/BlackListKeyword.js'); // Thêm import BlackListKeyword của Tú
-
+const BlacklistKeyword = require('../models/BlacklistKeyword');
+const Order = require('../models/Order');
+const Category = require('../models/Category');
 // ==========================================
 // CÁC HÀM CỦA TÚ (Quản lý tìm kiếm, lọc)
 // ==========================================
-
-const getProductsByShop = async (req, res) => {
-    // Đang chờ code
-}
-
-const filterProductsBySearch = async (req, res) => {
-    // Đang chờ code
-}
 
 // GET /api/products
 // Query params: 
 // - keyword: tìm kiếm theo tên hoặc mô tả
 // - limit: giới hạn số lượng (mặc định 10)
 // - page: phân trang
+// Helper function: Đếm số order của từng sản phẩm để xếp hạng "Bán chạy"
+const getTopSellingProductIds = async () => {
+    const orderStats = await Order.aggregate([
+        { $unwind: "$items" },
+        { $group: { _id: "$items.product_id", totalOrders: { $sum: 1 } } }
+    ]);
+    
+    const map = {};
+    orderStats.forEach(stat => {
+        if (stat._id) map[stat._id.toString()] = stat.totalOrders;
+    });
+    return map;
+};
+
+// Hàm Helper đếm số lượng Order để tối ưu hiệu suất
+const getOrderCounts = async () => {
+    const stats = await Order.aggregate([
+        { $unwind: "$items" },
+        { $group: { _id: "$items.product_id", totalOrders: { $sum: 1 } } }
+    ]);
+    const map = {};
+    stats.forEach(s => { if (s._id) map[s._id.toString()] = s.totalOrders; });
+    return map;
+};
+
 exports.getProducts = async (req, res) => {
     try {
-        const { keyword, page = 1, limit = 12 } = req.query;
+        const { keyword, interests, category_interests, page = 1, limit = 18 } = req.query;
         const skip = (page - 1) * limit;
 
-        // Query cơ bản: Chỉ lấy sản phẩm đang active và chưa bị xoá mềm
-        let matchStage = { status: 'active', is_deleted: { $ne: true } };
-
-        // Pipeline xử lý
-        let pipeline = [
-            { $match: matchStage },
-            {
-                $lookup: { // Join với Store để lấy tên shop
-                    from: 'stores',
-                    localField: 'store_id',
-                    foreignField: '_id',
-                    as: 'store'
-                }
-            },
-            { $unwind: '$store' }, // Giải nén mảng store
-        ];
-
-        if (keyword) {
-            pipeline.push({
-                $addFields: {
-                    relevance: {
-                        $cond: {
-                            if: {
-                                $regexMatch: {
-                                    input: "$name",
-                                    regex: keyword,
-                                    options: "i"
-                                }
-                            },
-                            then: 1, // Nếu tên chứa keyword -> 1 điểm
-                            else: 0  // Không chứa -> 0 điểm
-                        }
-                    }
-                }
-            });
-
-            // Sắp xếp: Relevance giảm dần (1 -> 0), sau đó mới đến ngày tạo
-            pipeline.push({
-                $sort: { relevance: -1, created_at: -1 }
-            });
-        } else {
-            // Nếu không có keyword thì cứ mới nhất lên đầu
-            pipeline.push({
-                $sort: { created_at: -1 }
-            });
+        // Xử lý biến đầu vào
+        const searchKeyword = keyword ? keyword.trim().toLowerCase() : null;
+        const interestWords = interests ? interests.replace(/,/g, ' ').trim() : null;
+        
+        let catIds = [];
+        if (category_interests) {
+            catIds = category_interests.split(',')
+                .map(id => id.trim())
+                .filter(id => mongoose.Types.ObjectId.isValid(id))
+                .map(id => new mongoose.Types.ObjectId(id));
         }
 
-        // Phân trang
-        pipeline.push({ $skip: skip });
-        pipeline.push({ $limit: parseInt(limit) });
+        // 1. CHỈ LẤY SẢN PHẨM ACTIVE (Không lọc theo keyword ở bước này để đảm bảo có đủ data bù đắp)
+        let pipeline = [ { $match: { status: 'active' } } ];
 
-        // Thêm stage để định hình lại output và bao gồm các trường cần thiết
+        // 2. TÍNH TOÁN STOCK TRONG PIPELINE
         pipeline.push({
-            $project: {
-                _id: 1,
-                name: 1,
-                main_image: 1,
-                price: 1,
-                original_price: 1,
-                // Logic tính stock: Nếu có product_type (mảng) thì tính tổng stock bên trong, ngược lại lấy stock gốc
-                stock: {
+            $addFields: {
+                calculated_stock: {
                     $cond: {
-                        if: { $gt: [{ $size: { $ifNull: ["$product_type", []] } }, 0] },
+                        if: { $isArray: "$product_type" }, 
                         then: { $sum: "$product_type.stock" },
                         else: { $ifNull: ["$stock", 0] }
                     }
-                },
-                product_type: 1, // Thêm loại sản phẩm (chứa tồn kho chi tiết)
-                created_at: 1,
-                category_id: 1, // Thêm trường này để frontend có thể lọc
-                store_id: { // Đổi tên 'store' thành 'store_id' cho nhất quán
-                    _id: '$store._id',
-                    shop_name: '$store.shop_name'
                 }
+            }
+        }, {
+            $addFields: {
+                is_in_stock: { $cond: { if: { $gt: ["$calculated_stock", 0] }, then: 1, else: 0 } }
             }
         });
 
-        // Thực thi
-        const products = await Product.aggregate(pipeline);
+        // 3. THUẬT TOÁN CHẤM ĐIỂM (SCORING)
+        let scoreLogic = { $add: [0] }; // Mặc định 0 điểm
 
-        // Đếm tổng (để phân trang)
-        const total = await Product.countDocuments(matchStage);
+        // +100 Điểm nếu khớp Keyword (Người dùng chủ động search)
+        if (searchKeyword) {
+            const regex = new RegExp(searchKeyword.split(/\s+/).join('|'), 'i');
+            scoreLogic.$add.push({ $cond: [{ $regexMatch: { input: { $ifNull: ["$name", ""] }, regex: regex } }, 100, 0] });
+        }
+        
+        // Nếu không có Keyword, check lịch sử duyệt (Trang chủ)
+        if (!searchKeyword) {
+            // +50 Điểm nếu thuộc Category đã xem
+            if (catIds.length > 0) {
+                scoreLogic.$add.push({ $cond: [{ $in: ["$category_id", catIds] }, 50, 0] });
+            }
+            // +30 Điểm nếu tên na ná các sản phẩm đã xem
+            if (interestWords) {
+                const regexInt = new RegExp(interestWords.split(/\s+/).join('|'), 'i');
+                scoreLogic.$add.push({ $cond: [{ $regexMatch: { input: { $ifNull: ["$name", ""] }, regex: regexInt } }, 30, 0] });
+            }
+        }
+
+        // Gắn điểm vào sản phẩm
+        pipeline.push({ $addFields: { match_score: scoreLogic } });
+
+        // 4. LẤY TOÀN BỘ (HOẶC GIỚI HẠN LỚN) LÊN ĐỂ JS GẮN TOTAL_ORDERS RỒI MỚI SORT
+        // (Do Order nằm ở bảng khác, việc lookup toàn bộ DB trong pipeline rất chậm, ta xử lý bằng JS)
+        let products = await Product.aggregate(pipeline);
+        const orderCountMap = await getOrderCounts();
+
+        // Gắn số order vào từng SP
+        products = products.map(p => {
+            p.totalOrders = orderCountMap[p._id.toString()] || 0;
+            return p;
+        });
+
+        // 5. THUẬT TOÁN SORT CUỐI CÙNG BẰNG JAVASCRIPT
+        products.sort((a, b) => {
+            // Ưu tiên 1: Còn hàng lên trước, Hết hàng xuống cuối
+            if (a.is_in_stock !== b.is_in_stock) return b.is_in_stock - a.is_in_stock;
+            // Ưu tiên 2: Điểm liên quan (Keyword, Category) cao lên trước
+            if (a.match_score !== b.match_score) return b.match_score - a.match_score;
+            // Ưu tiên 3: Bán chạy (Nhiều Order) lên trước
+            if (a.totalOrders !== b.totalOrders) return b.totalOrders - a.totalOrders;
+            // Ưu tiên 4: Cùng điểm, cùng order -> Mới nhất lên trước
+            return new Date(b.created_at) - new Date(a.created_at);
+        });
+
+        // 6. PHÂN TRANG VÀ BÙ ĐẮP SẢN PHẨM (Pagination)
+        const total = products.length;
+        const paginatedProducts = products.slice(skip, skip + parseInt(limit));
+
+        // 7. CHỈ LOOKUP STORE & USER CHO CÁC SẢN PHẨM NẰM TRONG TRANG HIỆN TẠI (Tối ưu cực mạnh)
+        await Product.populate(paginatedProducts, [
+            { path: 'store_id', select: 'shop_name' },
+            { path: 'user_id', select: 'full_name' }
+        ]);
+
+        // LOG NGẮN GỌN 1 DÒNG
+        //console.log(`[GET PRODUCTS] Search: '${keyword||'none'}' | Category: ${catIds.length} | Interests: '${interestWords||'none'}' -> Trả về ${paginatedProducts.length}/${total}`);
 
         res.json({
             success: true,
-            count: products.length,
+            count: paginatedProducts.length,
             total_pages: Math.ceil(total / limit),
             current_page: parseInt(page),
-            data: products
+            data: paginatedProducts
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("[GET PRODUCTS ERROR]", error.message);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
+exports.getProductGotMostOrders = async (req, res) => {
+    try{
+
+        const { keyword, page = 1, limit = 12 } = req.query;
+        const skip = (page - 1) * limit;
+
+        const matchStage = {
+            status: 'active',
+            conditon: 'New',
+            
+        }
+
+    }catch(err){
+        console.error("Error in getProductGotMostOrders:", err);
+        res.status(500).json({ success: false, message: 'Server Error', error: err.message });
+    }
+}
+
+exports.getProductsGotSaleMoreThan50PercentRecommendedByAdmin = async (req, res) => {
+
+
+}
+
 
 exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
     try {
@@ -134,7 +186,8 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
             { 
                 $match: { 
                     status: 'active', 
-                    original_price: { $gt: 0 } 
+                    original_price: { $gt: 0 },
+                    condition: 'New'
                 } 
             }
         ];
@@ -345,5 +398,183 @@ exports.getProductReviews = async (req, res) => {
     } catch (error) {
         console.error('Error fetching product reviews:', error);
         res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+// customer product functions (Tú)
+// [GET] /api/past-item-listing/me
+// [GET] /api/products/customer_passed_products
+exports.getCustomerPassedProducts = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        // Tìm các sản phẩm do user này tạo, nhưng không thuộc về Store nào
+        const products = await Product.find({ 
+            user_id: userId, 
+        }).sort({ created_at: -1 });
+
+        res.status(200).json({ success: true, data: products });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};
+
+// [PUT] /api/products/pass/:id
+exports.updateCustomerPassedProduct = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+        const { name, description, category_id, main_image, price, original_price, product_type, display_files } = req.body;
+
+        const product = await Product.findById(id);
+        if (!product) return res.status(404).json({ message: 'Không tìm thấy sản phẩm.' });
+        if (product.user_id?.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Bạn không có quyền chỉnh sửa sản phẩm này.' });
+        }
+
+        // chỉ cho phép thay đổi một vài trường
+        if (name) product.name = name;
+        if (description) product.description = description;
+        if (category_id) product.category_id = category_id;
+        if (main_image) product.main_image = main_image;
+        if (display_files) product.display_files = display_files;
+        if (price !== undefined) product.price = price;
+        if (original_price !== undefined) product.original_price = original_price;
+
+        // nếu client gửi product_type array thì thay toàn bộ (với điều kiện số lượng và giới hạn)
+        if (product_type && Array.isArray(product_type)) {
+            product.product_type = product_type.map(pt => ({
+                ...pt,
+                stock: Math.min(10, Math.max(0, Number(pt.stock) || 0))
+            }));
+        }
+
+        // lưu lại thời gian cập nhật
+        product.updated_at = new Date();
+
+        await product.save();
+        res.status(200).json({ success: true, data: product, message: 'Đã cập nhật sản phẩm.' });
+    } catch (error) {
+        console.error('Error updating passed product:', error);
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};
+
+// [DELETE] /api/products/pass/:id
+exports.deleteCustomerPassedProduct = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+
+        const product = await Product.findById(id);
+        if (!product) return res.status(404).json({ message: 'Không tìm thấy sản phẩm.' });
+        if (product.user_id?.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Bạn không có quyền xóa sản phẩm này.' });
+        }
+
+        await product.deleteOne();
+        res.status(200).json({ success: true, message: 'Đã xóa sản phẩm.' });
+    } catch (error) {
+        console.error('Error deleting passed product:', error);
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};
+
+
+
+
+
+
+// [POST] /api/products/pass-item
+exports.createPassing2ndProduct = async (req, res) => {
+    try {
+        const userId = req.user.id; // Lấy từ token đăng nhập
+        const { name, description, category_id, main_image, display_files = [], price, original_price,
+             product_type, condition } = req.body;
+
+        // 1. Kiểm tra xem User này có Store hay không
+        const store = await Store.findOne({ user_id: userId, status: 'active' });
+        const isStore = !!store;
+
+        let finalCondition = condition;
+        let finalProductType = Array.isArray(product_type) ? product_type : [];
+
+        // 2. LOGIC CHỐNG LÁCH LUẬT CHO CUSTOMER (Không có store)
+        if (!isStore) {
+            // Kiểm tra giới hạn bài đăng (Ví dụ: tối đa 5 bài Pass đồ)
+            const activePostsCount = await Product.countDocuments({ user_id: userId, store_id: { $exists: false }, status: { $ne: 'inactive' } });
+            if (activePostsCount >= 10) {
+                return res.status(403).json({ message: 'Bạn đã đạt giới hạn đăng bán cá nhân. Vui lòng đăng ký Cửa hàng để bán thêm.' });
+            }
+
+            // Ép cứng tình trạng là đồ cũ
+            finalCondition = 'Used';
+
+            // ensure each type has numeric stock and cap at 10 per type
+            if (finalProductType.length > 0) {
+                finalProductType = finalProductType.map((pt) => ({
+                    ...pt,
+                    stock: Math.min(10, Math.max(0, Number(pt.stock) || 0))
+                }));
+            } else {
+                finalProductType = [{ description: 'Mặc định', stock: 1, price_difference: 0 }];
+            }
+        }
+
+        
+        const blackListKeywords = await BlacklistKeyword.find();
+        const textToCheck = `${name} ${description || ''}`.toLowerCase();
+        
+        let finalStatus = 'active'; // Mặc định là pass
+        let rejectionReason = '';
+
+        for (const item of blackListKeywords) {
+            if (textToCheck.includes(item.keyword.toLowerCase())) {
+                if (item.level === 'high') {
+                    //xóa bài
+                    rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
+                    return; // Dừng vòng lặp ngay khi tìm thấy từ cấm
+                }
+                if (item.level === 'critical') {
+                    //khóa tài khoản
+                   rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
+                    return; // Dừng vòng lặp ngay khi tìm thấy từ cấm
+                }
+                if (item.level === 'medium') {
+                finalStatus = 'pending';
+                rejectionReason = `Hệ thống tự động tạm giữ vì chứa từ khóa nhạy cảm: "${item.keyword}"`;
+                break; 
+                }// Dừng vòng lặp ngay khi tìm thấy từ cấm
+            }
+        }
+
+        // 4. Tạo sản phẩm
+        const newProduct = new Product({
+            store_id: isStore ? store._id : undefined, // Nếu có store thì gán, không thì undefined
+            user_id: userId,                           // Luôn lưu user_id để biết ai đăng
+            category_id,
+            name,
+            description,
+            main_image,
+            display_files,
+            price,
+            original_price,
+            product_type: finalProductType,
+            condition: finalCondition,
+            status: finalStatus,
+            rejection_reason: rejectionReason
+        });
+
+        await newProduct.save();
+
+        res.status(201).json({
+            success: true,
+            message: finalStatus === 'active' ? 'Đăng bán sản phẩm thành công!' : 'Sản phẩm đang được chờ duyệt do chứa từ khóa nhạy cảm.',
+            data: newProduct
+        });
+
+    } catch (error) {
+        console.error('Lỗi tạo sản phẩm:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: error.message });
     }
 };
