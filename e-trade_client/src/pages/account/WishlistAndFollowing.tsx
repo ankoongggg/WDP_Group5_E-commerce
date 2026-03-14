@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { authApi } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import ProductCard from '../components/ProductCard'; // Re-use existing component
-import AccountLayout from '../components/AccountLayout';
+import {AccountLayout} from '../components/AccountLayout';
 import { useAuth } from '../../context/AuthContext';
 // --- Interfaces ---
 interface Product {

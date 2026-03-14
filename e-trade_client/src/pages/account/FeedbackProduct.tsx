@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
-import AccountLayout from '../components/AccountLayout';
+import {AccountLayout} from '../components/AccountLayout';
 
 interface Product {
   _id: string;

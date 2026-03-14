@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
 import { orderApi } from '../../services/api';
-import AccountLayout from '../components/AccountLayout';
+import {AccountLayout} from '../components/AccountLayout';
 
 // Helper component for displaying stars
 const StarRatingDisplay = ({ rating, size = 'text-sm' }: { rating: number, size?: string }) => {
