@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
+import { uploadMultiple } from '../../utils/cloudinary';
 import {AccountLayout} from '../components/AccountLayout';
 
 interface Product {
@@ -17,7 +18,8 @@ interface Review {
   rating: number;
   comment: string;
   created_at: string;
-  is_edited: boolean; // Thêm trường này
+  is_edited: boolean;
+  fileUploads?: string[];
 }
 
 const StarRating = ({ rating, setRating }: { rating: number, setRating: (r: number) => void }) => {
@@ -68,6 +70,8 @@ const FeedbackProduct: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
+  const [fileUploads, setFileUploads] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingReview, setExistingReview] = useState<Review | null>(null);
   
@@ -115,6 +119,34 @@ const FeedbackProduct: React.FC = () => {
     fetchProductAndReview();
   }, [productId, orderId, navigate, toast]);
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (fileUploads.length + files.length > 5) {
+      toast.error('Bạn chỉ có thể tải lên tối đa 5 ảnh.');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const newUrls = await uploadMultiple(Array.from(files));
+      setFileUploads(prev => [...prev, ...newUrls]);
+    } catch (error) {
+      console.error('Upload failed', error);
+      toast.error('Tải ảnh lên thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsUploading(false);
+      // Reset file input value to allow re-selecting the same file
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveImage = (indexToRemove: number) => {
+    setFileUploads(prev => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (rating === 0) return toast.warning('Vui lòng chọn số sao đánh giá.');
@@ -123,7 +155,7 @@ const FeedbackProduct: React.FC = () => {
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const payload = { product_id: productId, order_id: orderId, rating, comment };
+      const payload = { product_id: productId, order_id: orderId, rating, comment, fileUploads };
       
       // Nếu đang ở chế độ sửa thì gọi PUT, còn tạo mới thì gọi POST
       if (isEditMode) {
@@ -150,6 +182,7 @@ const FeedbackProduct: React.FC = () => {
     if (existingReview) {
       setRating(existingReview.rating);
       setComment(existingReview.comment);
+      setFileUploads(existingReview.fileUploads || []);
       setIsEditMode(true);
     }
   };
@@ -189,6 +222,17 @@ const FeedbackProduct: React.FC = () => {
                 <label className="block text-sm font-bold mb-2 text-slate-600 dark:text-slate-300">Nội dung đánh giá</label>
                 <div className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 dark:text-white min-h-[120px] whitespace-pre-wrap">{existingReview.comment || <span className="text-slate-400">Không có bình luận.</span>}</div>
               </div>
+
+              {existingReview.fileUploads && existingReview.fileUploads.length > 0 && (
+                <div>
+                  <label className="block text-sm font-bold mb-2 text-slate-600 dark:text-slate-300">Hình ảnh đính kèm</label>
+                  <div className="flex flex-wrap gap-3">
+                    {existingReview.fileUploads.map((url, index) => (
+                      <img key={index} src={url} alt={`Review image ${index + 1}`} className="w-24 h-24 rounded-lg object-cover border border-slate-200 dark:border-slate-600" />
+                    ))}
+                  </div>
+                </div>
+              )}
               
               {/* NÚT CHỈNH SỬA (CHỈ HIỆN KHI is_edited LÀ FALSE) */}
               {!existingReview.is_edited && (
@@ -243,7 +287,46 @@ const FeedbackProduct: React.FC = () => {
               <textarea id="comment" rows={5} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Sản phẩm dùng rất tốt, đóng gói cẩn thận..." className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" />
             </div>
 
-            <button type="submit" disabled={isSubmitting} className="w-full bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/25 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+            <div>
+              <label className="block text-sm font-bold mb-2 text-slate-600 dark:text-slate-300">Thêm hình ảnh (Tối đa 5 ảnh)</label>
+              <div className="p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl">
+                <div className="flex flex-wrap gap-4 mb-4">
+                  {fileUploads.map((url, index) => (
+                    <div key={index} className="relative w-24 h-24">
+                      <img src={url} alt={`Upload preview ${index + 1}`} className="w-full h-full rounded-lg object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 leading-none"
+                      >
+                        <span className="material-symbols-outlined text-sm">close</span>
+                      </button>
+                    </div>
+                  ))}
+                  {isUploading && (
+                    <div className="w-24 h-24 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
+                      <span className="material-symbols-outlined animate-spin">sync</span>
+                    </div>
+                  )}
+                </div>
+                {fileUploads.length < 5 && (
+                  <label className="cursor-pointer bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 font-bold py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined">add_photo_alternate</span>
+                    Tải ảnh lên
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileChange}
+                      disabled={isUploading}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <button type="submit" disabled={isSubmitting || isUploading} className="w-full bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/25 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2">
               {isSubmitting ? (<><span className="material-symbols-outlined animate-spin text-lg">sync</span> Đang gửi...</>) : (<><span className="material-symbols-outlined text-lg">{isEditMode ? 'save' : 'send'}</span> {isEditMode ? 'Lưu thay đổi' : 'Gửi đánh giá'}</>)}
             </button>
           </form>
