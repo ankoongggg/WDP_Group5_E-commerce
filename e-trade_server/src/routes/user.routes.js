@@ -8,11 +8,6 @@ const {
     updateUserRole,
     banAccount,
     createUserByAdmin,
-} = require('../controllers/UserController');
-const {
-    getProfile,
-    updateProfile,
-    getTotalUsersNumberAndComparison,
     toggleWishlist,
     toggleFollowStore,
     getWishlist,

@@ -419,15 +419,18 @@ const getTotalUsersNumberAndComparison = async (req,res) => {
     }
 }
 
-module.exports = { getProfile, updateProfile, banAccount, upSellerRequest, getTotalUsersNumberAndComparison, toggleWishlist, toggleFollowStore, getWishlist, getFollowingStores };
 module.exports = {
-    getProfile,
-    updateProfile,
-    getUserList,
-    updateUserRole,
-    banAccount,
-    upSellerRequest,
-    createUserByAdmin,
-    getTotalUsersNumberAndComparison,
+  getProfile,
+  updateProfile,
+  getUserList,
+  updateUserRole,
+  banAccount,
+  upSellerRequest,
+  createUserByAdmin,
+  getTotalUsersNumberAndComparison,
+  toggleWishlist,
+  toggleFollowStore,
+  getWishlist,
+  getFollowingStores
 };
 
