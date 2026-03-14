@@ -1,10 +1,11 @@
-// src/components/account/AccountLayout.tsx
+// src/pages/components/AccountLayout.tsx
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { storeApi } from '../../services/api';
 import { CategoryService } from '../../services/categoryService';
+import { Layout } from './Layout'; 
 
 interface AccountLayoutProps {
     children: React.ReactNode;
@@ -14,15 +15,12 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
     const { user, logout, refreshUser } = useAuth();
     const { toast } = useToast();
     const location = useLocation();
-
-     const { pathname } = useLocation();
+    const { pathname } = useLocation();
 
     const getLinkClassName = (path: string, isExact: boolean = false) => {
         const baseClass = "flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all";
         const activeClass = "rounded-lg bg-primary/10 border-r-4 border-primary text-primary font-medium";
-
         const isActive = isExact ? pathname === path : pathname.startsWith(path);
-
         return isActive ? `${baseClass} ${activeClass}` : baseClass;
     };
 
@@ -43,7 +41,6 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
         business_category: ""
     });
 
-    // Effect kiểm tra trạng thái seller
     useEffect(() => {
         if (user && !user.role?.includes('seller')) {
             checkSellerRegistrationStatus();
@@ -52,13 +49,10 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
         }
     }, [user]);
 
-    // Effect tải danh mục khi mở modal
     useEffect(() => {
         if (showSellerModal) {
             CategoryService.getAllOnHomePage()
-                .then((data) => {
-                    setCategories(data);
-                })
+                .then((data) => setCategories(data))
                 .catch(err => {
                     console.error("Lỗi khi tải danh mục:", err);
                     toast.error("Không thể tải danh mục ngành hàng.");
@@ -124,7 +118,6 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
         setShowSellerModal(true);
     };
 
-    // Hàm helper để xác định link nào đang active
     const isActive = (path: string) => {
         if (path === '/account' && location.pathname === '/account') return true;
         if (path !== '/account' && location.pathname.startsWith(path)) return true;
@@ -132,9 +125,7 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
     };
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark font-display flex flex-col">
-            
-            {/* Modal Become a Seller (Giữ nguyên) */}
+        <Layout>
             {showSellerModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="bg-white dark:bg-[#2d1e16] rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-2xl relative max-h-[90vh] overflow-y-auto">
@@ -231,65 +222,56 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
                 </div>
             )}
 
-            <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a110c] px-6 flex items-center justify-between sticky top-0 z-50">
-                <div className="flex items-center gap-3">
-                    <Link to="/" className="bg-primary p-1.5 rounded-lg flex items-center justify-center">
-                        <span className="material-symbols-outlined text-white text-2xl">dashboard</span>
-                    </Link>
-                    <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">My Account</h1>
-                </div>
-                <div className="flex items-center gap-4">
-                    <Link to="/" className="font-bold text-sm text-slate-500 hover:text-primary transition-all">Return to Shop</Link>
-                    <button onClick={logout} className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors font-bold text-sm text-slate-900 dark:text-white">
-                        <span className="material-symbols-outlined text-lg">logout</span> Logout
-                    </button>
-                </div>
-            </header>
-
-            <div className="flex flex-1 overflow-hidden">
-                <aside className="w-64 bg-white dark:bg-[#1a110c] border-r border-slate-200 dark:border-slate-800 hidden md:flex flex-col py-6 px-3 overflow-y-auto">
-                    <nav className="flex flex-col gap-1">
-                        <Link to="/account" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive('/account') ? 'bg-primary/10 border-r-4 border-primary text-primary font-medium' : 'text-slate-500 hover:text-primary'}`}>
-                            <span className="material-symbols-outlined">person</span> Profile
-                        </Link>
-                        <Link to="/account/orders" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive('/account/orders') ? 'bg-primary/10 border-r-4 border-primary text-primary font-medium' : 'text-slate-500 hover:text-primary'}`}>
-                            <span className="material-symbols-outlined">shopping_bag</span> Orders
-                        </Link>
-                        <Link to="/account/wishlist" className={getLinkClassName('/account/wishlist')}>
-                            <span className="material-symbols-outlined">favorite</span> Wishlist & Following
-                        </Link>
-                        
-                        {/* 2 tab mới cho tính năng Pass đồ */}
-                        <div className="mt-4 mb-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Pass Đồ Cũ</div>
-                        <Link to="/account/my-2nd-listings" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive('/account/my-listings') ? 'bg-primary/10 border-r-4 border-primary text-primary font-medium' : 'text-slate-500 hover:text-primary'}`}>
-                            <span className="material-symbols-outlined">inventory_2</span> Đồ Đang Pass
-                        </Link>
-                        <Link to="/account/passing-product-orders" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive('/account/sales-orders') ? 'bg-primary/10 border-r-4 border-primary text-primary font-medium' : 'text-slate-500 hover:text-primary'}`}>
-                            <span className="material-symbols-outlined">receipt_long</span> Đơn Khách Đặt
-                        </Link>
-
-                        <div className="mt-4 mb-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Khác</div>
-                        <Link to="/account/settings" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive('/account/settings') ? 'bg-primary/10 border-r-4 border-primary text-primary font-medium' : 'text-slate-500 hover:text-primary'}`}>
-                            <span className="material-symbols-outlined">settings</span> Settings
-                        </Link>
-
-                        {user?.role?.includes('seller') && (
-                            <Link to="/seller/dashboard" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all mt-2 border-t border-slate-100 dark:border-slate-800 pt-4">
-                                <span className="material-symbols-outlined">storefront</span> Seller Dashboard
+            <div className="max-w-[1440px] mx-auto w-full px-4 md:px-6 py-8 flex flex-col md:flex-row gap-8">
+                
+                <aside className="w-full md:w-64 shrink-0">
+                    <div className="bg-white dark:bg-[#1a110c] border border-slate-200 dark:border-slate-800 rounded-2xl py-6 px-3 sticky top-24 shadow-sm">
+                        <nav className="flex flex-col gap-1">
+                            <Link to="/account" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive('/account') ? 'bg-primary/10 border-r-4 border-primary text-primary font-medium' : 'text-slate-500 hover:text-primary'}`}>
+                                <span className="material-symbols-outlined">person</span> Profile
                             </Link>
-                        )}
-                        {!user?.role?.includes('seller') && !sellerRegistrationStatus && (
-                            <button onClick={() => { setShowSellerModal(true); setIsEditingSeller(false); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all mt-2 border-t border-slate-100 dark:border-slate-800 pt-4 text-left">
-                                <span className="material-symbols-outlined">store</span> Become a Seller
+                            <Link to="/account/orders" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive('/account/orders') ? 'bg-primary/10 border-r-4 border-primary text-primary font-medium' : 'text-slate-500 hover:text-primary'}`}>
+                                <span className="material-symbols-outlined">shopping_bag</span> Orders
+                            </Link>
+                            <Link to="/account/wishlist" className={getLinkClassName('/account/wishlist')}>
+                                <span className="material-symbols-outlined">favorite</span> Wishlist & Following
+                            </Link>
+                            
+                            <div className="mt-4 mb-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Pass Đồ Cũ</div>
+                            <Link to="/account/my-2nd-listings" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive('/account/my-listings') ? 'bg-primary/10 border-r-4 border-primary text-primary font-medium' : 'text-slate-500 hover:text-primary'}`}>
+                                <span className="material-symbols-outlined">inventory_2</span> Đồ Đang Pass
+                            </Link>
+                            <Link to="/account/passing-product-orders" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive('/account/sales-orders') ? 'bg-primary/10 border-r-4 border-primary text-primary font-medium' : 'text-slate-500 hover:text-primary'}`}>
+                                <span className="material-symbols-outlined">receipt_long</span> Đơn Khách Đặt
+                            </Link>
+
+                            <div className="mt-4 mb-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Khác</div>
+                            <Link to="/account/settings" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive('/account/settings') ? 'bg-primary/10 border-r-4 border-primary text-primary font-medium' : 'text-slate-500 hover:text-primary'}`}>
+                                <span className="material-symbols-outlined">settings</span> Settings
+                            </Link>
+
+                            {user?.role?.includes('seller') && (
+                                <Link to="/seller/dashboard" className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all mt-2 border-t border-slate-100 dark:border-slate-800 pt-4">
+                                    <span className="material-symbols-outlined">storefront</span> Seller Dashboard
+                                </Link>
+                            )}
+                            
+                            {!user?.role?.includes('seller') && !sellerRegistrationStatus && (
+                                <button onClick={() => { setShowSellerModal(true); setIsEditingSeller(false); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all mt-2 border-t border-slate-100 dark:border-slate-800 pt-4 text-left">
+                                    <span className="material-symbols-outlined">store</span> Become a Seller
+                                </button>
+                            )}
+
+                            <button onClick={logout} className="flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all mt-2 text-left font-medium">
+                                <span className="material-symbols-outlined">logout</span> Logout
                             </button>
-                        )}
-                    </nav>
+                        </nav>
+                    </div>
                 </aside>
 
-                <main className="flex-1 overflow-y-auto p-6 md:p-10 relative">
-                    {/* Render Status Đăng ký Seller ở Header của main content nếu có */}
+                <main className="flex-1 w-full min-h-[500px]">
                     {!user?.role?.includes('seller') && sellerRegistrationStatus && (
-                        <div className="max-w-5xl mx-auto mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-xl flex items-center justify-between">
+                        <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-xl flex items-center justify-between">
                             <div>
                                 <p className="font-bold text-blue-800 dark:text-blue-300">
                                     Đơn đăng ký cửa hàng: 
@@ -309,9 +291,8 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
                         </div>
                     )}
 
-                    {/* Khối thông báo nếu đã là seller */}
                     {user?.role?.includes('seller') && location.pathname === '/account' &&(
-                         <div className="max-w-5xl mx-auto mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 rounded-xl flex items-center justify-between">
+                         <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 rounded-xl flex items-center justify-between">
                              <div className="flex items-center gap-3">
                                  <span className="material-symbols-outlined text-green-600 text-2xl">verified</span>
                                  <div>
@@ -325,10 +306,9 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
                          </div>
                     )}
 
-                    {/* Nội dung trang con sẽ được chèn vào đây */}
                     {children}
                 </main>
             </div>
-        </div>
+        </Layout>
     );
 };
