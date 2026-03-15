@@ -152,6 +152,89 @@ exports.getProductsOnHomePage = async (req, res) => {
     }
 };
 
+exports.getRandomUsedProducts = async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 10;
+
+        const pipeline = [
+            // 1. Lọc sản phẩm Active và là Đồ cũ (Used)
+            { 
+                $match: { 
+                    status: 'active',
+                    condition: 'Used'
+                } 
+            },
+
+            // 2. Lookup để lấy thông tin người dùng đăng bán (User)
+            { 
+                $lookup: { 
+                    from: 'users', 
+                    localField: 'user_id', 
+                    foreignField: '_id', 
+                    as: 'user' 
+                } 
+            },
+            { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+
+            // 3. Tính toán tổng Stock (bao gồm cả phân loại)
+            {
+                $addFields: {
+                    calculated_stock: {
+                        $cond: {
+                            if: { $isArray: "$product_type" }, 
+                            then: { $sum: "$product_type.stock" },
+                            else: { $ifNull: ["$stock", 0] }
+                        }
+                    }
+                }
+            },
+
+            // 4. Chỉ giữ lại sản phẩm còn hàng (Stock > 0)
+            {
+                $match: {
+                    calculated_stock: { $gt: 0 }
+                }
+            },
+
+            // 5. Lấy ngẫu nhiên (Random)
+            { $sample: { size: limit } },
+
+            // 6. Format dữ liệu trả về cho gọn gàng (Giống với ProductCard)
+            {
+                $project: {
+                    _id: 1, 
+                    name: 1, 
+                    main_image: 1, 
+                    price: 1, 
+                    original_price: 1,
+                    condition: 1, 
+                    status: 1,
+                    stock: "$calculated_stock",
+                    user_id: {
+                        $cond: {
+                            if: { $ifNull: ["$user._id", false] },
+                            then: { _id: '$user._id', name: '$user.full_name' },
+                            else: null 
+                        }
+                    }
+                }
+            }
+        ];
+
+        const products = await Product.aggregate(pipeline);
+
+        res.status(200).json({
+            success: true,
+            count: products.length,
+            data: products
+        });
+
+    } catch (err) {
+        console.error("[GET RANDOM USED PRODUCTS ERROR]", err.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
 exports.getProductsOnProductList = async (req, res) => {
     try {
         console.log("=== START GET PRODUCT LIST ===");
@@ -647,7 +730,7 @@ exports.createPassing2ndProduct = async (req, res) => {
         const blackListKeywords = await BlacklistKeyword.find();
         const textToCheck = `${name} ${description || ''}`.toLowerCase();
         
-        let finalStatus = 'active'; // Mặc định là pass
+        let finalStatus = 'pending'; // Mặc định là pass
         let rejectionReason = '';
 
         for (const item of blackListKeywords) {

@@ -10,7 +10,7 @@ export const useHomeProducts = () => {
   const [biggestDiscount, setBiggestDiscount] = useState<number>(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [usedProducts, setUsedProducts] = useState<Product[]>([]);
   useEffect(() => {
     const fetchHomeData = async () => {
       try {
@@ -48,7 +48,10 @@ export const useHomeProducts = () => {
           setCategories([]);
         }
 
-
+        const usedRes = await ProductService.getUsedProducts(5);
+        if (usedRes.success) {
+            setUsedProducts(usedRes.data);
+        }
         // 2. Gọi API: Gửi keyword lên để Backend ưu tiên tìm sản phẩm đó
         // Backend của bạn đã có logic: if (keyword) tìm theo keyword
         // Chúng ta lấy limit=8 cho đẹp layout
@@ -65,5 +68,5 @@ export const useHomeProducts = () => {
     fetchHomeData();
   }, []);
 
-  return { products, biggestDiscount, categories, loading, saleProducts };
+  return { products, biggestDiscount, categories, loading, saleProducts, usedProducts };
 } ;

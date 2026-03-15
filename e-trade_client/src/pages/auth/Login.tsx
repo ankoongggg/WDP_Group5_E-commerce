@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { getGoogleAuthUrl } from '../../services/api';
+import { userInfo } from 'os';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -79,6 +80,12 @@ const Login: React.FC = () => {
       // ==============================================================
       // ĐỢI 1.5 GIÂY (1500ms) ĐỂ ĐỌC THÔNG BÁO RỒI MỚI ĐÁ VỀ TRANG CHỦ
       // ==============================================================
+      if(rememberMe) {
+        localStorage.setItem('rememberedEmail', email);
+      } else {
+        localStorage.removeItem('rememberedEmail');
+      }
+
       setTimeout(() => {
         navigate('/', { replace: true });
       }, 1500); 

@@ -5,7 +5,7 @@ import { useHomeProducts } from '../../hooks/useHomeProducts';
 import ProductCard from '../components/ProductCard';
 
 const Home: React.FC = () => {
-  const { products, biggestDiscount, categories, saleProducts, loading } = useHomeProducts();
+  const { products, biggestDiscount, categories, saleProducts, loading, usedProducts } = useHomeProducts();
 
   return (
     <Layout>
@@ -58,38 +58,40 @@ const Home: React.FC = () => {
           </div>
         </section>
 
-        {/* 3. FLASH SALE SECTION - Tách thành hàng riêng */}
-        <section className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between mb-4 gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-slate-800 dark:text-white font-bold">
-                <span className="material-symbols-outlined text-amber-500 text-2xl">local_fire_department</span>
-                <h3 className="text-2xl italic uppercase tracking-tight">FLASH SALE</h3>
-              </div>
-              {/* Cụm đếm ngược thời gian gọn gàng hơn */}
-              <div className="flex items-center gap-1.5">
-                {[["02", "H"], ["45", "M"], ["12", "S"]].map(([val, label], idx) => (
-                  <React.Fragment key={label}>
-                    <div className="bg-slate-800 text-white w-8 h-8 rounded flex items-center justify-center text-sm font-bold shadow-inner">
-                      {val}
-                    </div>
-                    {idx < 2 && <span className="font-bold text-slate-800 dark:text-slate-400">:</span>}
-                  </React.Fragment>
-                ))}
-              </div>
-            </div>
-            <Link to="/products?sale=flash" className="text-sm font-bold text-slate-500 hover:text-primary transition-colors flex items-center gap-1">
-              Xem tất cả <span className="material-symbols-outlined text-sm">chevron_right</span>
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-             {/* Thay .slice(0,5) bằng logic lấy Flash Sale nếu bạn có API tách biệt */}
-            {saleProducts.slice(Math.ceil(saleProducts.length / 2), Math.ceil(saleProducts.length / 2) + 5).map((item) => (
-              <ProductCard key={item._id} product={item} />
-            ))}
-          </div>
-        </section>
+        {/* 3. GÓC PASS ĐỒ CŨ (USED PRODUCTS) */}
+<section className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
+  <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between mb-4 gap-4">
+    <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 text-slate-800 dark:text-white font-bold">
+        {/* Đổi icon cho phù hợp */}
+        <span className="material-symbols-outlined text-amber-500 text-2xl">recycling</span>
+        <h3 className="text-2xl italic uppercase tracking-tight">Góc Pass Đồ</h3>
+      </div>
+      <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-full text-xs font-bold">
+        <span className="material-symbols-outlined text-sm">verified_user</span>
+        Sản phẩm đã qua sử dụng, được duyệt trước khi đăng bán
+      </div>
+    </div>
+    
+    {/* Link dẫn đến danh sách tất cả đồ Pass */}
+    <Link to="/products?condition=Used" className="text-sm font-bold text-slate-500 hover:text-primary transition-colors flex items-center gap-1">
+      Xem tất cả <span className="material-symbols-outlined text-sm">chevron_right</span>
+    </Link>
+  </div>
+  
+  {usedProducts && usedProducts.length > 0 ? (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+      {usedProducts.map((item) => (
+        <ProductCard key={item._id} product={item} />
+      ))}
+    </div>
+  ) : (
+    <div className="text-center py-10 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-xl">
+      <span className="material-symbols-outlined text-4xl text-slate-300 block mb-2">inbox</span>
+      <p className="text-slate-500 dark:text-slate-400 font-medium">Hiện chưa có món đồ cũ nào được đăng bán.</p>
+    </div>
+  )}
+</section>
 
         {/* 4. Categories - Hiển thị dạng lưới gọn gàng */}
         <section className="bg-white dark:bg-slate-900 rounded-xl p-4 md:p-6 shadow-sm border border-slate-200 dark:border-slate-800">

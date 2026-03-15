@@ -30,6 +30,11 @@ export const ProductService = {
       });
       return response.data;
   },
+  getUsedProducts: async (limit: number = 5) => {
+    // Thay đổi đường dẫn /api cho khớp với router bạn vừa khai báo
+    const response = await axios.get(`${API_BASE_URL}/products/used/?limit=${limit}`);
+    return response.data;
+  },
 
   // Lấy chi tiết 1 sản phẩm
   getById: async (id: string) => {

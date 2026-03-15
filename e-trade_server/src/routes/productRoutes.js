@@ -6,6 +6,7 @@ const {
     getProductsOnHomePage, 
     getProductsOnProductList,
     getProductById, 
+    getRandomUsedProducts,
     getRandomProductsgotSaleMoreThan50Percent,
     getProductDetails, 
     getProductReviews,
@@ -33,6 +34,7 @@ router.delete('/pass/:id', protect, deleteCustomerPassedProduct);
 
 // API: Lấy tất cả sản phẩm (Trending Now)
 router.get('/home', getProductsOnHomePage);
+router.get('/used', getRandomUsedProducts); // API: Lấy sản phẩm đã qua sử dụng
 router.get('/', getProductsOnProductList); // tạm thời để 2 route này trỏ về cùng 1 controller, sau này nếu cần có thể tách riêng
 // =========================================
 // 3. CÁC ROUTE CÓ PARAMETER (/:id) (Phải đặt dưới cùng)
