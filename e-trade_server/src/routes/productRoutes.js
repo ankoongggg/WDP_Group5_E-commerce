@@ -3,7 +3,8 @@ const router = express.Router();
 const { protect } = require('../middlewares/auth');
 
 const { 
-    getProducts, 
+    getProductsOnHomePage, 
+    getProductsOnProductList,
     getProductById, 
     getRandomProductsgotSaleMoreThan50Percent,
     getProductDetails, 
@@ -31,8 +32,8 @@ router.delete('/pass/:id', protect, deleteCustomerPassedProduct);
 // =========================================
 
 // API: Lấy tất cả sản phẩm (Trending Now)
-router.get('/', getProducts);
-
+router.get('/home', getProductsOnHomePage);
+router.get('/', getProductsOnProductList); // tạm thời để 2 route này trỏ về cùng 1 controller, sau này nếu cần có thể tách riêng
 // =========================================
 // 3. CÁC ROUTE CÓ PARAMETER (/:id) (Phải đặt dưới cùng)
 // =========================================

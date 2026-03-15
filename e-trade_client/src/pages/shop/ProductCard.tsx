@@ -8,18 +8,27 @@ interface Product {
   price: number;
   original_price?: number;
   stock?: number; // Thêm trường stock
+  product_type?: { stock: number }[];
 }
 
 interface ProductCardProps {
   product: Product;
 }
 
+// Hàm tính tổng tồn kho để hiển thị chính xác trạng thái hết hàng
+const getTotalStock = (product: Product): number => {
+  if (product.product_type && product.product_type.length > 0) {
+    return product.product_type.reduce((acc, variant) => acc + (variant.stock || 0), 0);
+  }
+  return product.stock || 0;
+};
+
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const discount = (product.original_price && product.price && product.original_price > product.price) 
     ? Math.round(((product.original_price - product.price) / product.original_price) * 100) 
     : 0;
 
-  const isOutOfStock = (product.stock !== undefined && product.stock <= 0);
+  const isOutOfStock = getTotalStock(product) <= 0;
 
   return (
     <Link to={`/products/${product._id}`} className="group block overflow-hidden rounded-lg border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-lg transition-shadow duration-300">

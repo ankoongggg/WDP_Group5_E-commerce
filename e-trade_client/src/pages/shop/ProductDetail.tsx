@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Layout } from '../components/Layout';
+import ProductCard from '../components/ProductCard';
 import { useCart } from '../../context/CartContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
 import { authApi } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 
-// Define interfaces for the data structure from the API
 interface Product {
   _id: string;
   name: string;
@@ -53,6 +53,23 @@ interface Review {
   fileUploads?: string[];
 }
 
+interface ReviewsResponse {
+  reviews: Review[];
+  currentPage: number;
+  totalPages: number;
+  totalReviews: number;
+}
+
+interface RelatedProduct {
+  _id: string;
+  name: string;
+  main_image: string;
+  price: number;
+  original_price?: number;
+  stock?: number;
+  product_type?: { stock: number }[];
+}
+
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -72,6 +89,11 @@ const ProductDetail: React.FC = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
+  const [reviewsPage, setReviewsPage] = useState(1);
+  const [reviewsTotalPages, setReviewsTotalPages] = useState(0);
+  const [isFetchingMoreReviews, setIsFetchingMoreReviews] = useState(false);
+  const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
+  const [loadingRelated, setLoadingRelated] = useState(false);
 
   useEffect(() => {
     const fetchProductDetails = async () => {
@@ -82,7 +104,6 @@ const ProductDetail: React.FC = () => {
         const response = await axios.get<ProductDetailsResponse>(`http://localhost:9999/api/products/${id}`);
         setDetails(response.data);
         const product = response.data.product;
-        console.log("=== THÔNG TIN SẢN PHẨM TỪ BACKEND ===", product);
         setActiveImage(product.main_image || (product.display_files.length > 0 ? product.display_files[0] : ''));
       } catch (err) {
         if (axios.isAxiosError(err) && err.response?.status === 404) {
@@ -99,7 +120,23 @@ const ProductDetail: React.FC = () => {
 
   const { product, totalReviews, averageRating } = details || {};
 
-  // Effect to check wishlist status
+  useEffect(() => {
+    const fetchRelatedProducts = async () => {
+      if (!product?.store_id?._id || !product?._id) return;
+      setLoadingRelated(true);
+      try {
+        const params = { limit: 5, exclude: product._id };
+        const response = await axios.get<{ products: RelatedProduct[] }>(`http://localhost:9999/api/store/${product.store_id._id}/products`, { params });
+        setRelatedProducts(response.data.products);
+      } catch (err) {
+        console.error("Failed to fetch related products:", err);
+      } finally {
+        setLoadingRelated(false);
+      }
+    };
+    fetchRelatedProducts();
+  }, [product]);
+
   useEffect(() => {
     if (isAuthenticated && user?.wishlist && product?._id) {
       setIsWishlisted(user.wishlist.includes(product._id));
@@ -108,51 +145,67 @@ const ProductDetail: React.FC = () => {
     }
   }, [user, product, isAuthenticated]);
 
-  useEffect(() => {
-    const fetchReviews = async () => {
-      if (activeTab === 'reviews' && id && reviews.length === 0 && totalReviews && totalReviews > 0) {
-        setReviewsLoading(true);
-        setReviewsError(null);
-        try {
-          const response = await axios.get<{ reviews: Review[] }>(`http://localhost:9999/api/products/${id}/reviews`);
-          setReviews(response.data.reviews);
-        } catch (err) {
-          setReviewsError('Không thể tải danh sách đánh giá. Vui lòng thử lại.');
-        } finally {
-          setReviewsLoading(false);
-        }
-      }
-    };
-    fetchReviews();
-  }, [activeTab, id, reviews.length, totalReviews]);
+  const REVIEWS_PER_PAGE = 5;
 
-  // --- LOGIC FOR VARIANTS, PRICE, AND STOCK ---
+  const fetchReviews = async (page: number) => {
+    if (!id) return;
+    const isLoadingFirstPage = page === 1;
+    if (isLoadingFirstPage) {
+      setReviewsLoading(true);
+    } else {
+      setIsFetchingMoreReviews(true);
+    }
+    setReviewsError(null);
+
+    try {
+      const response = await axios.get<ReviewsResponse>(`http://localhost:9999/api/products/${id}/reviews`, {
+        params: { page, limit: REVIEWS_PER_PAGE }
+      });
+      const { reviews: newReviews, totalPages } = response.data;
+      setReviews(prev => (isLoadingFirstPage ? newReviews : [...prev, ...newReviews]));
+      setReviewsPage(page);
+      setReviewsTotalPages(totalPages);
+    } catch (err) {
+      setReviewsError('Không thể tải danh sách đánh giá. Vui lòng thử lại.');
+    } finally {
+      if (isLoadingFirstPage) {
+        setReviewsLoading(false);
+      } else {
+        setIsFetchingMoreReviews(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'reviews' && reviews.length === 0 && totalReviews && totalReviews > 0) {
+      fetchReviews(1);
+    }
+  }, [activeTab, id, totalReviews]);
+
+  const handleLoadMoreReviews = () => {
+    if (!isFetchingMoreReviews && reviewsPage < reviewsTotalPages) {
+      fetchReviews(reviewsPage + 1);
+    }
+  };
+  
   const hasVariants = product && product.product_type && product.product_type.length > 0;
   const selectedVariant = hasVariants && selectedTypeIndex !== null ? product.product_type![selectedTypeIndex] : null;
 
   const finalPrice = React.useMemo(() => {
     if (!product) return 0;
     if (selectedVariant) {
-      // Theo yêu cầu: Khi chọn một loại, giá cuối cùng sẽ là giá của loại đó.
-      // Giá này được cho là lưu trong trường `price_difference`.
-      // Nếu `price_difference` không tồn tại, sẽ quay về giá gốc của sản phẩm.
-      return selectedVariant.price_difference ?? product.price;
+      return product.price + (selectedVariant.price_difference || 0);
     }
-    // Khi chưa chọn loại nào, hiển thị giá gốc của sản phẩm.
     return product.price;
   }, [product, selectedVariant]);
 
   const stockForControls = React.useMemo(() => {
     if (!product) return 0;
     if (hasVariants) {
-      // If variants exist, stock is only available when one is selected.
-      if (selectedVariant) {
-        return selectedVariant.stock || 0;
-      }
-      // If variants exist but none is selected, you can't buy, so stock is effectively 0 for controls.
+      if (selectedVariant) return selectedVariant.stock || 0;
       return 0;
     }
-    return product.stock ?? 0; // Fallback to root stock if no variants
+    return product.stock ?? 0;
   }, [product, hasVariants, selectedVariant]);
 
   const totalStock = React.useMemo(() => {
@@ -163,9 +216,8 @@ const ProductDetail: React.FC = () => {
     return product.stock || 0;
   }, [product, hasVariants]);
 
-  const isOutOfStock = totalStock <= 0; // For the main "Hết hàng" badge
+  const isOutOfStock = totalStock <= 0;
   const isActionDisabled = isOutOfStock || (hasVariants && selectedTypeIndex === null);
-  // --- END OF LOGIC ---
 
   const handleToggleWishlist = async () => {
     if (!isAuthenticated) {
@@ -179,10 +231,8 @@ const ProductDetail: React.FC = () => {
     try {
       const response = await authApi.toggleWishlist(product._id);
       toast.success(response.message);
-
       const newWishlist: string[] = response.data || [];
       setIsWishlisted(newWishlist.includes(product._id));
-
       if (setUser) {
         setUser(currentUser => currentUser ? { ...currentUser, wishlist: newWishlist } : null);
       }
@@ -210,6 +260,7 @@ const ProductDetail: React.FC = () => {
       name: selectedVariant ? `${product.name} (${selectedVariant.description})` : product.name,
       _id: selectedVariant ? `${product._id}-${selectedVariant.description}` : product._id,
       productId: product._id,
+      type: selectedVariant ? selectedVariant.description : 'default' // ÉP TYPE VÀO ĐÂY
     };
     addToCart(itemForCart, quantity);
     toast.success('Đã thêm vào giỏ hàng!');
@@ -234,11 +285,11 @@ const ProductDetail: React.FC = () => {
       main_image: product.main_image,
       stock: stockForControls,
       quantity: quantity,
+      type: selectedVariant ? selectedVariant.description : 'default', // ÉP TYPE VÀO ĐÂY
       variant: selectedVariant ? { description: selectedVariant.description } : undefined,
     };
 
     toast.success('Đang chuyển tới thanh toán...');
-
     setTimeout(() => {
       navigate('/checkout', { state: { buyNowItems: [buyNowItem] } });
     }, 500);
@@ -316,7 +367,7 @@ const ProductDetail: React.FC = () => {
                 </div>
                 <span className="text-slate-400">{totalReviews || 0} Đánh giá</span>
                 <span className={`text-sm font-bold px-2 py-0.5 rounded ${isOutOfStock ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                  {isOutOfStock ? 'Hết hàng' : `Còn hàng (${totalStock})`}
+                  {isOutOfStock ? 'Hết hàng' : `Còn hàng (${selectedVariant ? selectedVariant.stock || 0 : totalStock})`}
                 </span>
               </div>
             </div>
@@ -342,7 +393,7 @@ const ProductDetail: React.FC = () => {
                       key={index}
                       onClick={() => {
                         setSelectedTypeIndex(index);
-                        setQuantity(1); // Reset quantity when changing variant
+                        setQuantity(1); 
                       }}
                       className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors relative ${selectedTypeIndex === index
                           ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/50'
@@ -471,12 +522,37 @@ const ProductDetail: React.FC = () => {
                     ) : (
                       <div className="text-slate-600 dark:text-slate-400">Hiện tại chưa có đánh giá nào cho sản phẩm này.</div>
                     )}
+
+                    {!reviewsLoading && reviews.length > 0 && reviewsPage < reviewsTotalPages && (
+                      <div className="mt-8 text-center">
+                        <button
+                          onClick={handleLoadMoreReviews}
+                          disabled={isFetchingMoreReviews}
+                          className="px-6 py-3 rounded-lg bg-primary/10 text-primary font-bold hover:bg-primary/20 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-wait transition-colors"
+                        >
+                          {isFetchingMoreReviews ? 'Đang tải thêm...' : 'Xem thêm đánh giá'}
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
             )}
           </div>
         </div>
+
+        {relatedProducts.length > 0 && (
+          <section className="mt-20">
+            <h2 className="text-2xl font-bold mb-6 dark:text-white border-b-2 border-primary pb-2 inline-block">
+              Sản phẩm khác từ {product.store_id.shop_name}
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              {relatedProducts.map(p => (
+                <ProductCard key={p._id} product={p} />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </Layout>
   );
