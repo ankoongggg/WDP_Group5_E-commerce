@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Layout } from '../components/Layout';
+import ProductCard from '../components/ProductCard';
 import { useCart } from '../../context/CartContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
@@ -53,6 +54,23 @@ interface Review {
   fileUploads?: string[];
 }
 
+interface ReviewsResponse {
+  reviews: Review[];
+  currentPage: number;
+  totalPages: number;
+  totalReviews: number;
+}
+
+interface RelatedProduct {
+  _id: string;
+  name: string;
+  main_image: string;
+  price: number;
+  original_price?: number;
+  stock?: number;
+  product_type?: { stock: number }[];
+}
+
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -72,6 +90,11 @@ const ProductDetail: React.FC = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
+  const [reviewsPage, setReviewsPage] = useState(1);
+  const [reviewsTotalPages, setReviewsTotalPages] = useState(0);
+  const [isFetchingMoreReviews, setIsFetchingMoreReviews] = useState(false);
+  const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
+  const [loadingRelated, setLoadingRelated] = useState(false);
 
   useEffect(() => {
     const fetchProductDetails = async () => {
@@ -99,6 +122,30 @@ const ProductDetail: React.FC = () => {
 
   const { product, totalReviews, averageRating } = details || {};
 
+  // Effect to fetch related products from the same store
+  useEffect(() => {
+    const fetchRelatedProducts = async () => {
+      if (!product?.store_id?._id || !product?._id) return;
+
+      setLoadingRelated(true);
+      try {
+        const params = {
+          limit: 5, // Lấy 5 sản phẩm liên quan
+          exclude: product._id, // Loại trừ sản phẩm hiện tại
+        };
+        const response = await axios.get<{ products: RelatedProduct[] }>(`http://localhost:9999/api/store/${product.store_id._id}/products`, { params });
+        setRelatedProducts(response.data.products);
+      } catch (err) {
+        console.error("Failed to fetch related products:", err);
+        // Không hiển thị lỗi cho người dùng, chỉ đơn giản là không hiển thị mục này
+      } finally {
+        setLoadingRelated(false);
+      }
+    };
+
+    fetchRelatedProducts();
+  }, [product]);
+
   // Effect to check wishlist status
   useEffect(() => {
     if (isAuthenticated && user?.wishlist && product?._id) {
@@ -108,24 +155,54 @@ const ProductDetail: React.FC = () => {
     }
   }, [user, product, isAuthenticated]);
 
-  useEffect(() => {
-    const fetchReviews = async () => {
-      if (activeTab === 'reviews' && id && reviews.length === 0 && totalReviews && totalReviews > 0) {
-        setReviewsLoading(true);
-        setReviewsError(null);
-        try {
-          const response = await axios.get<{ reviews: Review[] }>(`http://localhost:9999/api/products/${id}/reviews`);
-          setReviews(response.data.reviews);
-        } catch (err) {
-          setReviewsError('Không thể tải danh sách đánh giá. Vui lòng thử lại.');
-        } finally {
-          setReviewsLoading(false);
-        }
-      }
-    };
-    fetchReviews();
-  }, [activeTab, id, reviews.length, totalReviews]);
+  const REVIEWS_PER_PAGE = 5;
 
+  const fetchReviews = async (page: number) => {
+    if (!id) return;
+
+    const isLoadingFirstPage = page === 1;
+    if (isLoadingFirstPage) {
+      setReviewsLoading(true);
+    } else {
+      setIsFetchingMoreReviews(true);
+    }
+    setReviewsError(null);
+
+    try {
+      const response = await axios.get<ReviewsResponse>(`http://localhost:9999/api/products/${id}/reviews`, {
+        params: { page, limit: REVIEWS_PER_PAGE }
+      });
+      
+      const { reviews: newReviews, totalPages } = response.data;
+
+      setReviews(prev => (isLoadingFirstPage ? newReviews : [...prev, ...newReviews]));
+      setReviewsPage(page);
+      setReviewsTotalPages(totalPages);
+
+    } catch (err) {
+      setReviewsError('Không thể tải danh sách đánh giá. Vui lòng thử lại.');
+    } finally {
+      if (isLoadingFirstPage) {
+        setReviewsLoading(false);
+      } else {
+        setIsFetchingMoreReviews(false);
+      }
+    }
+  };
+
+  // Initial fetch when tab is activated
+  useEffect(() => {
+    if (activeTab === 'reviews' && reviews.length === 0 && totalReviews && totalReviews > 0) {
+      fetchReviews(1);
+    }
+  }, [activeTab, id, totalReviews]);
+
+  const handleLoadMoreReviews = () => {
+    if (!isFetchingMoreReviews && reviewsPage < reviewsTotalPages) {
+      fetchReviews(reviewsPage + 1);
+    }
+  };
+  
   // --- LOGIC FOR VARIANTS, PRICE, AND STOCK ---
   const hasVariants = product && product.product_type && product.product_type.length > 0;
   const selectedVariant = hasVariants && selectedTypeIndex !== null ? product.product_type![selectedTypeIndex] : null;
@@ -469,12 +546,39 @@ const ProductDetail: React.FC = () => {
                     ) : (
                       <div className="text-slate-600 dark:text-slate-400">Hiện tại chưa có đánh giá nào cho sản phẩm này.</div>
                     )}
+
+                    {/* Pagination / Load More Button */}
+                    {!reviewsLoading && reviews.length > 0 && reviewsPage < reviewsTotalPages && (
+                      <div className="mt-8 text-center">
+                        <button
+                          onClick={handleLoadMoreReviews}
+                          disabled={isFetchingMoreReviews}
+                          className="px-6 py-3 rounded-lg bg-primary/10 text-primary font-bold hover:bg-primary/20 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-wait transition-colors"
+                        >
+                          {isFetchingMoreReviews ? 'Đang tải thêm...' : 'Xem thêm đánh giá'}
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
             )}
           </div>
         </div>
+
+        {/* Related Products Section */}
+        {relatedProducts.length > 0 && (
+          <section className="mt-20">
+            <h2 className="text-2xl font-bold mb-6 dark:text-white border-b-2 border-primary pb-2 inline-block">
+              Sản phẩm khác từ {product.store_id.shop_name}
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              {relatedProducts.map(p => (
+                <ProductCard key={p._id} product={p} />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </Layout>
   );

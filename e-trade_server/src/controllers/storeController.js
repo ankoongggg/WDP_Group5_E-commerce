@@ -173,70 +173,75 @@ exports.getStoreDetails = async (req, res) => {
         }
         const storeObjectId = new mongoose.Types.ObjectId(storeId);
 
-        // 1. Lấy thông tin cửa hàng và thông tin avatar, tên của chủ cửa hàng
-        const store = await Store.findById(storeId)
-            .populate('user_id', 'avatar account_name full_name')
-            .select('-identity_card -updated_at -__v');
+        // Chạy song song các truy vấn để tối ưu tốc độ
+        const [store, statsAgg, followerCount] = await Promise.all([
+            Store.findById(storeId)
+                .populate('user_id', 'avatar account_name full_name')
+                .select('-identity_card -updated_at -__v')
+                .lean(), // .lean() để đọc nhanh hơn
+
+            Product.aggregate([
+                // Giai đoạn 1: Lọc các sản phẩm đang hoạt động của cửa hàng
+                { $match: { store_id: storeObjectId, status: 'active', is_deleted: { $ne: true } } },
+                // Giai đoạn 2: Nhóm để đếm sản phẩm và thu thập ID
+                {
+                    $group: {
+                        _id: "$store_id",
+                        productIds: { $push: "$_id" },
+                        totalProducts: { $sum: 1 }
+                    }
+                },
+                // Giai đoạn 3: Tra cứu các đánh giá liên quan
+                {
+                    $lookup: {
+                        from: 'reviewproducts', // Tên collection của model ReviewProduct
+                        localField: 'productIds',
+                        foreignField: 'product_id',
+                        as: 'reviews'
+                    }
+                },
+                // Giai đoạn 4: "Mở" mảng reviews để xử lý từng đánh giá
+                { $unwind: { path: "$reviews", preserveNullAndEmptyArrays: true } },
+                // Giai đoạn 5: Nhóm lại để tính toán thống kê đánh giá
+                {
+                    $group: {
+                        _id: "$_id",
+                        totalProducts: { $first: "$totalProducts" },
+                        totalReviews: { $sum: { $cond: [{ $ifNull: ["$reviews", false] }, 1, 0] } },
+                        totalRating: { $sum: { $ifNull: ["$reviews.rating", 0] } }
+                    }
+                },
+                // Giai đoạn 6: Định dạng đầu ra cuối cùng
+                {
+                    $project: {
+                        _id: 0,
+                        totalProducts: 1,
+                        totalReviews: 1,
+                        averageRating: {
+                            $cond: [{ $eq: ["$totalReviews", 0] }, 0, { $divide: ["$totalRating", "$totalReviews"] }]
+                        }
+                    }
+                }
+            ]),
+            
+            User.countDocuments({ following_stores: storeObjectId })
+        ]);
 
         if (!store) {
             return res.status(404).json({ message: 'Không tìm thấy cửa hàng' });
         }
 
-        // 2. Dùng aggregation để lấy thống kê sản phẩm và đánh giá một cách hiệu quả
-        const stats = await Product.aggregate([
-            // Giai đoạn 1: Lọc các sản phẩm đang hoạt động của cửa hàng
-            { $match: { store_id: storeObjectId, status: 'active', is_deleted: { $ne: true } } },
-            // Giai đoạn 2: Nhóm để đếm sản phẩm và thu thập ID
-            {
-                $group: {
-                    _id: "$store_id",
-                    productIds: { $push: "$_id" },
-                    totalProducts: { $sum: 1 }
-                }
-            },
-            // Giai đoạn 3: Tra cứu các đánh giá liên quan
-            {
-                $lookup: {
-                    from: 'reviewproducts', // Tên collection của model ReviewProduct
-                    localField: 'productIds',
-                    foreignField: 'product_id',
-                    as: 'reviews'
-                }
-            },
-            // Giai đoạn 4: "Mở" mảng reviews để xử lý từng đánh giá
-            { $unwind: { path: "$reviews", preserveNullAndEmptyArrays: true } },
-            // Giai đoạn 5: Nhóm lại để tính toán thống kê đánh giá
-            {
-                $group: {
-                    _id: "$_id",
-                    totalProducts: { $first: "$totalProducts" },
-                    totalReviews: { $sum: { $cond: [{ $ifNull: ["$reviews", false] }, 1, 0] } },
-                    totalRating: { $sum: { $ifNull: ["$reviews.rating", 0] } }
-                }
-            },
-            // Giai đoạn 6: Định dạng đầu ra cuối cùng
-            {
-                $project: {
-                    _id: 0,
-                    totalProducts: 1,
-                    totalReviews: 1,
-                    averageRating: {
-                        $cond: [{ $eq: ["$totalReviews", 0] }, 0, { $divide: ["$totalRating", "$totalReviews"] }]
-                    }
-                }
-            }
-        ]);
-
         // Lấy kết quả hoặc đặt giá trị mặc định nếu không có sản phẩm nào
-        const storeStats = stats[0] || { totalProducts: 0, totalReviews: 0, averageRating: 0 };
+        const storeStats = statsAgg[0] || { totalProducts: 0, totalReviews: 0, averageRating: 0 };
 
-        // 4. Trả về kết quả
+        // Trả về kết quả
         res.status(200).json({
             store,
             stats: {
                 totalProducts: storeStats.totalProducts,
                 totalReviews: storeStats.totalReviews,
                 averageRating: parseFloat(storeStats.averageRating.toFixed(1)),
+                followerCount: followerCount || 0, // Thêm số người theo dõi
             }
         });
     } catch (error) {
@@ -255,7 +260,7 @@ exports.getStoreProducts = async (req, res) => {
         const skip = (page - 1) * limit;
 
         // Lọc và tìm kiếm
-        const { search, sortBy, minPrice, maxPrice } = req.query;
+        const { search, sortBy, minPrice, maxPrice, exclude } = req.query;
 
         // Kiểm tra xem cửa hàng có tồn tại không
         const storeExists = await Store.findById(storeId).select('_id');
@@ -265,6 +270,11 @@ exports.getStoreProducts = async (req, res) => {
 
         // Xây dựng điều kiện lọc
         const filter = { store_id: storeId, status: 'active', is_deleted: { $ne: true } };
+
+        // Thêm logic để loại trừ một sản phẩm cụ thể (dùng cho "Sản phẩm liên quan")
+        if (exclude && mongoose.Types.ObjectId.isValid(exclude)) {
+            filter._id = { $ne: new mongoose.Types.ObjectId(exclude) };
+        }
 
         if (search) {
             // Sử dụng regex để tìm kiếm không phân biệt chữ hoa/thường
