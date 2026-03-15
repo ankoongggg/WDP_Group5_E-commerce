@@ -314,7 +314,7 @@ const ProductDetail: React.FC = () => {
                 </div>
                 <span className="text-slate-400">{totalReviews || 0} Đánh giá</span>
                 <span className={`text-sm font-bold px-2 py-0.5 rounded ${isOutOfStock ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                  {isOutOfStock ? 'Hết hàng' : `Còn hàng (${totalStock})`}
+                  {isOutOfStock ? 'Hết hàng' : `Còn hàng (${selectedVariant ? selectedVariant.stock || 0 : totalStock})`}
                 </span>
               </div>
             </div>
