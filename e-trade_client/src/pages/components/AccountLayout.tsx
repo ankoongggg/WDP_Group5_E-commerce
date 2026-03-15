@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { storeApi } from '../../services/api';
 import { CategoryService } from '../../services/categoryService';
-import { Layout } from './Layout'; // ĐÃ THÊM IMPORT NÀY
+import { Layout } from './Layout';
 
 interface AccountLayoutProps {
     children: React.ReactNode;
@@ -15,15 +15,12 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
     const { user, logout, refreshUser } = useAuth();
     const { toast } = useToast();
     const location = useLocation();
-
     const { pathname } = useLocation();
 
     const getLinkClassName = (path: string, isExact: boolean = false) => {
         const baseClass = "flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-primary transition-all";
         const activeClass = "rounded-lg bg-primary/10 border-r-4 border-primary text-primary font-medium";
-
         const isActive = isExact ? pathname === path : pathname.startsWith(path);
-
         return isActive ? `${baseClass} ${activeClass}` : baseClass;
     };
 
@@ -55,9 +52,7 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
     useEffect(() => {
         if (showSellerModal) {
             CategoryService.getAllOnHomePage()
-                .then((data) => {
-                    setCategories(data);
-                })
+                .then((data) => setCategories(data))
                 .catch(err => {
                     console.error("Lỗi khi tải danh mục:", err);
                     toast.error("Không thể tải danh mục ngành hàng.");

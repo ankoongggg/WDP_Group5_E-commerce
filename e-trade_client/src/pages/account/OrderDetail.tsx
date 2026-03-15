@@ -53,8 +53,18 @@ const ReviewDetailModal = ({ review, item, onClose }: { review: any, item: any, 
                     </div>
                     <div>
                         <label className="block text-sm font-bold mb-2 text-slate-600 dark:text-slate-300">Nội dung đánh giá</label>
-                        <div className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 dark:text-white min-h-[100px] whitespace-pre-wrap">{review.comment || <span className="text-slate-400">Không có bình luận.</span>}</div>
+                        <div className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 dark:text-white whitespace-pre-wrap">{review.comment || <span className="text-slate-400">Không có bình luận.</span>}</div>
                     </div>
+                    {review.fileUploads && review.fileUploads.length > 0 && (
+                        <div>
+                            <label className="block text-sm font-bold mb-2 text-slate-600 dark:text-slate-300">Hình ảnh đính kèm</label>
+                            <div className="flex flex-wrap gap-3">
+                                {review.fileUploads.map((url: string, index: number) => (
+                                    <img key={index} src={url} alt={`Review image ${index + 1}`} className="w-24 h-24 rounded-lg object-cover border border-slate-200 dark:border-slate-600" />
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
@@ -223,14 +233,28 @@ const OrderDetail: React.FC = () => {
              </div>
              <div className="divide-y divide-slate-100 dark:divide-slate-700">
                 {order.items.map((item: any, idx: number) => (
-                    <div key={idx} className="p-6 flex gap-4">
-                        <div className="w-24 h-24 rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden shrink-0">
-                            <img src={item.image_snapshot} alt={item.name_snapshot} className="w-full h-full object-cover" />
-                        </div>
-                        <div className="flex-1">
-                            <h3 className="font-bold text-lg dark:text-white">{item.name_snapshot}</h3>
-                            <p className="text-slate-500 text-sm">x{item.quantity}</p>
-                        </div>
+                    <div key={idx} className="p-6 flex gap-4 items-center">
+                        {item.product_id?._id ? (
+                            <Link to={`/products/${item.product_id._id}`} className="flex gap-4 items-center flex-1 group">
+                                <div className="w-24 h-24 rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden shrink-0">
+                                    <img src={item.image_snapshot} alt={item.name_snapshot} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-lg dark:text-white group-hover:text-primary transition-colors">{item.name_snapshot}</h3>
+                                    <p className="text-slate-500 text-sm">x{item.quantity}</p>
+                                </div>
+                            </Link>
+                        ) : (
+                            <div className="flex gap-4 items-center flex-1 opacity-60">
+                                <div className="w-24 h-24 rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden shrink-0">
+                                    <img src={item.image_snapshot} alt={item.name_snapshot} className="w-full h-full object-cover" />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-lg dark:text-white">{item.name_snapshot} <span className="text-xs">(Sản phẩm không còn tồn tại)</span></h3>
+                                    <p className="text-slate-500 text-sm">x{item.quantity}</p>
+                                </div>
+                            </div>
+                        )}
                         <div className="text-right flex flex-col items-end justify-between">
                             <p className="text-primary font-bold text-lg">{formatPrice(item.price_snapshot)}</p>
                             {order.order_status === 'completed' && (item.product_id ? (
