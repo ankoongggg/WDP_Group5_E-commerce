@@ -5,7 +5,7 @@ const User = require('../models/User');
 
 const generateAccessToken = (user) => jwt.sign(
     { id: user._id, email: user.email, role: user.role },
-    process.env.JWT_SECRET || 'wdp_group5_secret_key_2026', { expiresIn: '15m' }
+    process.env.JWT_SECRET || 'wdp_group5_secret_key_2026', { expiresIn: '1d' }
 );
 
 const register = async (req, res) => {

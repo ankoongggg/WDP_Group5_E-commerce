@@ -40,7 +40,7 @@ const getOrderCounts = async () => {
     return map;
 };
 
-exports.getProducts = async (req, res) => {
+exports.getProductsOnHomePage = async (req, res) => {
     try {
         const { keyword, interests, category_interests, page = 1, limit = 18 } = req.query;
         const skip = (page - 1) * limit;
@@ -148,6 +148,128 @@ exports.getProducts = async (req, res) => {
 
     } catch (error) {
         console.error("[GET PRODUCTS ERROR]", error.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+exports.getProductsOnProductList = async (req, res) => {
+    try {
+        console.log("=== START GET PRODUCT LIST ===");
+        const { keyword, category, filter, page = 1, limit = 12 } = req.query;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        let matchStage = { status: 'active' };
+        let isSearching = false;
+
+        // 1. Lọc theo Category
+        if (category) {
+            const catIds = category.split(',')
+                .map(id => id.trim())
+                .filter(id => mongoose.Types.ObjectId.isValid(id))
+                .map(id => new mongoose.Types.ObjectId(id));
+            if (catIds.length > 0) {
+                matchStage.category_id = { $in: catIds };
+            }
+        }
+
+        // 2. Lọc theo Keyword (Tìm kiếm chính xác)
+        if (keyword) {
+            isSearching = true;
+            // Xóa khoảng trắng thừa, tìm kiếm Case-insensitive
+            const cleanKeyword = keyword.trim().replace(/\s+/g, ' ');
+            const searchRegex = new RegExp(cleanKeyword, 'i');
+            matchStage.$or = [
+                { name: searchRegex },
+                { description: searchRegex }
+            ];
+        }
+
+        // 3. Lấy dữ liệu sản phẩm thỏa mãn
+        let products = await Product.find(matchStage)
+            .populate('store_id', 'shop_name')
+            .populate('user_id', 'full_name')
+            .lean(); // Dùng lean() để trả về plain object, tăng tốc độ
+
+        // Khai báo biến chứa sản phẩm gợi ý (Fallback)
+        let fallbackProducts = [];
+
+        // 4. LOGIC FALLBACK (Nếu tìm không ra sản phẩm)
+        if (products.length === 0 && isSearching && category) {
+            console.log("-> Không tìm thấy Keyword trong Category. Bật chế độ Fallback.");
+            // Tạo query mới: Cùng Category nhưng bỏ qua Keyword
+            let fallbackMatch = { status: 'active', category_id: matchStage.category_id };
+            fallbackProducts = await Product.find(fallbackMatch)
+                .populate('store_id', 'shop_name')
+                .populate('user_id', 'full_name')
+                .limit(8) // Chỉ lấy tối đa 8 sản phẩm gợi ý
+                .lean();
+        }
+
+        // 5. MAP STOCK VÀ TOTAL ORDERS
+        const orderMap = await getOrderCounts();
+        
+        const mapProductData = (p) => {
+            // Tính tổng stock an toàn
+            let totalStock = 0;
+            if (Array.isArray(p.product_type) && p.product_type.length > 0) {
+                totalStock = p.product_type.reduce((sum, pt) => sum + (pt.stock || 0), 0);
+            } else {
+                totalStock = p.stock || 0;
+            }
+
+            p.calculated_stock = totalStock;
+            p.is_in_stock = totalStock > 0 ? 1 : 0;
+            p.totalOrders = orderMap[p._id.toString()] || 0;
+            
+            // Format name user cho chuẩn với component
+            if (p.user_id) p.user_id.name = p.user_id.full_name;
+
+            return p;
+        };
+
+        products = products.map(mapProductData);
+        if (fallbackProducts.length > 0) {
+            fallbackProducts = fallbackProducts.map(mapProductData);
+        }
+
+        // 6. SORT THEO YÊU CẦU CỦA FRONTEND (filter params)
+        products.sort((a, b) => {
+            // LUÔN ƯU TIÊN: Hàng còn Stock lên trước
+            if (a.is_in_stock !== b.is_in_stock) return b.is_in_stock - a.is_in_stock;
+
+            switch (filter) {
+                case 'popular': // Bán chạy nhất
+                    return b.totalOrders - a.totalOrders;
+                case 'latest': // Mới nhất
+                    return new Date(b.created_at) - new Date(a.created_at);
+                case 'price-asc': // Giá thấp đến cao
+                    return a.price - b.price;
+                case 'price-desc': // Giá cao đến thấp
+                    return b.price - a.price;
+                default: 
+                    // Mặc định: Phù hợp keyword (Đã lọc ở DB) -> Nhiều đơn -> Mới nhất
+                    if (a.totalOrders !== b.totalOrders) return b.totalOrders - a.totalOrders;
+                    return new Date(b.created_at) - new Date(a.created_at);
+            }
+        });
+
+        // 7. PHÂN TRANG (Bằng Javascript sau khi Sort)
+        const total = products.length;
+        const paginatedProducts = products.slice(skip, skip + parseInt(limit));
+
+        console.log(`[GET LIST] Đã trả về ${paginatedProducts.length}/${total} sản phẩm. Fallback: ${fallbackProducts.length}`);
+        
+        res.json({
+            success: true,
+            count: paginatedProducts.length,
+            total_pages: Math.ceil(total / parseInt(limit)) || 1,
+            current_page: parseInt(page),
+            data: paginatedProducts,
+            fallbackData: fallbackProducts // Trả mảng gợi ý riêng
+        });
+
+    } catch (error) {
+        console.error("[Lỗi GET Product List]", error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
