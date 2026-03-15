@@ -1,4 +1,3 @@
-// src/pages/components/AccountLayout.tsx
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -24,7 +23,6 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
         return isActive ? `${baseClass} ${activeClass}` : baseClass;
     };
 
-    // Các state liên quan đến đăng ký Seller
     const [showSellerModal, setShowSellerModal] = useState(false);
     const [sellerRegistrationStatus, setSellerRegistrationStatus] = useState<any>(null);
     const [submittingSellerForm, setSubmittingSellerForm] = useState(false);
@@ -124,10 +122,8 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
         return false;
     };
 
-    // BỌC TRONG COMPONENT <Layout> ĐỂ CÓ CHUNG HEADER VÀ FOOTER
     return (
         <Layout>
-            {/* Modal Become a Seller */}
             {showSellerModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="bg-white dark:bg-[#2d1e16] rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-2xl relative max-h-[90vh] overflow-y-auto">
@@ -224,10 +220,8 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
                 </div>
             )}
 
-            {/* MAIN CONTENT VỚI SIDEBAR NẰM TRONG LAYOUT */}
             <div className="max-w-[1440px] mx-auto w-full px-4 md:px-6 py-8 flex flex-col md:flex-row gap-8">
                 
-                {/* Thanh menu bên trái (Sidebar) */}
                 <aside className="w-full md:w-64 shrink-0">
                     <div className="bg-white dark:bg-[#1a110c] border border-slate-200 dark:border-slate-800 rounded-2xl py-6 px-3 sticky top-24 shadow-sm">
                         <nav className="flex flex-col gap-1">
@@ -251,7 +245,7 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
 
                             <div className="mt-4 mb-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Khác</div>
                             <Link to="/account/settings" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive('/account/settings') ? 'bg-primary/10 border-r-4 border-primary text-primary font-medium' : 'text-slate-500 hover:text-primary'}`}>
-                                <span className="material-symbols-outlined">settings</span> Settings
+                                <span className="material-symbols-outlined">lock_reset</span> Đổi mật khẩu
                             </Link>
 
                             {user?.role?.includes('seller') && (
@@ -266,7 +260,6 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
                                 </button>
                             )}
 
-                            {/* Nút Đăng Xuất được dời vào cuối menu bên trái */}
                             <button onClick={logout} className="flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all mt-2 text-left font-medium">
                                 <span className="material-symbols-outlined">logout</span> Logout
                             </button>
@@ -274,7 +267,6 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
                     </div>
                 </aside>
 
-                {/* Nội dung bên phải */}
                 <main className="flex-1 w-full min-h-[500px]">
                     {!user?.role?.includes('seller') && sellerRegistrationStatus && (
                         <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-xl flex items-center justify-between">

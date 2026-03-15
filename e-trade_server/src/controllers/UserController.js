@@ -14,12 +14,13 @@ const getProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
     try {
-        const { full_name, phone, gender, dob, addresses } = req.body;
+        // THÊM CHỮ 'avatar' VÀO ĐÂY ĐỂ NHẬN DỮ LIỆU
+        const { full_name, phone, gender, dob, addresses, avatar } = req.body; 
         
         // Fix lỗi Mongoose không lưu được nếu dob bị sai định dạng hoặc chuỗi rỗng
         const validDob = dob ? new Date(dob) : null;
 
-        // Dùng $set để ÉP MongoDB cập nhật toàn bộ các trường này
+        // Dùng $set để ÉP MongoDB cập nhật
         const updatedUser = await User.findByIdAndUpdate(
             req.user.id,
             { 
@@ -28,7 +29,8 @@ const updateProfile = async (req, res) => {
                     phone: phone, 
                     gender: gender, 
                     dob: validDob, 
-                    addresses: addresses
+                    addresses: addresses,
+                    avatar: avatar // BỔ SUNG LƯU LINK ẢNH VÀO DATABASE
                 }
             },
             { new: true, runValidators: true }
@@ -42,6 +44,37 @@ const updateProfile = async (req, res) => {
     } catch (error) {
         console.error("Lỗi Update Profile:", error);
         res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ==========================================
+// THÊM MỚI: HÀM ĐỔI MẬT KHẨU
+// ==========================================
+const changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const userId = req.user.id;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ success: false, message: 'Mật khẩu hiện tại không chính xác!' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        user.password = hashedPassword;
+        await user.save();
+
+        res.json({ success: true, message: 'Đổi mật khẩu thành công! ✅' });
+    } catch (error) {
+        console.error('Lỗi đổi mật khẩu:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server khi đổi mật khẩu' });
     }
 };
 
@@ -225,7 +258,6 @@ const getFollowingStores = async (req, res) => {
     }
 };
 
-
 // Admin User functions
 const getUserList = async (req, res) => {
     try {
@@ -403,7 +435,6 @@ const createUserByAdmin = async (req, res) => {
 };
 
 // admin dashboard functions
-// lấy số lượng user và so sánh tăng giảm so với tháng trước
 const getTotalUsersNumberAndComparison = async (req,res) => {
     try{
         const totalUsers = await User.countDocuments();
@@ -422,6 +453,7 @@ const getTotalUsersNumberAndComparison = async (req,res) => {
 module.exports = {
   getProfile,
   updateProfile,
+  changePassword, // NHỚ EXPORT HÀM MỚI Ở ĐÂY NÈ!
   getUserList,
   updateUserRole,
   banAccount,
@@ -433,4 +465,3 @@ module.exports = {
   getWishlist,
   getFollowingStores
 };
-

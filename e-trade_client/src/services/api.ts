@@ -108,6 +108,15 @@ export const authApi = {
     
     logout: () => api('/auth/logout', { method: 'POST', requireAuth: true }),
 
+    // --- THÊM HÀM ĐỔI MẬT KHẨU VÀO ĐÂY NÈ ĐẠI CA ---
+    changePassword: async (currentPassword: string, newPassword: string) => {
+        return api('/users/change-password', {
+            method: 'PUT',
+            requireAuth: true,
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
+    },
+    // ---------------------------------------------
     toggleWishlist: (productId: string) => 
         api('/users/wishlist/toggle', {
             method: 'POST',
