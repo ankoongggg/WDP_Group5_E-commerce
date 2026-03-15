@@ -1,14 +1,18 @@
-// src/pages/account/Profile.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { authApi } from '../../services/api';
 import { AccountLayout } from "../components/AccountLayout";
+import { uploadToCloudinary } from '../../utils/cloudinary';
+
 const Profile: React.FC = () => {
     const { user, refreshUser } = useAuth();
     const { toast } = useToast();
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [form, setForm] = useState({ name: "", phone: "", gender: "", dob: "", avatar: "" });
     const [addr, setAddr] = useState({ label: "Home", street: "", district: "", city: "", is_default: true });
@@ -35,26 +39,82 @@ const Profile: React.FC = () => {
         }
     }, [user, editing]);
 
-    // HÀM LƯU ĐÃ ĐƯỢC PHẪU THUẬT: KHÔNG GHI ĐÈ ĐỊA CHỈ KHÁC
+    const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Ảnh quá lớn. Vui lòng chọn ảnh dưới 5MB.');
+            return;
+        }
+
+        setUploadingAvatar(true);
+        try {
+            const imageUrl = await uploadToCloudinary(file);
+            setForm(prev => ({ ...prev, avatar: imageUrl }));
+            toast.success("Tải ảnh lên thành công!");
+        } catch (error) {
+            toast.error("Lỗi upload ảnh.");
+        } finally {
+            setUploadingAvatar(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    // ==========================================
+    // LOGIC KIỂM TRA DỮ LIỆU (PHẪU THUẬT TẠI ĐÂY)
+    // ==========================================
+    const validateForm = () => {
+        // 1. Kiểm tra Tên
+        if (!form.name.trim()) {
+            toast.error("Tên không được để trống!");
+            return false;
+        }
+
+        // 2. Kiểm tra Số điện thoại (Chuẩn 10 số VN)
+        // Regex: Bắt đầu bằng 0, tiếp theo là 3,5,7,8,9 và 8 số cuối
+        const phoneRegex = /^(0[3|5|7|8|9])([0-9]{8})$/;
+        if (form.phone && !phoneRegex.test(form.phone)) {
+            toast.error("Số điện thoại phải có 10 số và đúng định dạng (VD: 0912345678)");
+            return false;
+        }
+
+        // 3. Kiểm tra Ngày sinh
+        if (form.dob) {
+            const selectedDate = new Date(form.dob);
+            const today = new Date();
+            const minAgeDate = new Date();
+            minAgeDate.setFullYear(today.getFullYear() - 100); // Không thể quá 100 tuổi
+
+            if (selectedDate > today) {
+                toast.error("Ngày sinh không thể ở tương lai!");
+                return false;
+            }
+            if (selectedDate < minAgeDate) {
+                toast.error("Ngày sinh không hợp lệ!");
+                return false;
+            }
+        }
+
+        return true;
+    };
+
     const onSave = async () => {
+        // Chặn đầu nếu dữ liệu sai
+        if (!validateForm()) return;
+
         setSaving(true);
         try {
             let updatedAddresses = [];
-            
             if (user?.addresses && user.addresses.length > 0) {
-                // Copy mảng cũ để không làm mất các địa chỉ từ Checkout
                 updatedAddresses = [...user.addresses];
-                
-                // Tìm địa chỉ mặc định (hoặc đang hiển thị trên form) để cập nhật
                 const defaultIndex = updatedAddresses.findIndex((a: any) => a.is_default);
-                
                 if (defaultIndex !== -1) {
                     updatedAddresses[defaultIndex] = { ...updatedAddresses[defaultIndex], ...addr };
                 } else {
                     updatedAddresses[0] = { ...updatedAddresses[0], ...addr };
                 }
             } else {
-                // Nếu chưa có địa chỉ nào, tạo mảng mới
                 updatedAddresses = [addr];
             }
 
@@ -63,13 +123,14 @@ const Profile: React.FC = () => {
                 phone: form.phone,
                 gender: form.gender,
                 dob: form.dob || null, 
-                addresses: updatedAddresses, // Truyền mảng đã được bảo tồn vào đây
+                addresses: updatedAddresses, 
+                avatar: form.avatar
             };
 
             await authApi.updateProfile(payload);
             if (refreshUser) await refreshUser();
             setEditing(false);
-            toast.success("Cập nhật thành công!");
+            toast.success("Cập nhật thành công! ✅");
         } catch (e: any) {
             toast.error(e?.message || "Lưu thất bại");
         } finally {
@@ -80,12 +141,35 @@ const Profile: React.FC = () => {
     return (
         <AccountLayout>
             <div className="max-w-5xl mx-auto space-y-8">
-                {/* KHỐI 1: THÔNG TIN CÁ NHÂN */}
-                <section className="flex flex-col md:flex-row items-center gap-8 bg-white dark:bg-[#2d1e16] p-8 rounded-xl border border-slate-200 dark:border-slate-800">
-                    <div className="h-32 w-32 rounded-full overflow-hidden border-4 border-primary/20 flex items-center justify-center bg-primary/10">
-                        <img src={user?.avatar || "https://via.placeholder.com/150"} className="h-full w-full object-cover" alt="avatar" />
+                <section className="flex flex-col md:flex-row items-center md:items-start gap-8 bg-white dark:bg-[#2d1e16] p-8 rounded-xl border border-slate-200 dark:border-slate-800">
+                    
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="relative group cursor-pointer">
+                            <div 
+                                className={`h-32 w-32 rounded-full overflow-hidden border-4 flex items-center justify-center transition-all ${editing ? 'border-primary shadow-lg shadow-primary/20' : 'border-primary/20 bg-primary/10'}`}
+                                onClick={() => editing && fileInputRef.current?.click()}
+                            >
+                                {uploadingAvatar ? (
+                                    <span className="material-symbols-outlined text-primary text-4xl animate-spin">sync</span>
+                                ) : (
+                                    <img src={form.avatar || user?.avatar || "https://via.placeholder.com/150"} className={`h-full w-full object-cover transition-all ${editing ? 'group-hover:opacity-60' : ''}`} alt="avatar" />
+                                )}
+                            </div>
+                            
+                            {editing && !uploadingAvatar && (
+                                <div className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => fileInputRef.current?.click()}>
+                                    <div className="bg-black/50 text-white rounded-full p-2 flex items-center justify-center backdrop-blur-sm">
+                                        <span className="material-symbols-outlined">photo_camera</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
+                        </div>
+                        {editing && <p className="text-xs text-slate-500 font-medium">Bấm ảnh để đổi</p>}
                     </div>
-                    <div className="text-center md:text-left flex-1">
+
+                    <div className="text-center md:text-left flex-1 mt-2">
                         {!editing ? (
                             <>
                                 <h2 className="text-2xl font-bold dark:text-white">{user?.full_name || user?.name || "User"}</h2>
@@ -95,51 +179,78 @@ const Profile: React.FC = () => {
                                     <p><b>Giới tính:</b> {user?.gender || "Chưa cập nhật"}</p>
                                     <p><b>Ngày sinh:</b> {user?.dob ? new Date(user.dob).toLocaleDateString() : "Chưa cập nhật"}</p>
                                 </div>
-                                <button onClick={() => setEditing(true)} className="mt-4 bg-primary text-white px-6 py-2 rounded-xl font-bold text-sm">Edit Profile</button>
+                                <button onClick={() => setEditing(true)} className="mt-4 bg-primary text-white px-6 py-2 rounded-xl font-bold text-sm shadow">Edit Profile</button>
                             </>
                         ) : (
                             <div className="grid gap-3 max-w-xl">
-                                <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} placeholder="Full Name" />
-                                <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} placeholder="Phone" />
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-500 ml-1">Họ và tên</label>
+                                    <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700 dark:text-white" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} placeholder="Họ và tên" />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-500 ml-1">Số điện thoại (10 số)</label>
+                                    <input 
+                                        className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700 dark:text-white" 
+                                        value={form.phone} 
+                                        maxLength={10}
+                                        onChange={(e) => setForm({...form, phone: e.target.value.replace(/[^0-9]/g, '')})} // Chỉ cho nhập số
+                                        placeholder="Ví dụ: 0912345678" 
+                                    />
+                                </div>
+
                                 <div className="grid grid-cols-2 gap-3">
-                                    <select className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={form.gender} onChange={(e) => setForm({...form, gender: e.target.value})}>
-                                        <option value="">-- Gender --</option>
-                                        <option value="Male">Male</option>
-                                        <option value="Female">Female</option>
-                                    </select>
-                                    <input type="date" className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={form.dob} onChange={(e) => setForm({...form, dob: e.target.value})} />
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 ml-1">Giới tính</label>
+                                        <select className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700 dark:text-white" value={form.gender} onChange={(e) => setForm({...form, gender: e.target.value})}>
+                                            <option value="">-- Chọn --</option>
+                                            <option value="Male">Nam</option>
+                                            <option value="Female">Nữ</option>
+                                            <option value="Other">Khác</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-slate-500 ml-1">Ngày sinh</label>
+                                        <input 
+                                            type="date" 
+                                            className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700 dark:text-white" 
+                                            value={form.dob} 
+                                            max={new Date().toISOString().split("T")[0]} // Chặn chọn ngày tương lai trên lịch
+                                            onChange={(e) => setForm({...form, dob: e.target.value})} 
+                                        />
+                                    </div>
                                 </div>
                                 <div className="mt-4 flex gap-3">
-                                    <button onClick={onSave} disabled={saving} className="bg-primary text-white px-6 py-2 rounded-xl font-bold text-sm">{saving ? "Saving..." : "Save Changes"}</button>
-                                    <button onClick={() => setEditing(false)} className="bg-slate-200 px-6 py-2 rounded-xl font-bold text-sm text-slate-900">Cancel</button>
+                                    <button onClick={onSave} disabled={saving || uploadingAvatar} className="bg-primary text-white px-6 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50">
+                                        {saving ? "Đang lưu..." : "Save Changes"}
+                                    </button>
+                                    <button onClick={() => setEditing(false)} className="bg-slate-200 dark:bg-slate-800 dark:text-white px-6 py-2 rounded-xl font-bold text-sm text-slate-900">Cancel</button>
                                 </div>
                             </div>
                         )}
                     </div>
                 </section>
 
-                {/* KHỐI 2: ĐỊA CHỈ */}
                 <div className="bg-white dark:bg-[#2d1e16] p-8 rounded-xl border border-slate-200 dark:border-slate-800">
                     <h3 className="text-lg font-bold mb-6 dark:text-white">Delivery Address</h3>
-                    {!editing ? (
+                    {editing ? (
+                        <div className="grid gap-3">
+                            <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700 dark:text-white" value={addr.street} onChange={(e) => setAddr({...addr, street: e.target.value})} placeholder="Số nhà, tên đường" />
+                            <div className="grid grid-cols-2 gap-3">
+                                <input className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700 dark:text-white" value={addr.district} onChange={(e) => setAddr({...addr, district: e.target.value})} placeholder="Quận/Huyện" />
+                                <input className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700 dark:text-white" value={addr.city} onChange={(e) => setAddr({...addr, city: e.target.value})} placeholder="Tỉnh/Thành phố" />
+                            </div>
+                        </div>
+                    ) : (
                         user?.addresses?.length > 0 ? user.addresses.map((item: any, i: number) => (
                             <div key={i} className={`p-4 border-2 rounded-xl mb-3 ${item.is_default ? 'border-primary/20 bg-primary/5' : 'border-slate-100 dark:border-slate-800'}`}>
                                 <div className="flex justify-between items-start">
-                                    <p className="font-bold dark:text-white">{item.label || "Address"}</p>
+                                    <p className="font-bold dark:text-white">{item.label || "Địa chỉ"}</p>
                                     {item.is_default && <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-primary text-white rounded">Mặc định</span>}
                                 </div>
                                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{item.street}, {item.district}, {item.city}</p>
                             </div>
                         )) : <p className="text-slate-500">Chưa có địa chỉ</p>
-                    ) : (
-                        <div className="grid gap-3">
-                            <input className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={addr.street} onChange={(e) => setAddr({...addr, street: e.target.value})} placeholder="Street" />
-                            <div className="grid grid-cols-2 gap-3">
-                                <input className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={addr.district} onChange={(e) => setAddr({...addr, district: e.target.value})} placeholder="District" />
-                                <input className="px-4 py-2 rounded-xl border dark:bg-slate-900 dark:text-white" value={addr.city} onChange={(e) => setAddr({...addr, city: e.target.value})} placeholder="City" />
-                            </div>
-                            <p className="text-xs text-slate-500 mt-2">* Việc chỉnh sửa ở đây sẽ cập nhật địa chỉ mặc định của bạn.</p>
-                        </div>
                     )}
                 </div>
             </div>

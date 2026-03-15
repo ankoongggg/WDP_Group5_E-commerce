@@ -39,9 +39,6 @@ const Login: React.FC = () => {
     }));
   };
 
-  // Xác định trang trước đó người dùng đang truy cập (mặc định là trang chủ)
-  const from = (location.state as any)?.from?.pathname || '/';
-
   useEffect(() => {
     const err = new URLSearchParams(location.search).get('error');
     if (!err) return;
@@ -52,10 +49,10 @@ const Login: React.FC = () => {
     else toast.error(err);
   }, [location.search, toast]);
 
-  // Nếu đã đăng nhập rồi thì tự động đẩy về trang cũ hoặc trang chủ
+  // NẾU ĐÃ ĐĂNG NHẬP RỒI, ÉP VỀ TRANG CHỦ (KHÔNG QUAY LẠI TRANG CŨ NỮA)
   React.useEffect(() => {
-    if (isAuthenticated) navigate(from, { replace: true });
-  }, [isAuthenticated, navigate, from]);
+    if (isAuthenticated) navigate('/', { replace: true });
+  }, [isAuthenticated, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,17 +73,22 @@ const Login: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Gọi hàm login từ AuthContext của Bách
       await login(email, password);
       toast.success('Welcome back! Login successful.');
-      navigate(from, { replace: true });
+      
+      // ==============================================================
+      // ĐỢI 1.5 GIÂY (1500ms) ĐỂ ĐỌC THÔNG BÁO RỒI MỚI ĐÁ VỀ TRANG CHỦ
+      // ==============================================================
+      setTimeout(() => {
+        navigate('/', { replace: true });
+      }, 1500); 
+
     } catch (err: any) {
       const msg = err.message || 'Login failed. Please try again.';
       setError(msg);
       toast.error(msg);
-    } finally {
-      setIsLoading(false);
-    }
+      setIsLoading(false); // Chỉ tắt loading nếu lỗi, nếu thành công thì cứ xoay loading cho đến lúc chuyển trang
+    } 
   };
 
   return (

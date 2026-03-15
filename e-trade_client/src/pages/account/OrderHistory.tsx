@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCurrency } from '../../context/CurrencyContext';
 import { orderApi } from '../../services/api';
-import {AccountLayout } from '../components/AccountLayout';
+import { AccountLayout } from '../components/AccountLayout';
 
 // --- THÀNH PHẦN HIỂN THỊ SAO ---
 const StarRatingDisplay = ({ rating, size = 'text-sm' }: { rating: number, size?: string }) => {
@@ -86,7 +86,7 @@ const ReviewDetailModal = ({ review, item, onClose }: { review: any, item: any, 
   );
 };
 
-// --- INTERFACE ---import { AccountLayout } from '../components/AccountLayout';
+// --- INTERFACE ---
 interface OrderItem {
   product_id: {
     _id: string;
@@ -109,11 +109,19 @@ interface Order {
   items: OrderItem[];
   created_at: string;
   seller_id?: {
-    _id: string; // ĐÃ THÊM: Phải có dòng này TypeScript mới cho chạy Link to={order.seller_id._id}
+    _id: string; 
     shop_name?: string;
     full_name?: string;
   }
 }
+
+// --- HÀM FORMAT THỜI GIAN ĐẸP MẮT ---
+const formatDateTime = (dateString: string) => {
+  const date = new Date(dateString);
+  const time = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  const day = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return `${time} | ${day}`;
+};
 
 const OrderHistory: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -144,6 +152,7 @@ const OrderHistory: React.FC = () => {
     fetchOrders();
   }, []);
 
+  // --- LỌC VÀ ÉP SẮP XẾP THEO GIỜ CHECKOUT (MỚI NHẤT LÊN ĐẦU) ---
   const filteredOrders = orders.filter(order => {
     if (activeTab === 'all') return true;
     if (activeTab === 'pending') return order.order_status === 'pending';
@@ -151,7 +160,7 @@ const OrderHistory: React.FC = () => {
     if (activeTab === 'completed') return order.order_status === 'completed';
     if (activeTab === 'cancelled') return order.order_status === 'cancelled';
     return true;
-  });
+  }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -222,21 +231,30 @@ const OrderHistory: React.FC = () => {
 
                     return (
                       <div key={order._id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 border border-slate-100 dark:border-slate-700">
-                        <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">
-                          <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-slate-500 text-xl">storefront</span>
-                            {order.seller_id?._id ? (
-                              <>
-                                <Link to={`/store/${order.seller_id._id}`} className="font-bold text-slate-900 dark:text-white hover:text-primary transition-colors">
-                                  {order.seller_id.shop_name}
-                                </Link>
-                                <Link to={`/store/${order.seller_id._id}`} className="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white flex items-center gap-1">
-                                  <span className="material-symbols-outlined text-[14px]">store</span> Xem Shop
-                                </Link>
-                              </>
-                            ) : (
-                              <span className="font-bold dark:text-white">Cửa hàng</span>
-                            )}
+                        {/* HEADER CARD: CHỨA TÊN SHOP VÀ THỜI GIAN */}
+                        <div className="flex justify-between items-start border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <span className="material-symbols-outlined text-slate-500 text-xl">storefront</span>
+                              {order.seller_id?._id ? (
+                                <>
+                                  <Link to={`/store/${order.seller_id._id}`} className="font-bold text-slate-900 dark:text-white hover:text-primary transition-colors">
+                                    {order.seller_id.shop_name || order.seller_id.full_name || 'Cửa hàng'}
+                                  </Link>
+                                  <Link to={`/store/${order.seller_id._id}`} className="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[14px]">store</span> Xem Shop
+                                  </Link>
+                                </>
+                              ) : (
+                                <span className="font-bold dark:text-white">Cửa hàng</span>
+                              )}
+                            </div>
+                            
+                            {/* HIỂN THỊ THỜI GIAN ĐẶT HÀNG */}
+                            <div className="text-xs text-slate-500 flex items-center gap-1 font-medium mt-1">
+                              <span className="material-symbols-outlined text-[14px]">schedule</span>
+                              Đã đặt lúc: {formatDateTime(order.created_at)}
+                            </div>
                           </div>
 
                           <div className={`text-sm font-bold uppercase flex items-center gap-1 ${getStatusColor(order.order_status)}`}>
