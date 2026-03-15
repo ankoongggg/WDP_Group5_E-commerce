@@ -27,10 +27,7 @@ const ReviewDetailModal = ({ review, item, onClose }: { review: any, item: any, 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-2xl relative" onClick={e => e.stopPropagation()}>
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors"
-        >
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors">
           <span className="material-symbols-outlined">close</span>
         </button>
 
@@ -41,6 +38,7 @@ const ReviewDetailModal = ({ review, item, onClose }: { review: any, item: any, 
           <img src={item.image_snapshot} alt={item.name_snapshot} className="w-20 h-20 rounded-md object-cover" />
           <div className="flex-1">
             <h3 className="font-bold text-lg dark:text-white line-clamp-2">{item.name_snapshot}</h3>
+            {item.type && <p className="text-xs text-slate-400 font-medium">Loại: {item.type}</p>}
             <p className="text-sm text-slate-500">x{item.quantity}</p>
           </div>
         </div>
@@ -68,10 +66,7 @@ const ReviewDetailModal = ({ review, item, onClose }: { review: any, item: any, 
 
         <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
           {!review.is_edited ? (
-            <Link
-              to={`/account/feedback?productId=${productId}&orderId=${review.order_id}`}
-              className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary hover:bg-primary hover:text-white py-3 rounded-xl font-bold transition-colors"
-            >
+            <Link to={`/account/feedback?productId=${productId}&orderId=${review.order_id}`} className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary hover:bg-primary hover:text-white py-3 rounded-xl font-bold transition-colors">
               <span className="material-symbols-outlined text-[18px]">edit</span>
               Sửa đánh giá (Còn 1 lần)
             </Link>
@@ -98,6 +93,7 @@ interface OrderItem {
   price_snapshot: number;
   quantity: number;
   image_snapshot: string;
+  type?: string; // 👇 KHAI BÁO TYPE Ở ĐÂY ĐỂ TYPESCRIPT KHÔNG KÊU LỖI
   user_review?: any;
 }
 
@@ -152,7 +148,6 @@ const OrderHistory: React.FC = () => {
     fetchOrders();
   }, []);
 
-  // --- LỌC VÀ ÉP SẮP XẾP THEO GIỜ CHECKOUT (MỚI NHẤT LÊN ĐẦU) ---
   const filteredOrders = orders.filter(order => {
     if (activeTab === 'all') return true;
     if (activeTab === 'pending') return order.order_status === 'pending';
@@ -189,8 +184,11 @@ const OrderHistory: React.FC = () => {
 
   if (loading) return (
     <AccountLayout>
-      <div className="flex items-center justify-center">
-        <div className="text-center">Đang tải đơn hàng...</div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center flex flex-col items-center gap-2">
+            <span className="material-symbols-outlined animate-spin text-primary text-3xl">sync</span>
+            <p className="text-slate-500">Đang tải đơn hàng...</p>
+        </div>
       </div>
     </AccountLayout>
   );
@@ -208,7 +206,6 @@ const OrderHistory: React.FC = () => {
           <div className="max-w-5xl mx-auto">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Lịch sử đơn hàng</h1>
             <p className="text-slate-500 dark:text-slate-400 mt-1 mb-6">Theo dõi và quản lý tất cả đơn hàng của bạn.</p>
-
 
             <div className="">
               <div className="bg-white dark:bg-slate-800 rounded-t-xl shadow-sm border-b border-slate-200 dark:border-slate-700 flex overflow-x-auto hide-scrollbar">
@@ -273,7 +270,15 @@ const OrderHistory: React.FC = () => {
                                   </div>
                                   <div className="flex-1">
                                     <h3 className="font-medium line-clamp-2 dark:text-white group-hover:text-primary transition-colors">{item.name_snapshot}</h3>
-                                    <p className="text-sm text-slate-500 mt-1">x{item.quantity}</p>
+                                    
+                                    {/* 👇 ĐÂY RỒI! HIỂN THỊ TYPE LÊN ĐÂY */}
+                                    {item.type && (
+                                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 inline-block rounded">
+                                            Phân loại: {item.type}
+                                        </p>
+                                    )}
+
+                                    <p className="text-sm text-slate-500 mt-1">Số lượng: {item.quantity}</p>
                                   </div>
                                 </Link>
                               ) : (
@@ -281,7 +286,14 @@ const OrderHistory: React.FC = () => {
                                   <div className="w-20 h-20 rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden shrink-0"><img src={item.image_snapshot || 'https://via.placeholder.com/100'} alt={item.name_snapshot} className="w-full h-full object-cover" /></div>
                                   <div className="flex-1">
                                     <h3 className="font-medium line-clamp-2 dark:text-white">{item.name_snapshot} <span className="text-xs">(Sản phẩm không còn tồn tại)</span></h3>
-                                    <p className="text-sm text-slate-500 mt-1">x{item.quantity}</p>
+                                    
+                                    {item.type && (
+                                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 inline-block rounded">
+                                            Phân loại: {item.type}
+                                        </p>
+                                    )}
+
+                                    <p className="text-sm text-slate-500 mt-1">Số lượng: {item.quantity}</p>
                                   </div>
                                 </div>
                               )}
