@@ -25,7 +25,7 @@ export const useSearch = () => {
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const res = await ProductService.getAll({ limit: 1000 });
+                const res = await ProductService.getOnProductList({ limit: 1000 });
                 setAllProducts(res.data || []);
             } catch (error) {
                 console.error(error);

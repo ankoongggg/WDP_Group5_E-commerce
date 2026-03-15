@@ -8,7 +8,11 @@ const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:9999/api';
 export const ProductService = {
   // Lấy danh sách sản phẩm (có hỗ trợ filter, search, page)
   // Lấy danh sách sản phẩm 
-  getAll: async (params: { page?: number; limit?: number; keyword?: string; category?: string }): Promise<ProductResponse> => {
+  getOnHomePage: async (params: { page?: number; limit?: number; keyword?: string; category?: string }): Promise<ProductResponse> => {
+    const response = await axios.get(API_BASE_URL + '/products/home', { params });
+    return response.data;
+  },
+  getOnProductList: async (params: { page?: number; limit?: number; keyword?: string; category?: string; filter?: string }): Promise<ProductResponse> => {
     const response = await axios.get(API_BASE_URL + '/products', { params });
     return response.data;
   },
@@ -18,7 +22,7 @@ export const ProductService = {
       const interestParams = getInterestsParams(); // Nó sẽ trả về object { interests: '...', category_interests: '...' }
       
       // Gọi chung hàm getProducts nhưng truyền thêm params gợi ý
-      const response = await axios.get(API_BASE_URL + '/products', { 
+      const response = await axios.get(API_BASE_URL + '/products/home', { 
           params: { 
               limit, 
               ...interestParams 
