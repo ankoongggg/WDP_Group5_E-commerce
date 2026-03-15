@@ -9,7 +9,6 @@ import { useAuth } from '../../context/AuthContext';
 import { authApi } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 
-// Define interfaces for the data structure from the API
 interface Product {
   _id: string;
   name: string;
@@ -105,7 +104,6 @@ const ProductDetail: React.FC = () => {
         const response = await axios.get<ProductDetailsResponse>(`http://localhost:9999/api/products/${id}`);
         setDetails(response.data);
         const product = response.data.product;
-        console.log("=== THÔNG TIN SẢN PHẨM TỪ BACKEND ===", product);
         setActiveImage(product.main_image || (product.display_files.length > 0 ? product.display_files[0] : ''));
       } catch (err) {
         if (axios.isAxiosError(err) && err.response?.status === 404) {
@@ -122,31 +120,23 @@ const ProductDetail: React.FC = () => {
 
   const { product, totalReviews, averageRating } = details || {};
 
-  // Effect to fetch related products from the same store
   useEffect(() => {
     const fetchRelatedProducts = async () => {
       if (!product?.store_id?._id || !product?._id) return;
-
       setLoadingRelated(true);
       try {
-        const params = {
-          limit: 5, // Lấy 5 sản phẩm liên quan
-          exclude: product._id, // Loại trừ sản phẩm hiện tại
-        };
+        const params = { limit: 5, exclude: product._id };
         const response = await axios.get<{ products: RelatedProduct[] }>(`http://localhost:9999/api/store/${product.store_id._id}/products`, { params });
         setRelatedProducts(response.data.products);
       } catch (err) {
         console.error("Failed to fetch related products:", err);
-        // Không hiển thị lỗi cho người dùng, chỉ đơn giản là không hiển thị mục này
       } finally {
         setLoadingRelated(false);
       }
     };
-
     fetchRelatedProducts();
   }, [product]);
 
-  // Effect to check wishlist status
   useEffect(() => {
     if (isAuthenticated && user?.wishlist && product?._id) {
       setIsWishlisted(user.wishlist.includes(product._id));
@@ -159,7 +149,6 @@ const ProductDetail: React.FC = () => {
 
   const fetchReviews = async (page: number) => {
     if (!id) return;
-
     const isLoadingFirstPage = page === 1;
     if (isLoadingFirstPage) {
       setReviewsLoading(true);
@@ -172,13 +161,10 @@ const ProductDetail: React.FC = () => {
       const response = await axios.get<ReviewsResponse>(`http://localhost:9999/api/products/${id}/reviews`, {
         params: { page, limit: REVIEWS_PER_PAGE }
       });
-      
       const { reviews: newReviews, totalPages } = response.data;
-
       setReviews(prev => (isLoadingFirstPage ? newReviews : [...prev, ...newReviews]));
       setReviewsPage(page);
       setReviewsTotalPages(totalPages);
-
     } catch (err) {
       setReviewsError('Không thể tải danh sách đánh giá. Vui lòng thử lại.');
     } finally {
@@ -190,7 +176,6 @@ const ProductDetail: React.FC = () => {
     }
   };
 
-  // Initial fetch when tab is activated
   useEffect(() => {
     if (activeTab === 'reviews' && reviews.length === 0 && totalReviews && totalReviews > 0) {
       fetchReviews(1);
@@ -203,31 +188,24 @@ const ProductDetail: React.FC = () => {
     }
   };
   
-  // --- LOGIC FOR VARIANTS, PRICE, AND STOCK ---
   const hasVariants = product && product.product_type && product.product_type.length > 0;
   const selectedVariant = hasVariants && selectedTypeIndex !== null ? product.product_type![selectedTypeIndex] : null;
 
   const finalPrice = React.useMemo(() => {
     if (!product) return 0;
     if (selectedVariant) {
-      // Yêu cầu mới: Giá cuối cùng = Giá gốc của sản phẩm + Mức chênh lệch của phân loại.
       return product.price + (selectedVariant.price_difference || 0);
     }
-    // Khi chưa chọn loại nào, hiển thị giá gốc của sản phẩm.
     return product.price;
   }, [product, selectedVariant]);
 
   const stockForControls = React.useMemo(() => {
     if (!product) return 0;
     if (hasVariants) {
-      // If variants exist, stock is only available when one is selected.
-      if (selectedVariant) {
-        return selectedVariant.stock || 0;
-      }
-      // If variants exist but none is selected, you can't buy, so stock is effectively 0 for controls.
+      if (selectedVariant) return selectedVariant.stock || 0;
       return 0;
     }
-    return product.stock ?? 0; // Fallback to root stock if no variants
+    return product.stock ?? 0;
   }, [product, hasVariants, selectedVariant]);
 
   const totalStock = React.useMemo(() => {
@@ -238,9 +216,8 @@ const ProductDetail: React.FC = () => {
     return product.stock || 0;
   }, [product, hasVariants]);
 
-  const isOutOfStock = totalStock <= 0; // For the main "Hết hàng" badge
+  const isOutOfStock = totalStock <= 0;
   const isActionDisabled = isOutOfStock || (hasVariants && selectedTypeIndex === null);
-  // --- END OF LOGIC ---
 
   const handleToggleWishlist = async () => {
     if (!isAuthenticated) {
@@ -254,10 +231,8 @@ const ProductDetail: React.FC = () => {
     try {
       const response = await authApi.toggleWishlist(product._id);
       toast.success(response.message);
-
       const newWishlist: string[] = response.data || [];
       setIsWishlisted(newWishlist.includes(product._id));
-
       if (setUser) {
         setUser(currentUser => currentUser ? { ...currentUser, wishlist: newWishlist } : null);
       }
@@ -285,6 +260,7 @@ const ProductDetail: React.FC = () => {
       name: selectedVariant ? `${product.name} (${selectedVariant.description})` : product.name,
       _id: selectedVariant ? `${product._id}-${selectedVariant.description}` : product._id,
       productId: product._id,
+      type: selectedVariant ? selectedVariant.description : 'default' // ÉP TYPE VÀO ĐÂY
     };
     addToCart(itemForCart, quantity);
     toast.success('Đã thêm vào giỏ hàng!');
@@ -309,11 +285,11 @@ const ProductDetail: React.FC = () => {
       main_image: product.main_image,
       stock: stockForControls,
       quantity: quantity,
+      type: selectedVariant ? selectedVariant.description : 'default', // ÉP TYPE VÀO ĐÂY
       variant: selectedVariant ? { description: selectedVariant.description } : undefined,
     };
 
     toast.success('Đang chuyển tới thanh toán...');
-
     setTimeout(() => {
       navigate('/checkout', { state: { buyNowItems: [buyNowItem] } });
     }, 500);
@@ -417,7 +393,7 @@ const ProductDetail: React.FC = () => {
                       key={index}
                       onClick={() => {
                         setSelectedTypeIndex(index);
-                        setQuantity(1); // Reset quantity when changing variant
+                        setQuantity(1); 
                       }}
                       className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors relative ${selectedTypeIndex === index
                           ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/50'
@@ -547,7 +523,6 @@ const ProductDetail: React.FC = () => {
                       <div className="text-slate-600 dark:text-slate-400">Hiện tại chưa có đánh giá nào cho sản phẩm này.</div>
                     )}
 
-                    {/* Pagination / Load More Button */}
                     {!reviewsLoading && reviews.length > 0 && reviewsPage < reviewsTotalPages && (
                       <div className="mt-8 text-center">
                         <button
@@ -566,7 +541,6 @@ const ProductDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Related Products Section */}
         {relatedProducts.length > 0 && (
           <section className="mt-20">
             <h2 className="text-2xl font-bold mb-6 dark:text-white border-b-2 border-primary pb-2 inline-block">

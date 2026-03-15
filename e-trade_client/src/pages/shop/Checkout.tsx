@@ -68,11 +68,33 @@ const Checkout: React.FC = () => {
 
       const orderData = {
         items: displayItems.map((item: any) => {
-          const pId = item.productId || item._id || item.product_id; 
+          let pId = item.productId || item._id || item.product_id; 
+          
+          // --- CHỐNG LỖI MONGODB: CẮT BỎ CÁI ĐUÔI PHÂN LOẠI ĐI ---
+          if (typeof pId === 'string' && pId.includes('-')) {
+              pId = pId.split('-')[0]; // Chỉ lấy đúng mã ID 24 ký tự ở đằng trước
+          }
+          // --------------------------------------------------------
+
+          // --- LOGIC MOI PHÂN LOẠI SIÊU CẤP (BẮT MỌI TRƯỜNG HỢP) ---
+          let itemType = 'default';
+          if (item.type && item.type !== 'default') {
+              itemType = item.type;
+          } else if (item.variant?.description) {
+              itemType = item.variant.description;
+          } else if (item._id && typeof item._id === 'string' && item._id.includes('-')) {
+              itemType = item._id.split('-').slice(1).join('-');
+          } else if (item.name && item.name.includes('(') && item.name.endsWith(')')) {
+              const match = item.name.match(/\(([^)]+)\)$/);
+              if (match) itemType = match[1].trim();
+          }
+          // --------------------------------------------------------
+
           return {
             productId: pId, 
             product_id: pId,  
             quantity: item.quantity,
+            type: itemType // TRUYỀN TYPE LÊN CHUẨN ĐÉT
           };
         }),
         
@@ -90,12 +112,10 @@ const Checkout: React.FC = () => {
 
       const token = localStorage.getItem('accessToken');
       
-      // GỌI API BACKEND (Đã được cập nhật logic tách đơn ở backend)
       const orderResponse = await axios.post('http://localhost:9999/api/shop/orders', orderData, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Kiểm tra xem Backend có báo tách thành nhiều đơn không
       const isSplit = orderResponse.data?.data?.isSplit;
       if (isSplit) {
           toast.success('Đơn hàng đã được tách theo từng Shop!');
@@ -109,12 +129,7 @@ const Checkout: React.FC = () => {
         if (!isBuyNowMode) {
           clearCart();
         }
-        
-        // --- PHẦN FIX ĐIỀU HƯỚNG ---
-        // Bất kể là 1 hay nhiều đơn, cứ đá về trang danh sách đơn hàng
-        // Để khách hàng có thể nhìn thấy toàn bộ các bill vừa tạo rõ ràng.
         navigate(`/account/orders`); 
-        
       }, 1200);
 
     } catch (error: any) {
@@ -157,7 +172,6 @@ const Checkout: React.FC = () => {
     <Layout>
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Delivery Address Section */}
           <div className="lg:col-span-8">
             <section className="bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/20 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-6">
@@ -182,7 +196,6 @@ const Checkout: React.FC = () => {
               </div>
             </section>
 
-            {/* Shipping Method Section */}
             <section className="bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/20 p-6 shadow-sm mt-6">
               <h2 className="text-lg font-bold flex items-center gap-2 mb-6 dark:text-white">
                 <span className="material-symbols-outlined text-primary">local_shipping</span> Phương thức vận chuyển
@@ -207,7 +220,6 @@ const Checkout: React.FC = () => {
               </div>
             </section>
 
-            {/* Payment Method Section */}
             <section className="bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/20 p-6 shadow-sm mt-6">
               <h2 className="text-lg font-bold flex items-center gap-2 mb-6 dark:text-white">
                 <span className="material-symbols-outlined text-primary">credit_card</span> Phương thức thanh toán
@@ -240,7 +252,6 @@ const Checkout: React.FC = () => {
             </section>
           </div>
 
-          {/* Order Summary Sidebar */}
           <div className="lg:col-span-4">
             <div className="bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/20 p-6 shadow-lg sticky top-24">
               <h2 className="text-lg font-bold mb-6 dark:text-white">Tóm tắt đơn hàng</h2>
@@ -294,7 +305,6 @@ const Checkout: React.FC = () => {
         </div>
       </div>
 
-      {/* Address Selection Modal */}
       {showAddressModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6">
