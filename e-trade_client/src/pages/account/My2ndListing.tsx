@@ -1,194 +1,33 @@
 // src/pages/account/MyListings.tsx
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { AccountLayout } from '../components/AccountLayout';
-import { customerPassApi } from '../../services/customerPassService';
-import { useToast } from '../../context/ToastContext';
 import { useCurrency } from '../../context/CurrencyContext';
-import {CategoryService} from '../../services/categoryService';
-import { uploadMultiple } from '../../utils/cloudinary';
+import { useMy2ndListings } from '../../hooks/useMy2ndListings';
+
 const My2ndListings: React.FC = () => {
-    const [listings, setListings] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const { toast } = useToast();
     const { formatPrice } = useCurrency();
+    const {
+        listings,
+        loading,
+        showModal,
+        setShowModal,
+        isSubmitting,
+        formData,
+        setFormData,
+        editingItem,
+        setEditingItem,
+        categories,
+        uploadingImages,
+        imageSlots,
+        handleImageSelection,
+        handleMainImageSelection,
+        addImageSlot,
+        removeImageSlot,
+        handleSubmit,
+        handleEdit,
+        handleDelete,
+    } = useMy2ndListings();
 
-    // State cho Modal Đăng Đồ / Chỉnh sửa
-    const [showModal, setShowModal] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [editingItem, setEditingItem] = useState<any>(null); // nếu khác null => đang sửa
-    const [formData, setFormData] = useState({
-        name: '',
-        description: '',
-        price: '',
-        original_price: '',
-        main_image: '',
-        category_id: [] as string[],
-        display_files: [] as string[],
-        product_type: [{ description: '', stock: '' }]
-        // category_id is array of ids now
-    });
-
-    const [uploadingImages, setUploadingImages] = useState(false);
-    // image slots for dynamic inputs
-    const [imageSlots, setImageSlots] = useState<number[]>([0]);
-
-    const [categories, setCategories] = useState<Array<{ _id: string; name: string }>>([]); // danh sách lấy từ server
-
-    useEffect(() => {
-        fetchCategories();
-    }, []);
-    
-    const fetchCategories = async () => {
-        try {
-            const data: any[] = await CategoryService.getAllOnHomePage({});
-            // đảm bảo có _id và name, Mongoose trả về _id; tạo thêm id nếu bạn thích
-            const normalized = data.map(c => ({ _id: c._id || c.id || '', name: c.name }));
-            setCategories(normalized);
-        } catch (error) {
-            console.error('Error loading categories', error);
-            toast.error("Lỗi tải danh mục.");
-        }
-    };
-
-    const handleImageSelection = async (index: number, file: File) => {
-        if (!file) return;
-        setUploadingImages(true);
-        try {
-            const urls = await uploadMultiple([file]);
-            setFormData(prev => {
-                const current = [...(prev.display_files || [])];
-                current[index] = urls[0];
-                return { ...prev, display_files: current };
-            });
-        } catch (err) {
-            console.error('Upload error', err);
-            toast.error('Tải ảnh thất bại');
-        } finally {
-            setUploadingImages(false);
-        }
-    };
-
-    const handleMainImageSelection = async (file: File) => {
-        if (!file) return;
-        setUploadingImages(true);
-        try {
-            const urls = await uploadMultiple([file]);
-            setFormData(prev => ({ ...prev, main_image: urls[0] }));
-        } catch (err) {
-            console.error('Upload error', err);
-            toast.error('Tải ảnh chính thất bại');
-        } finally {
-            setUploadingImages(false);
-        }
-    };
-
-    const addImageSlot = () => {
-        setImageSlots(prev => [...prev, prev.length]);
-    };
-
-    const removeImageSlot = (idx: number) => {
-        setImageSlots(prev => prev.filter(i => i !== idx));
-        setFormData(prev => {
-            const current = [...(prev.display_files || [])];
-            current.splice(idx, 1);
-            return { ...prev, display_files: current };
-        });
-    };
-
-
-    const fetchListings = async () => {
-        setLoading(true);
-        try {
-            const data = await customerPassApi.getMyListings();
-            setListings(data);
-        } catch (error) {
-            toast.error("Lỗi tải danh sách sản phẩm.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchListings();
-    }, []);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSubmitting(true);
-        try {
-            // nếu đã tải danh mục mà chưa chọn thì báo lỗi
-            if (categories.length > 0 && !formData.category_id) {
-                toast.error('Vui lòng chọn danh mục');
-                setIsSubmitting(false);
-                return;
-            }
-            // Chuẩn bị payload (Category có thể cần là mảng tùy DB của bạn)
-            const payload: any = {
-                ...formData,
-                price: Number(formData.price),
-                original_price: Number(formData.original_price),
-            };
-            // already array
-            if (formData.category_id && formData.category_id.length) payload.category_id = formData.category_id;
-            // convert product types
-            if (formData.product_type && formData.product_type.length) {
-                payload.product_type = formData.product_type.map((pt: any) => ({
-                    description: pt.description,
-                    stock: Number(pt.stock) || 0
-                }));
-            }
-            // include display files
-            if (formData.display_files && formData.display_files.length) payload.display_files = formData.display_files;
-
-            if (editingItem) {
-                await customerPassApi.updateListing(editingItem._id, payload);
-                toast.success("Cập nhật bài đăng thành công!");
-            } else {
-                await customerPassApi.createListing(payload);
-                toast.success("Đăng bán đồ cũ thành công!");
-            }
-
-            setShowModal(false);
-            setEditingItem(null);
-            setFormData({ name: '', description: '', price: '', original_price: '', main_image: '', category_id: [], display_files: [], product_type: [{ description: '', stock: '' }] });
-            fetchListings();
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || (editingItem ? "Cập nhật thất bại." : "Đăng bán thất bại."));
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleEdit = (item: any) => {
-        setEditingItem(item);
-        setFormData({
-            name: item.name || '',
-            description: item.description || '',
-            price: item.price?.toString() || '',
-            original_price: item.original_price?.toString() || '',
-            main_image: item.main_image || '',
-            category_id: item.category_id || [],
-            display_files: item.display_files || [],
-            product_type: (item.product_type || []).map((pt: any) => ({
-                description: pt.description || '',
-                stock: pt.stock != null ? String(pt.stock) : ''
-            }))
-        });
-        // rebuild image slots based on existing files
-        setImageSlots(Array.from({ length: (item.display_files ? item.display_files.length : 0) || 1 }, (_, i) => i));
-        setShowModal(true);
-    };
-
-    const handleDelete = async (id: string) => {
-        if (!window.confirm('Bạn có chắc chắn muốn xóa bài đăng này?')) return;
-        try {
-            await customerPassApi.deleteListing(id);
-            toast.success('Xóa bài đăng thành công');
-            fetchListings();
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || 'Xóa thất bại');
-        }
-    };
 
     // Render badge trạng thái
     const renderStatus = (status: string) => {
@@ -310,6 +149,22 @@ const My2ndListings: React.FC = () => {
                                                 });
                                             }}
                                             className="w-24 p-2 rounded-lg border dark:bg-slate-800 dark:border-slate-700 dark:text-white outline-none focus:border-primary"
+                                        />
+                                        <input
+                                            type="number"
+                                            step="1000"
+                                            min="0"
+                                            placeholder="Chênh lệch giá (VNĐ)"
+                                            value={pt.price_difference || ''}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setFormData(prev => {
+                                                    const arr = [...prev.product_type];
+                                                    arr[idx] = { ...arr[idx], price_difference: val };
+                                                    return { ...prev, product_type: arr };
+                                                });
+                                            }}
+                                            className="w-32 p-2 rounded-lg border dark:bg-slate-800 dark:border-slate-700 dark:text-white outline-none focus:border-primary"
                                         />
                                         {formData.product_type.length > 1 && (
                                             <button type="button" className="text-red-500" onClick={() => {

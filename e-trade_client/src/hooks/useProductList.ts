@@ -23,8 +23,13 @@ export const useProductList = () => {
   const [condition, setCondition] = useState<string>(''); // used, new
 
   useEffect(() => {
-    setCondition(filter);
+    if (filter === 'Used') setCondition('Used');
+    else if (filter === 'New') setCondition('New');
+    else setCondition('');
+
   }, [filter]);
+
+
 
 
 

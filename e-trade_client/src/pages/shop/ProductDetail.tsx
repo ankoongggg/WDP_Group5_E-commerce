@@ -403,11 +403,11 @@ const ProductDetail: React.FC = () => {
                       title={type.stock === 0 ? 'Hết hàng' : ''}
                     >
                       {type.description}
-                      {type.price_difference !== 0 && (
+                      {/* {type.price_difference !== 0 && (
                         <span className="ml-1.5 text-xs font-normal">
                           ({type.price_difference > 0 ? '+' : ''}{formatPrice(type.price_difference)})
                         </span>
-                      )}
+                      )} */}
                       {type.stock === 0 && <div className="absolute -top-1.5 -right-1.5 text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5">Hết</div>}
                     </button>
                   ))}
