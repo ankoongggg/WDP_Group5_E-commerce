@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import SellerLayout from '../seller/SellerLayout';
 import { useToast } from '../../context/ToastContext';
-import { storeApi } from '../../services/api'; // Giả định API được export từ đây
+import { storeApi } from '../../services/api';
 import { format } from 'date-fns';
 
 // Debounce hook để tối ưu việc tìm kiếm
@@ -76,12 +76,10 @@ const OrderManagement: React.FC = () => {
     }, [toast]);
 
     useEffect(() => {
-        // Reset về trang 1 khi người dùng đổi tab hoặc tìm kiếm
         setPagination(p => ({ ...p, currentPage: 1 }));
     }, [activeTab, debouncedSearchTerm]);
 
     useEffect(() => {
-        // Gọi API mỗi khi tab, trang hiện tại, hoặc từ khóa tìm kiếm (đã debounce) thay đổi
         fetchOrders(activeTab, pagination.currentPage, debouncedSearchTerm);
     }, [activeTab, pagination.currentPage, debouncedSearchTerm, fetchOrders]);
 
@@ -102,15 +100,12 @@ const OrderManagement: React.FC = () => {
             await storeApi.updateOrderStatusBySeller(orderId, newStatus, reason);
             toast.success(`Đã cập nhật trạng thái đơn hàng thành công!`);
 
-            // Close any open modals
             if (isDetailModalOpen) setIsDetailModalOpen(false);
             if (isRejectModalOpen) setIsRejectModalOpen(false);
 
-            // Reset states
             setSelectedOrder(null);
             setRejectionReason('');
 
-            // Refetch orders to show the update
             fetchOrders(activeTab, pagination.currentPage, debouncedSearchTerm);
         } catch (error: any) {
             toast.error(error.message || 'Cập nhật trạng thái thất bại.');
@@ -206,7 +201,7 @@ const OrderManagement: React.FC = () => {
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                                 {loading ? (
-                                    <tr><td colSpan={6} className="text-center py-10 text-slate-500">Đang tải...</td></tr>
+                                    <tr><td colSpan={7} className="text-center py-10 text-slate-500">Đang tải...</td></tr>
                                 ) : orders.length > 0 ? (
                                     orders.map(order => (
                                         <tr key={order._id} className="hover:bg-slate-50 dark:hover:bg-slate-900/20 transition-colors">
@@ -222,7 +217,7 @@ const OrderManagement: React.FC = () => {
                                         </tr>
                                     ))
                                 ) : (
-                                    <tr><td colSpan={6} className="text-center py-10 text-slate-500">Không có đơn hàng nào.</td></tr>
+                                    <tr><td colSpan={7} className="text-center py-10 text-slate-500">Không có đơn hàng nào.</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -255,11 +250,33 @@ const OrderManagement: React.FC = () => {
             {/* Order Detail Modal */}
             {isDetailModalOpen && selectedOrder && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white dark:bg-[#2d1e16] rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-3xl relative max-h-[90vh] overflow-y-auto">
-                        <button onClick={() => setIsDetailModalOpen(false)} className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">
-                            <span className="material-symbols-outlined">close</span>
+                    <div className="bg-white dark:bg-[#2d1e16] rounded-3xl shadow-2xl p-6 md:p-8 w-full max-w-3xl relative max-h-[90vh] overflow-y-auto animate-in zoom-in duration-200">
+                        <button onClick={() => setIsDetailModalOpen(false)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors">
+                            <span className="material-symbols-outlined text-2xl">close</span>
                         </button>
-                        <h2 className="text-2xl font-bold dark:text-white mb-6">Chi tiết Đơn hàng <span className="font-mono text-primary">#{selectedOrder._id.slice(-6).toUpperCase()}</span></h2>
+                        
+                        <h2 className="text-2xl font-black dark:text-white mb-6">
+                            Chi tiết Đơn hàng <span className="text-primary">#{selectedOrder._id.slice(-6).toUpperCase()}</span>
+                        </h2>
+
+                        {/* 👇 PHẪU THUẬT: HIỂN THỊ LÝ DO HỦY NGAY ĐÂY 👇 */}
+                        {selectedOrder.order_status === 'cancelled' && (
+                            <div className="mb-6 p-5 bg-red-50 dark:bg-red-900/30 border-2 border-red-200 dark:border-red-800 rounded-2xl shadow-sm">
+                                <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-black uppercase text-sm mb-2">
+                                    <span className="material-symbols-outlined text-[20px]">report</span>
+                                    Đơn hàng này đã bị hủy
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                    <p className="text-slate-700 dark:text-slate-300">
+                                        <strong>Người thực hiện:</strong> <span className="font-bold">{selectedOrder.cancelled_by === 'customer' ? 'Khách hàng' : 'Người bán / Hệ thống'}</span>
+                                    </p>
+                                    <p className="text-slate-700 dark:text-slate-300">
+                                        <strong>Lý do hủy:</strong> <span className="text-red-600 dark:text-red-400 font-black italic">"{selectedOrder.cancel_reason || selectedOrder.note || 'Không có lý do cụ thể'}"</span>
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                        {/* 👆 KẾT THÚC PHẪU THUẬT 👆 */}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             {/* Left Column: Customer & Shipping */}
@@ -272,36 +289,38 @@ const OrderManagement: React.FC = () => {
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-2">Địa chỉ giao hàng</h3>
-                                    <p className="text-sm text-slate-600 dark:text-slate-400"><b>Người nhận:</b> {selectedOrder.shipping_address?.recipient_name || 'N/A'}</p>
-                                    <p className="text-sm text-slate-600 dark:text-slate-400"><b>SĐT:</b> {selectedOrder.shipping_address?.phone || 'N/A'}</p>
-                                    <p className="text-sm text-slate-600 dark:text-slate-400"><b>Địa chỉ:</b> {selectedOrder.shipping_address?.full_address || 'N/A'}</p>
+                                    <p className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
+                                        {selectedOrder.shipping_address?.full_address || 'N/A'}
+                                    </p>
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-2">Thông tin thanh toán</h3>
-                                    <p className="text-sm text-slate-600 dark:text-slate-400"><b>Phương thức:</b> {selectedOrder.payment_method || 'N/A'}</p>
+                                    <p className="text-sm text-slate-600 dark:text-slate-400 uppercase font-bold">
+                                        Phương thức: {selectedOrder.payment_method || 'N/A'}
+                                    </p>
                                 </div>
                             </div>
 
                             {/* Right Column: Products */}
                             <div className="space-y-4">
                                 <h3 className="font-bold text-slate-800 dark:text-slate-200">Sản phẩm trong đơn</h3>
-                                <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                                <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                                     {selectedOrder.items.map((item: any) => (
                                         <div key={item.product_id} className="flex items-center gap-4">
-                                            <img src={item.image_snapshot} alt={item.name_snapshot} className="w-16 h-16 rounded-lg object-cover" />
+                                            <img src={item.image_snapshot} alt={item.name_snapshot} className="w-16 h-16 rounded-lg object-cover border border-slate-200 dark:border-slate-700" />
                                             <div className="flex-1">
-                                                <p className="font-semibold text-sm text-slate-800 dark:text-slate-200">{item.name_snapshot}</p>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400">Phân loại: {item.type || 'Mặc định'}</p>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400">SL: {item.quantity}</p>
+                                                <p className="font-semibold text-sm text-slate-800 dark:text-slate-200 line-clamp-1">{item.name_snapshot}</p>
+                                                {item.type && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1"><span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">Phân loại: {item.type}</span></p>}
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">SL: {item.quantity}</p>
                                             </div>
-                                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{formatCurrency(item.price_snapshot * item.quantity)}</p>
+                                            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{formatCurrency(item.price_snapshot * item.quantity)}</p>
                                         </div>
                                     ))}
                                 </div>
                                 <div className="border-t border-slate-200 dark:border-slate-800 pt-4 space-y-2">
                                     <div className="flex justify-between text-sm"><span className="text-slate-600 dark:text-slate-400">Tạm tính:</span> <span className="dark:text-white">{formatCurrency(selectedOrder.total_price)}</span></div>
                                     <div className="flex justify-between text-sm"><span className="text-slate-600 dark:text-slate-400">Phí vận chuyển:</span> <span className="dark:text-white">{formatCurrency(selectedOrder.shipping_fee)}</span></div>
-                                    <div className="flex justify-between font-bold text-lg"><span className="dark:text-white">Tổng cộng:</span> <span className="text-primary">{formatCurrency(selectedOrder.total_amount)}</span></div>
+                                    <div className="flex justify-between font-bold text-lg pt-2"><span className="dark:text-white">Tổng cộng:</span> <span className="text-primary text-2xl font-black">{formatCurrency(selectedOrder.total_amount)}</span></div>
                                 </div>
                             </div>
                         </div>
@@ -311,47 +330,43 @@ const OrderManagement: React.FC = () => {
                             <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
                                 <p className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-4">Hành động:</p>
                                 <div className="flex flex-wrap gap-4">
-                                    {/* Confirm Button */}
                                     {selectedOrder.order_status === 'pending' && (
                                         <button
                                             onClick={() => handleUpdateStatus(selectedOrder._id, 'confirmed')}
                                             disabled={updatingStatus}
-                                            className="flex-1 bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/25 transition-all disabled:opacity-70 flex items-center justify-center gap-2"
+                                            className="flex-1 bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/25 transition-all disabled:opacity-70"
                                         >
                                             {updatingStatus ? 'Đang xử lý...' : 'Xác nhận đơn hàng'}
                                         </button>
                                     )}
 
-                                    {/* Ship Button */}
                                     {selectedOrder.order_status === 'confirmed' && (
                                         <button
                                             onClick={() => handleUpdateStatus(selectedOrder._id, 'shipping')}
                                             disabled={updatingStatus}
-                                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-70 flex items-center justify-center gap-2"
+                                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-70"
                                         >
                                             {updatingStatus ? 'Đang xử lý...' : 'Giao cho vận chuyển'}
                                         </button>
                                     )}
 
-                                    {/* Complete Button */}
                                     {selectedOrder.order_status === 'shipping' && (
                                         <button
                                             onClick={() => handleUpdateStatus(selectedOrder._id, 'completed')}
                                             disabled={updatingStatus}
-                                            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-green-500/25 transition-all disabled:opacity-70 flex items-center justify-center gap-2"
+                                            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-green-500/25 transition-all disabled:opacity-70"
                                         >
                                             {updatingStatus ? 'Đang xử lý...' : 'Hoàn thành đơn'}
                                         </button>
                                     )}
 
-                                    {/* Cancel Button */}
                                     {['pending', 'confirmed'].includes(selectedOrder.order_status) && (
                                         <button
                                             onClick={openRejectModal}
                                             disabled={updatingStatus}
                                             className="flex-1 px-6 py-3 rounded-xl font-bold text-sm bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60 transition-all disabled:opacity-50"
                                         >
-                                            Hủy đơn hàng
+                                            Từ chối / Hủy đơn
                                         </button>
                                     )}
                                 </div>
@@ -363,35 +378,38 @@ const OrderManagement: React.FC = () => {
 
             {/* Reject Reason Modal */}
             {isRejectModalOpen && selectedOrder && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white dark:bg-[#2d1e16] rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-md relative">
-                        <h3 className="text-xl font-bold dark:text-white mb-4">Lý do từ chối đơn hàng</h3>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Vui lòng cung cấp lý do từ chối. Khách hàng sẽ nhận được thông báo này.</p>
+                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-[#2d1e16] rounded-3xl shadow-2xl p-8 w-full max-w-md relative animate-in zoom-in duration-200">
+                        <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span className="material-symbols-outlined text-3xl">cancel</span>
+                        </div>
+                        <h3 className="text-2xl font-black text-center dark:text-white mb-2">Từ chối đơn hàng?</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center">Vui lòng cung cấp lý do từ chối. Khách hàng sẽ nhận được thông báo này.</p>
                         <textarea
                             value={rejectionReason}
                             onChange={(e) => setRejectionReason(e.target.value)}
                             placeholder="Ví dụ: Sản phẩm đã hết hàng, không thể liên lạc với khách hàng..."
-                            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none min-h-[120px]"
+                            className="w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none resize-none h-32"
                         />
                         <div className="mt-6 flex gap-4">
                             <button
                                 onClick={() => { setIsRejectModalOpen(false); setIsDetailModalOpen(true); }}
-                                className="flex-1 px-6 py-3 rounded-xl font-bold text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                                className="flex-1 px-6 py-3 rounded-xl font-bold text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all"
                             >
-                                Hủy
+                                Quay lại
                             </button>
                             <button
                                 onClick={() => {
-                                    if (!rejectionReason) {
+                                    if (!rejectionReason.trim()) {
                                         toast.error('Vui lòng nhập lý do từ chối.');
                                         return;
                                     }
                                     handleUpdateStatus(selectedOrder._id, 'cancelled', rejectionReason);
                                 }}
                                 disabled={updatingStatus}
-                                className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-70"
+                                className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-70 shadow-lg shadow-red-500/30"
                             >
-                                {updatingStatus ? 'Đang gửi...' : 'Xác nhận từ chối'}
+                                {updatingStatus ? 'Đang xử lý...' : 'Xác nhận hủy'}
                             </button>
                         </div>
                     </div>

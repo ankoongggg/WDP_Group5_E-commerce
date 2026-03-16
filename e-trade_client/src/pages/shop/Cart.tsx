@@ -8,7 +8,8 @@ const Cart: React.FC = () => {
   const { cart, removeFromCart, updateQuantity, clearCart, cartTotal } = useCart();
   const { formatPrice } = useCurrency();
 
-  if (cart.length === 0) {
+  // Kiểm tra an toàn
+  if (!cart || cart.length === 0) {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto px-4 py-16 text-center">
@@ -49,39 +50,53 @@ const Cart: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {cart.map((item) => (
-                          <tr key={item.productId} className="dark:text-white">
-                            <td className="px-6 py-6">
-                               <div className="flex items-center gap-4">
-                                 <div className="w-20 h-20 rounded-lg bg-slate-100 flex-shrink-0 overflow-hidden">
-                                   <img src={item.main_image} alt={item.name} className="w-full h-full object-cover" />
+                        {cart.map((item, index) => {
+                          // Lấy dữ liệu từ item.product (cấu trúc mới)
+                          const prod = item.product || {};
+                          // Dùng index làm key dự phòng nếu bị trùng
+                          const key = `${prod._id}-${item.type}-${index}`;
+                          
+                          return (
+                            <tr key={key} className="dark:text-white">
+                              <td className="px-6 py-6">
+                                 <div className="flex items-center gap-4">
+                                   <div className="w-20 h-20 rounded-lg bg-slate-100 flex-shrink-0 overflow-hidden">
+                                     <img src={prod.main_image || "https://placehold.co/100"} alt={prod.name} className="w-full h-full object-cover" />
+                                   </div>
+                                   <div>
+                                     <h3 className="font-bold line-clamp-2">{prod.name || 'Sản phẩm lỗi'}</h3>
+                                     {item.type && (
+                                       <p className="text-xs text-primary font-medium mt-1 bg-primary/10 inline-block px-2 py-0.5 rounded">
+                                         Loại: {item.type}
+                                       </p>
+                                     )}
+                                     <p className="text-xs text-slate-500 mt-1 uppercase">
+                                        {prod.store_id?.shop_name || 'Cửa hàng'}
+                                     </p>
+                                   </div>
                                  </div>
-                                 <div>
-                                   <h3 className="font-bold">{item.name}</h3>
-                                   <p className="text-xs text-slate-500 mt-1 uppercase">{item.shop_name}</p>
-                                 </div>
-                               </div>
-                            </td>
-                            <td className="px-6 py-6">
-                              {formatPrice(item.price)}
-                            </td>
-                            <td className="px-6 py-6">
-                              <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg w-max">
-                                <button onClick={() => updateQuantity(item.productId, item.quantity - 1)} className="px-3 py-1 hover:bg-slate-100 dark:hover:bg-slate-800">-</button>
-                                <span className="px-4 py-1 font-bold">{item.quantity}</span>
-                                <button onClick={() => updateQuantity(item.productId, item.quantity + 1)} className="px-3 py-1 hover:bg-slate-100 dark:hover:bg-slate-800">+</button>
-                              </div>
-                            </td>
-                            <td className="px-6 py-6 font-bold">
-                              {formatPrice(item.price * item.quantity)}
-                            </td>
-                            <td className="px-6 py-6">
-                              <button onClick={() => removeFromCart(item.productId)} className="text-slate-400 hover:text-red-500 transition-colors">
-                                <span className="material-symbols-outlined">delete</span>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td className="px-6 py-6 font-medium">
+                                {formatPrice(prod.price || 0)}
+                              </td>
+                              <td className="px-6 py-6">
+                                <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg w-max">
+                                  <button onClick={() => updateQuantity(prod._id, item.quantity - 1, item.type)} className="px-3 py-1 hover:bg-slate-100 dark:hover:bg-slate-800">-</button>
+                                  <span className="px-4 py-1 font-bold">{item.quantity}</span>
+                                  <button onClick={() => updateQuantity(prod._id, item.quantity + 1, item.type)} className="px-3 py-1 hover:bg-slate-100 dark:hover:bg-slate-800">+</button>
+                                </div>
+                              </td>
+                              <td className="px-6 py-6 font-bold text-primary">
+                                {formatPrice((prod.price || 0) * item.quantity)}
+                              </td>
+                              <td className="px-6 py-6 text-right">
+                                <button onClick={() => removeFromCart(prod._id, item.type)} className="text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 p-2 rounded-lg transition-colors">
+                                  <span className="material-symbols-outlined">delete</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                    </table>
                 </div>
@@ -90,7 +105,9 @@ const Cart: React.FC = () => {
           
           <aside className="w-full lg:w-96">
              <div className="bg-white dark:bg-slate-900/50 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sticky top-24">
-                <h3 className="text-xl font-bold mb-6 dark:text-white">Tóm tắt đơn hàng</h3>
+                <h3 className="text-xl font-bold mb-6 dark:text-white flex items-center gap-2">
+                  <span className="material-symbols-outlined">receipt_long</span> Tóm tắt đơn hàng
+                </h3>
                 <div className="space-y-4 text-sm mb-6">
                    <div className="flex justify-between text-slate-500 dark:text-slate-400">
                      <span>Tạm tính</span>
@@ -98,18 +115,15 @@ const Cart: React.FC = () => {
                        {formatPrice(cartTotal)}
                      </span>
                    </div>
-                   <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                     <span>Vận chuyển</span>
-                     <span className="font-bold text-green-500">Miễn phí</span>
-                   </div>
-                   <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-800">
-                     <span className="text-lg font-bold dark:text-white">Tổng</span>
+                  
+                   <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
+                     <span className="text-lg font-bold dark:text-white">Tổng cộng</span>
                      <span className="text-2xl font-black text-primary">
                        {formatPrice(cartTotal)}
                      </span>
                    </div>
                 </div>
-                <Link to="/checkout" className="w-full block bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl text-center shadow-lg shadow-primary/20 transition-all">
+                <Link to="/checkout" className="w-full block bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl text-center shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]">
                   TIẾN HÀNH THANH TOÁN
                 </Link>
              </div>

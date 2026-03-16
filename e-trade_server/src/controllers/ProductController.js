@@ -2,20 +2,15 @@ const mongoose = require("mongoose");
 const User = require('../models/User');
 const Store = require('../models/Store');
 const Product = require('../models/Product');
-const Review = require('../models/ReviewProduct'); // Thêm import Review của Thắng
+const Review = require('../models/ReviewProduct');
 const BlacklistKeyword = require('../models/BlacklistKeyword');
 const Order = require('../models/Order');
 const Category = require('../models/Category');
+
 // ==========================================
 // CÁC HÀM CỦA TÚ (Quản lý tìm kiếm, lọc)
 // ==========================================
 
-// GET /api/products
-// Query params: 
-// - keyword: tìm kiếm theo tên hoặc mô tả
-// - limit: giới hạn số lượng (mặc định 10)
-// - page: phân trang
-// Helper function: Đếm số order của từng sản phẩm để xếp hạng "Bán chạy"
 const getTopSellingProductIds = async () => {
     const orderStats = await Order.aggregate([
         { $unwind: "$items" },
@@ -29,7 +24,6 @@ const getTopSellingProductIds = async () => {
     return map;
 };
 
-// Hàm Helper đếm số lượng Order để tối ưu hiệu suất
 const getOrderCounts = async () => {
     const stats = await Order.aggregate([
         { $unwind: "$items" },
@@ -45,7 +39,6 @@ exports.getProductsOnHomePage = async (req, res) => {
         const { keyword, interests, category_interests, page = 1, limit = 18 } = req.query;
         const skip = (page - 1) * limit;
 
-        // Xử lý biến đầu vào
         const searchKeyword = keyword ? keyword.trim().toLowerCase() : null;
         const interestWords = interests ? interests.replace(/,/g, ' ').trim() : null;
         
@@ -57,10 +50,8 @@ exports.getProductsOnHomePage = async (req, res) => {
                 .map(id => new mongoose.Types.ObjectId(id));
         }
 
-        // 1. CHỈ LẤY SẢN PHẨM ACTIVE (Không lọc theo keyword ở bước này để đảm bảo có đủ data bù đắp)
         let pipeline = [ { $match: { status: 'active' } } ];
 
-        // 2. TÍNH TOÁN STOCK TRONG PIPELINE
         pipeline.push({
             $addFields: {
                 calculated_stock: {
@@ -77,66 +68,47 @@ exports.getProductsOnHomePage = async (req, res) => {
             }
         });
 
-        // 3. THUẬT TOÁN CHẤM ĐIỂM (SCORING)
-        let scoreLogic = { $add: [0] }; // Mặc định 0 điểm
+        let scoreLogic = { $add: [0] };
 
-        // +100 Điểm nếu khớp Keyword (Người dùng chủ động search)
         if (searchKeyword) {
             const regex = new RegExp(searchKeyword.split(/\s+/).join('|'), 'i');
             scoreLogic.$add.push({ $cond: [{ $regexMatch: { input: { $ifNull: ["$name", ""] }, regex: regex } }, 100, 0] });
         }
         
-        // Nếu không có Keyword, check lịch sử duyệt (Trang chủ)
         if (!searchKeyword) {
-            // +50 Điểm nếu thuộc Category đã xem
             if (catIds.length > 0) {
                 scoreLogic.$add.push({ $cond: [{ $in: ["$category_id", catIds] }, 50, 0] });
             }
-            // +30 Điểm nếu tên na ná các sản phẩm đã xem
             if (interestWords) {
                 const regexInt = new RegExp(interestWords.split(/\s+/).join('|'), 'i');
                 scoreLogic.$add.push({ $cond: [{ $regexMatch: { input: { $ifNull: ["$name", ""] }, regex: regexInt } }, 30, 0] });
             }
         }
 
-        // Gắn điểm vào sản phẩm
         pipeline.push({ $addFields: { match_score: scoreLogic } });
 
-        // 4. LẤY TOÀN BỘ (HOẶC GIỚI HẠN LỚN) LÊN ĐỂ JS GẮN TOTAL_ORDERS RỒI MỚI SORT
-        // (Do Order nằm ở bảng khác, việc lookup toàn bộ DB trong pipeline rất chậm, ta xử lý bằng JS)
         let products = await Product.aggregate(pipeline);
         const orderCountMap = await getOrderCounts();
 
-        // Gắn số order vào từng SP
         products = products.map(p => {
             p.totalOrders = orderCountMap[p._id.toString()] || 0;
             return p;
         });
 
-        // 5. THUẬT TOÁN SORT CUỐI CÙNG BẰNG JAVASCRIPT
         products.sort((a, b) => {
-            // Ưu tiên 1: Còn hàng lên trước, Hết hàng xuống cuối
             if (a.is_in_stock !== b.is_in_stock) return b.is_in_stock - a.is_in_stock;
-            // Ưu tiên 2: Điểm liên quan (Keyword, Category) cao lên trước
             if (a.match_score !== b.match_score) return b.match_score - a.match_score;
-            // Ưu tiên 3: Bán chạy (Nhiều Order) lên trước
             if (a.totalOrders !== b.totalOrders) return b.totalOrders - a.totalOrders;
-            // Ưu tiên 4: Cùng điểm, cùng order -> Mới nhất lên trước
             return new Date(b.created_at) - new Date(a.created_at);
         });
 
-        // 6. PHÂN TRANG VÀ BÙ ĐẮP SẢN PHẨM (Pagination)
         const total = products.length;
         const paginatedProducts = products.slice(skip, skip + parseInt(limit));
 
-        // 7. CHỈ LOOKUP STORE & USER CHO CÁC SẢN PHẨM NẰM TRONG TRANG HIỆN TẠI (Tối ưu cực mạnh)
         await Product.populate(paginatedProducts, [
             { path: 'store_id', select: 'shop_name' },
             { path: 'user_id', select: 'full_name' }
         ]);
-
-        // LOG NGẮN GỌN 1 DÒNG
-        //console.log(`[GET PRODUCTS] Search: '${keyword||'none'}' | Category: ${catIds.length} | Interests: '${interestWords||'none'}' -> Trả về ${paginatedProducts.length}/${total}`);
 
         res.json({
             success: true,
@@ -157,15 +129,12 @@ exports.getRandomUsedProducts = async (req, res) => {
         const limit = parseInt(req.query.limit) || 10;
 
         const pipeline = [
-            // 1. Lọc sản phẩm Active và là Đồ cũ (Used)
             { 
                 $match: { 
                     status: 'active',
                     condition: 'Used'
                 } 
             },
-
-            // 2. Lookup để lấy thông tin người dùng đăng bán (User)
             { 
                 $lookup: { 
                     from: 'users', 
@@ -175,8 +144,6 @@ exports.getRandomUsedProducts = async (req, res) => {
                 } 
             },
             { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
-
-            // 3. Tính toán tổng Stock (bao gồm cả phân loại)
             {
                 $addFields: {
                     calculated_stock: {
@@ -188,18 +155,14 @@ exports.getRandomUsedProducts = async (req, res) => {
                     }
                 }
             },
-
-            // 4. Chỉ giữ lại sản phẩm còn hàng (Stock > 0)
             {
                 $match: {
                     calculated_stock: { $gt: 0 }
                 }
             },
-
-            // 5. Lấy ngẫu nhiên (Random)
-            { $sample: { size: limit } },
-
-            // 6. Format dữ liệu trả về cho gọn gàng (Giống với ProductCard)
+            // Sort bài mới đăng lên đầu
+            { $sort: { created_at: -1 } },
+            { $limit: limit },
             {
                 $project: {
                     _id: 1, 
@@ -244,7 +207,6 @@ exports.getProductsOnProductList = async (req, res) => {
         let matchStage = { status: 'active' };
         let isSearching = false;
 
-        // 1. Lọc theo Category
         if (category) {
             const catIds = category.split(',')
                 .map(id => id.trim())
@@ -255,10 +217,8 @@ exports.getProductsOnProductList = async (req, res) => {
             }
         }
 
-        // 2. Lọc theo Keyword (Tìm kiếm chính xác)
         if (keyword) {
             isSearching = true;
-            // Xóa khoảng trắng thừa, tìm kiếm Case-insensitive
             const cleanKeyword = keyword.trim().replace(/\s+/g, ' ');
             const searchRegex = new RegExp(cleanKeyword, 'i');
             matchStage.$or = [
@@ -267,32 +227,26 @@ exports.getProductsOnProductList = async (req, res) => {
             ];
         }
 
-        // 3. Lấy dữ liệu sản phẩm thỏa mãn
         let products = await Product.find(matchStage)
             .populate('store_id', 'shop_name')
             .populate('user_id', 'full_name')
-            .lean(); // Dùng lean() để trả về plain object, tăng tốc độ
+            .lean();
 
-        // Khai báo biến chứa sản phẩm gợi ý (Fallback)
         let fallbackProducts = [];
 
-        // 4. LOGIC FALLBACK (Nếu tìm không ra sản phẩm)
         if (products.length === 0 && isSearching && category) {
             console.log("-> Không tìm thấy Keyword trong Category. Bật chế độ Fallback.");
-            // Tạo query mới: Cùng Category nhưng bỏ qua Keyword
             let fallbackMatch = { status: 'active', category_id: matchStage.category_id };
             fallbackProducts = await Product.find(fallbackMatch)
                 .populate('store_id', 'shop_name')
                 .populate('user_id', 'full_name')
-                .limit(8) // Chỉ lấy tối đa 8 sản phẩm gợi ý
+                .limit(8)
                 .lean();
         }
 
-        // 5. MAP STOCK VÀ TOTAL ORDERS
         const orderMap = await getOrderCounts();
         
         const mapProductData = (p) => {
-            // Tính tổng stock an toàn
             let totalStock = 0;
             if (Array.isArray(p.product_type) && p.product_type.length > 0) {
                 totalStock = p.product_type.reduce((sum, pt) => sum + (pt.stock || 0), 0);
@@ -304,7 +258,6 @@ exports.getProductsOnProductList = async (req, res) => {
             p.is_in_stock = totalStock > 0 ? 1 : 0;
             p.totalOrders = orderMap[p._id.toString()] || 0;
             
-            // Format name user cho chuẩn với component
             if (p.user_id) p.user_id.name = p.user_id.full_name;
 
             return p;
@@ -315,28 +268,24 @@ exports.getProductsOnProductList = async (req, res) => {
             fallbackProducts = fallbackProducts.map(mapProductData);
         }
 
-        // 6. SORT THEO YÊU CẦU CỦA FRONTEND (filter params)
         products.sort((a, b) => {
-            // LUÔN ƯU TIÊN: Hàng còn Stock lên trước
             if (a.is_in_stock !== b.is_in_stock) return b.is_in_stock - a.is_in_stock;
 
             switch (filter) {
-                case 'popular': // Bán chạy nhất
+                case 'popular': 
                     return b.totalOrders - a.totalOrders;
-                case 'latest': // Mới nhất
+                case 'latest': 
                     return new Date(b.created_at) - new Date(a.created_at);
-                case 'price-asc': // Giá thấp đến cao
+                case 'price-asc': 
                     return a.price - b.price;
-                case 'price-desc': // Giá cao đến thấp
+                case 'price-desc': 
                     return b.price - a.price;
                 default: 
-                    // Mặc định: Phù hợp keyword (Đã lọc ở DB) -> Nhiều đơn -> Mới nhất
                     if (a.totalOrders !== b.totalOrders) return b.totalOrders - a.totalOrders;
                     return new Date(b.created_at) - new Date(a.created_at);
             }
         });
 
-        // 7. PHÂN TRANG (Bằng Javascript sau khi Sort)
         const total = products.length;
         const paginatedProducts = products.slice(skip, skip + parseInt(limit));
 
@@ -348,7 +297,7 @@ exports.getProductsOnProductList = async (req, res) => {
             total_pages: Math.ceil(total / parseInt(limit)) || 1,
             current_page: parseInt(page),
             data: paginatedProducts,
-            fallbackData: fallbackProducts // Trả mảng gợi ý riêng
+            fallbackData: fallbackProducts 
         });
 
     } catch (error) {
@@ -359,16 +308,13 @@ exports.getProductsOnProductList = async (req, res) => {
 
 exports.getProductGotMostOrders = async (req, res) => {
     try{
-
         const { keyword, page = 1, limit = 12 } = req.query;
         const skip = (page - 1) * limit;
 
         const matchStage = {
             status: 'active',
             conditon: 'New',
-            
         }
-
     }catch(err){
         console.error("Error in getProductGotMostOrders:", err);
         res.status(500).json({ success: false, message: 'Server Error', error: err.message });
@@ -377,16 +323,13 @@ exports.getProductGotMostOrders = async (req, res) => {
 
 exports.getProductsGotSaleMoreThan50PercentRecommendedByAdmin = async (req, res) => {
 
-
 }
-
 
 exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
     try {
         const { keyword, limit = 10 } = req.query;
         const limitNum = parseInt(limit);
 
-        // Pipeline xử lý logic "xịn" bằng Aggregation
         let pipeline = [
             { 
                 $match: { 
@@ -397,7 +340,6 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
             }
         ];
 
-        // 1. Filter by keyword nếu có
         if (keyword) {
             pipeline.push({
                 $match: {
@@ -409,7 +351,6 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
             });
         }
 
-        // 2. Tính toán % giảm giá trực tiếp trong DB (Nhanh hơn JS thuần)
         pipeline.push({
             $addFields: {
                 discount_numeric: {
@@ -421,18 +362,16 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
             }
         });
 
-        // 3. Lọc sản phẩm có giảm giá > 0
         pipeline.push({ $match: { discount_numeric: { $gt: 0 } } });
 
-        // 4. Chiến lược lấy dữ liệu: Ưu tiên giảm sâu (>50%), nếu không có thì lấy giảm nhiều nhất
         pipeline.push({
             $facet: {
                 deepSale: [
                     { $match: { discount_numeric: { $gt: 50 } } },
-                    { $sample: { size: limitNum } } // Random lấy limit
+                    { $sample: { size: limitNum } } 
                 ],
                 topSale: [
-                    { $sort: { discount_numeric: -1 } }, // Sắp xếp giảm dần
+                    { $sort: { discount_numeric: -1 } }, 
                     { $limit: limitNum }
                 ]
             }
@@ -453,16 +392,13 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
             finalResult = topSale;
         }
 
-        // Populate store info thủ công (vì aggregate $lookup phức tạp hơn ở bước này)
         await Product.populate(finalResult, { path: 'store_id', select: 'shop_name' });
 
-        // Format lại dữ liệu trả về
         finalResult = finalResult.map(p => ({
             ...p,
             discount_percentage: Math.round(p.discount_numeric) + '%'
         }));
 
-        // 6. Trả về kết quả
         res.status(200).json({
             success: true,
             count: finalResult.length,
@@ -480,7 +416,6 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
     }
 };
 
-// GET /api/products/:id (Để xem chi tiết - Của Tú)
 exports.getProductById = async (req, res) => {
     try {
         const product = await Product.findById(req.params.id)
@@ -501,12 +436,10 @@ exports.getProductById = async (req, res) => {
 // CÁC HÀM CỦA THẮNG (Chi tiết sản phẩm, đánh giá)
 // ==========================================
 
-// Controller: Get product details
 exports.getProductDetails = async (req, res) => {
     try {
         const productId = req.params.id;
 
-        // ĐÃ THÊM CHỮ "stock" VÀO SELECT ĐỂ FRONTEND LẤY ĐƯỢC SỐ LƯỢNG
         const product = await Product.findById(productId)
             .select("_id store_id category_id name description main_image display_files price original_price product_type stock condition status rejection_reason")
             .populate('store_id', 'shop_name description')
@@ -516,7 +449,6 @@ exports.getProductDetails = async (req, res) => {
             return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
         }
 
-        // 2. Use aggregation to get all review stats efficiently
         const statsResult = await Review.aggregate([
             { $match: { product_id: new mongoose.Types.ObjectId(productId) } },
             {
@@ -538,11 +470,9 @@ exports.getProductDetails = async (req, res) => {
             }
         ]);
 
-        // 3. Process the aggregation result
         const overallStats = statsResult[0].overall[0] || { averageRating: 0, totalReviews: 0 };
         const countsPerRatingRaw = statsResult[0].countsPerRating || [];
 
-        // Create a clean object for rating counts, ensuring all ratings from 1-5 are present with a default of 0
         const ratingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
         countsPerRatingRaw.forEach(item => {
             if (item.rating >= 1 && item.rating <= 5) {
@@ -553,9 +483,8 @@ exports.getProductDetails = async (req, res) => {
         res.status(200).json({
             product,
             totalReviews: overallStats.totalReviews,
-            // Ensure averageRating is a number and fixed to one decimal place
             averageRating: overallStats.averageRating ? parseFloat(overallStats.averageRating.toFixed(1)) : 0,
-            ratingCounts // This is the new data
+            ratingCounts 
         });
     } catch (error) {
         console.error('Error fetching product details:', error);
@@ -563,7 +492,6 @@ exports.getProductDetails = async (req, res) => {
     }
 };
 
-// Controller: Get all reviews for a product with pagination
 exports.getProductReviews = async (req, res) => {
     try {
         const productId = req.params.id;
@@ -572,26 +500,22 @@ exports.getProductReviews = async (req, res) => {
         const rating = parseInt(req.query.rating, 10);
         const skip = (page - 1) * limit;
 
-        // Optional: Check if product exists
         const productExists = await Product.findById(productId).select('_id');
         if (!productExists) {
             return res.status(404).json({ message: 'Product not found' });
         }
 
-        // Xây dựng bộ lọc
         const filter = { product_id: productId };
         if (rating && rating >= 1 && rating <= 5) {
             filter.rating = rating;
         }
 
-        // Fetch reviews with pagination
         const reviews = await Review.find(filter)
-            .populate('user_id', 'account_name avatar') // Populate user's name and avatar
-            .sort({ created_at: -1 }) // Sort by newest first
+            .populate('user_id', 'account_name avatar') 
+            .sort({ created_at: -1 }) 
             .skip(skip)
             .limit(limit);
 
-        // Get total number of reviews for pagination
         const totalReviews = await Review.countDocuments(filter);
 
         res.status(200).json({
@@ -606,16 +530,18 @@ exports.getProductReviews = async (req, res) => {
     }
 };
 
-// customer product functions (Tú)
-// [GET] /api/past-item-listing/me
-// [GET] /api/products/customer_passed_products
+// ==========================================
+// CÁC HÀM CỦA TÚ (Pass Đồ Cũ)
+// ==========================================
+
 exports.getCustomerPassedProducts = async (req, res) => {
     try {
         const userId = req.user.id;
         
-        // Tìm các sản phẩm do user này tạo, nhưng không thuộc về Store nào
+        // Thêm điều kiện store_id: { $exists: false } để chắc chắn chỉ lấy đồ Pass
         const products = await Product.find({ 
             user_id: userId, 
+            store_id: { $exists: false }
         }).sort({ created_at: -1 });
 
         res.status(200).json({ success: true, data: products });
@@ -624,7 +550,6 @@ exports.getCustomerPassedProducts = async (req, res) => {
     }
 };
 
-// [PUT] /api/products/pass/:id
 exports.updateCustomerPassedProduct = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -637,7 +562,6 @@ exports.updateCustomerPassedProduct = async (req, res) => {
             return res.status(403).json({ message: 'Bạn không có quyền chỉnh sửa sản phẩm này.' });
         }
 
-        // chỉ cho phép thay đổi một vài trường
         if (name) product.name = name;
         if (description) product.description = description;
         if (category_id) product.category_id = category_id;
@@ -646,7 +570,6 @@ exports.updateCustomerPassedProduct = async (req, res) => {
         if (price !== undefined) product.price = price;
         if (original_price !== undefined) product.original_price = original_price;
 
-        // nếu client gửi product_type array thì thay toàn bộ (với điều kiện số lượng và giới hạn)
         if (product_type && Array.isArray(product_type)) {
             product.product_type = product_type.map(pt => ({
                 ...pt,
@@ -654,7 +577,6 @@ exports.updateCustomerPassedProduct = async (req, res) => {
             }));
         }
 
-        // lưu lại thời gian cập nhật
         product.updated_at = new Date();
 
         await product.save();
@@ -665,7 +587,6 @@ exports.updateCustomerPassedProduct = async (req, res) => {
     }
 };
 
-// [DELETE] /api/products/pass/:id
 exports.deleteCustomerPassedProduct = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -685,78 +606,56 @@ exports.deleteCustomerPassedProduct = async (req, res) => {
     }
 };
 
-
-
-
-
-
 // [POST] /api/products/pass-item
 exports.createPassing2ndProduct = async (req, res) => {
     try {
-        const userId = req.user.id; // Lấy từ token đăng nhập
-        const { name, description, category_id, main_image, display_files = [], price, original_price,
-             product_type, condition } = req.body;
+        const userId = req.user.id; 
+        const { name, description, category_id, main_image, display_files = [], price, original_price, product_type } = req.body;
 
-        // 1. Kiểm tra xem User này có Store hay không
-        const store = await Store.findOne({ user_id: userId, status: 'active' });
-        const isStore = !!store;
-
-        let finalCondition = condition;
-        let finalProductType = Array.isArray(product_type) ? product_type : [];
-
-        // 2. LOGIC CHỐNG LÁCH LUẬT CHO CUSTOMER (Không có store)
-        if (!isStore) {
-            // Kiểm tra giới hạn bài đăng (Ví dụ: tối đa 5 bài Pass đồ)
-            const activePostsCount = await Product.countDocuments({ user_id: userId, store_id: { $exists: false }, status: { $ne: 'inactive' } });
-            if (activePostsCount >= 10) {
-                return res.status(403).json({ message: 'Bạn đã đạt giới hạn đăng bán cá nhân. Vui lòng đăng ký Cửa hàng để bán thêm.' });
-            }
-
-            // Ép cứng tình trạng là đồ cũ
-            finalCondition = 'Used';
-
-            // ensure each type has numeric stock and cap at 10 per type
-            if (finalProductType.length > 0) {
-                finalProductType = finalProductType.map((pt) => ({
-                    ...pt,
-                    stock: Math.min(10, Math.max(0, Number(pt.stock) || 0))
-                }));
-            } else {
-                finalProductType = [{ description: 'Mặc định', stock: 1, price_difference: 0 }];
-            }
+        // 1. Kiểm tra giới hạn 10 bài đăng
+        const activePostsCount = await Product.countDocuments({ user_id: userId, store_id: { $exists: false }, status: { $ne: 'inactive' } });
+        if (activePostsCount >= 10) {
+            return res.status(403).json({ message: 'Bạn đã đạt giới hạn 10 bài đăng Pass đồ cá nhân.' });
         }
 
-        
+        // 2. Ép cứng tình trạng Used
+        const finalCondition = 'Used';
+
+        let finalProductType = Array.isArray(product_type) ? product_type : [];
+        if (finalProductType.length > 0) {
+            finalProductType = finalProductType.map((pt) => ({
+                ...pt,
+                stock: Math.min(10, Math.max(0, Number(pt.stock) || 0))
+            }));
+        } else {
+            finalProductType = [{ description: 'Mặc định', stock: 1, price_difference: 0 }];
+        }
+
+        // 3. Kiểm duyệt từ khóa cấm
         const blackListKeywords = await BlacklistKeyword.find();
         const textToCheck = `${name} ${description || ''}`.toLowerCase();
         
-        let finalStatus = 'pending'; // Mặc định là pass
+        // TRẢ LẠI TÊN CHO EM: LUÔN PENDING CHỜ ADMIN DUYỆT!
+        let finalStatus = 'pending'; 
         let rejectionReason = '';
 
         for (const item of blackListKeywords) {
             if (textToCheck.includes(item.keyword.toLowerCase())) {
-                if (item.level === 'high') {
-                    //xóa bài
+                if (item.level === 'high' || item.level === 'critical') {
                     rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
-                    return; // Dừng vòng lặp ngay khi tìm thấy từ cấm
-                }
-                if (item.level === 'critical') {
-                    //khóa tài khoản
-                   rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
-                    return; // Dừng vòng lặp ngay khi tìm thấy từ cấm
+                    return res.status(400).json({ success: false, message: rejectionReason });
                 }
                 if (item.level === 'medium') {
-                finalStatus = 'pending';
-                rejectionReason = `Hệ thống tự động tạm giữ vì chứa từ khóa nhạy cảm: "${item.keyword}"`;
-                break; 
-                }// Dừng vòng lặp ngay khi tìm thấy từ cấm
+                    rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
+                    break; 
+                }
             }
         }
 
-        // 4. Tạo sản phẩm
+        // 4. Tạo sản phẩm cá nhân (Tuyệt đối không có store_id)
         const newProduct = new Product({
-            store_id: isStore ? store._id : undefined, // Nếu có store thì gán, không thì undefined
-            user_id: userId,                           // Luôn lưu user_id để biết ai đăng
+            store_id: undefined, 
+            user_id: userId, 
             category_id,
             name,
             description,
@@ -774,7 +673,7 @@ exports.createPassing2ndProduct = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: finalStatus === 'active' ? 'Đăng bán sản phẩm thành công!' : 'Sản phẩm đang được chờ duyệt do chứa từ khóa nhạy cảm.',
+            message: 'Đăng bán thành công! Sản phẩm đang chờ Admin phê duyệt.',
             data: newProduct
         });
 

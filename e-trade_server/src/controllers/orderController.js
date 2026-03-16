@@ -6,7 +6,6 @@ const Product = require('../models/Product');
  * @desc    [SELLER] Lấy danh sách đơn hàng của cửa hàng
  * @route   GET /api/orders/seller
  * @access  Private (Seller)
- * @query   status (pending, confirmed, shipping, completed, cancelled)
  */
 exports.getSellerOrders = async (req, res) => {
     try {
@@ -31,12 +30,12 @@ exports.getSellerOrders = async (req, res) => {
                     from: 'users',
                     localField: 'customer_id',
                     foreignField: '_id',
-                    as: 'customer_id' 
+                    as: 'customer_info' 
                 }
             },
             {
                 $unwind: {
-                    path: '$customer_id',
+                    path: '$customer_info',
                     preserveNullAndEmptyArrays: true
                 }
             }
@@ -53,8 +52,8 @@ exports.getSellerOrders = async (req, res) => {
                 {
                     $match: {
                         $or: [
-                            { 'customer_id.full_name': searchRegex },
-                            { 'customer_id.email': searchRegex },
+                            { 'customer_info.full_name': searchRegex },
+                            { 'customer_info.email': searchRegex },
                             { 'orderIdString': searchRegex }
                         ]
                     }
@@ -66,9 +65,9 @@ exports.getSellerOrders = async (req, res) => {
             ...pipeline,
             {
                 $project: {
-                    customer_id: 1,
+                    customer_id: '$customer_info', 
                     seller_id: 1,
-                    items: 1, // Cái này tự động lấy trường `type` vừa thêm ở Model
+                    items: 1,
                     total_price: 1,
                     shipping_fee: 1,
                     total_amount: 1,
@@ -78,6 +77,8 @@ exports.getSellerOrders = async (req, res) => {
                     order_status: 1,
                     history_logs: 1,
                     note: 1,
+                    cancel_reason: 1,   // Hiển thị cho seller
+                    cancelled_by: 1,    // Hiển thị cho seller
                     created_at: 1,
                     updated_at: 1
                 }
@@ -113,8 +114,6 @@ exports.getSellerOrders = async (req, res) => {
 
 /**
  * @desc    [SELLER] Lấy dữ liệu thống kê cho dashboard
- * @route   GET /api/seller/dashboard
- * @access  Private (Seller)
  */
 exports.getSellerDashboardStats = async (req, res) => {
     try {
@@ -197,10 +196,7 @@ exports.getSellerDashboardStats = async (req, res) => {
 };
 
 /**
- * @desc    [SELLER] Xác nhận hoặc từ chối đơn hàng
- * @route   PUT /api/orders/seller/:orderId/status
- * @access  Private (Seller)
- * @body    { action: 'confirm' | 'reject', reason?: string }
+ * @desc    [SELLER] Cập nhật trạng thái đơn hàng (Xác nhận/Từ chối + Hoàn kho)
  */
 exports.updateOrderStatusBySeller = async (req, res) => {
     try {
@@ -245,13 +241,15 @@ exports.updateOrderStatusBySeller = async (req, res) => {
         let logMessage = `Người bán đã cập nhật trạng thái đơn hàng thành '${status}'.`;
 
         if (status === 'cancelled') {
-            order.note = reason || 'Người bán đã từ chối đơn hàng.';
+            order.cancel_reason = reason || 'Người bán đã từ chối đơn hàng.';
+            order.cancelled_by = 'seller'; 
             logMessage = `Người bán đã hủy đơn hàng. Lý do: ${reason || 'Không có'}`;
 
             if (order.payment_status === 'completed') {
                 order.payment_status = 'refunded';
             }
 
+            // --- LOGIC HOÀN KHO CHO SELLER ---
             for (const item of order.items) {
                 const product = await Product.findById(item.product_id);
                 if (product) {
@@ -266,6 +264,7 @@ exports.updateOrderStatusBySeller = async (req, res) => {
                     if (!variantFound) {
                         product.stock = (product.stock || 0) + item.quantity;
                     }
+                    product.markModified('product_type');
                     await product.save();
                 }
             }
@@ -275,6 +274,7 @@ exports.updateOrderStatusBySeller = async (req, res) => {
         await order.save();
 
         res.status(200).json({
+            success: true,
             message: `Cập nhật trạng thái đơn hàng thành công.`,
             data: order
         });
@@ -285,71 +285,139 @@ exports.updateOrderStatusBySeller = async (req, res) => {
     }
 };
 
-// GET /api/users/passed-orders
+/**
+ * @desc    [CUSTOMER] Khách hàng tự hủy đơn COD khi còn PENDING
+ */
+exports.customerCancelOrder = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { reason } = req.body;
+        const userId = req.user.id;
+
+        const order = await Order.findById(orderId);
+        if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
+
+        if (order.customer_id.toString() !== userId) {
+            return res.status(403).json({ message: 'Bạn không có quyền hủy đơn hàng này.' });
+        }
+
+        if (order.order_status !== 'pending' || order.payment_method !== 'cod') {
+            return res.status(400).json({ message: 'Chỉ có thể hủy đơn COD đang chờ xác nhận.' });
+        }
+
+        order.order_status = 'cancelled';
+        order.cancel_reason = reason || 'Người mua tự hủy đơn.';
+        order.cancelled_by = 'customer';
+        order.history_logs.push({ 
+            action: `Người mua đã chủ động hủy đơn hàng. Lý do: ${reason}`, 
+            created_at: new Date() 
+        });
+
+        // --- LOGIC HOÀN KHO CHO CUSTOMER ---
+        for (const item of order.items) {
+            const product = await Product.findById(item.product_id);
+            if (product) {
+                let variantFound = false;
+                if (product.product_type && product.product_type.length > 0 && item.type && item.type !== 'default') {
+                    const variant = product.product_type.find(v => v.description === item.type);
+                    if (variant) {
+                        variant.stock = (variant.stock || 0) + item.quantity;
+                        variantFound = true;
+                    }
+                }
+                if (!variantFound) {
+                    product.stock = (product.stock || 0) + item.quantity;
+                }
+                product.markModified('product_type');
+                await product.save();
+            }
+        }
+
+        await order.save();
+        res.status(200).json({ success: true, message: 'Đã hủy đơn hàng thành công.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};
+
+/**
+ * @desc    [SELLER] Lấy đơn hàng ký gửi (2nd hand)
+ */
 exports.getCustomerPassedOrders = async (req, res) => {
     try {
         const userId = req.user.id;
         const { status } = req.query;
-
-        let matchStage = { 
-            seller_id: userId, 
-            seller_type: 'User' 
-        };
-
+        let matchStage = { seller_id: userId, seller_type: 'User' };
         if (status) matchStage.order_status = status;
-
         const orders = await Order.find(matchStage)
             .populate('customer_id', 'full_name email phone') 
             .populate('items.product_id', 'name main_image')
             .sort({ created_at: -1 });
-
         res.status(200).json({ success: true, data: orders });
     } catch (error) {
         res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
 };
 
-// PUT /api/users/passed-orders/:orderId/status
+/**
+ * @desc    [SELLER] Cập nhật đơn hàng ký gửi
+ */
 exports.updatePassedOrderStatus = async (req, res) => {
     try {
         const { orderId } = req.params;
         const userId = req.user.id;
         const { status, reason } = req.body;
-
         const order = await Order.findById(orderId);
-        
         if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
-        
         if (order.seller_type !== 'User' || order.seller_id.toString() !== userId) {
             return res.status(403).json({ message: 'Bạn không có quyền xử lý đơn này.' });
         }
-
         order.order_status = status;
         if (status === 'cancelled') {
             order.note = reason;
+            order.cancel_reason = reason;
+            order.cancelled_by = 'seller';
         }
-
         order.history_logs.push({ action: `Chủ hàng đã chuyển trạng thái thành ${status}`, created_at: new Date() });
         await order.save();
-
         res.status(200).json({ success: true, message: 'Đã cập nhật đơn hàng', data: order });
     } catch (error) {
         res.status(500).json({ message: 'Lỗi server' });
     }
 };
 
-// 👇👇👇 HÀM NÀY MỚI LÀ HÀM CHO CÁI TRANG LỊCH SỬ ĐƠN HÀNG (OrderHistory.tsx) CỦA NGƯỜI MUA 👇👇👇
+/**
+ * @desc    [CUSTOMER] Lấy lịch sử đơn hàng cá nhân
+ */
 exports.getMyOrders = async (req, res) => {
     try {
         const userId = req.user.id;
-        // Tìm tất cả đơn hàng mà user này là người mua (customer_id)
         const orders = await Order.find({ customer_id: userId })
-            .populate('seller_id', 'shop_name full_name') // Lấy tên shop
+            .populate('seller_id', 'shop_name full_name avatar')
             .populate('items.product_id', 'name main_image price')
-            .sort({ created_at: -1 }); // Mới nhất lên đầu
-
+            .sort({ created_at: -1 });
         res.status(200).json({ success: true, data: orders });
     } catch (error) {
         res.status(500).json({ message: 'Lỗi khi lấy lịch sử đơn hàng', error: error.message });
+    }
+};
+
+/**
+ * @desc    [CUSTOMER] Xem chi tiết 1 đơn hàng
+ */
+exports.getOrderDetail = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const userId = req.user.id;
+        const order = await Order.findById(orderId)
+            .populate('seller_id', 'shop_name full_name avatar phone')
+            .populate('items.product_id', 'name main_image price');
+        
+        if (!order) return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
+        if (order.customer_id.toString() !== userId) return res.status(403).json({ success: false, message: 'Không có quyền' });
+
+        res.json({ success: true, data: order });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Lỗi server' });
     }
 };

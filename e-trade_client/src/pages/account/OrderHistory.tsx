@@ -93,7 +93,7 @@ interface OrderItem {
   price_snapshot: number;
   quantity: number;
   image_snapshot: string;
-  type?: string; // 👇 KHAI BÁO TYPE Ở ĐÂY ĐỂ TYPESCRIPT KHÔNG KÊU LỖI
+  type?: string; 
   user_review?: any;
 }
 
@@ -126,10 +126,12 @@ const OrderHistory: React.FC = () => {
   const { formatPrice } = useCurrency();
   const [selectedReviewItem, setSelectedReviewItem] = useState<any | null>(null);
 
+  // 👉 ĐÃ TÁCH TAB "ĐÃ XÁC NHẬN" VÀ "ĐANG VẬN CHUYỂN" LÀM 2
   const tabs = [
     { id: 'all', label: 'Tất cả' },
     { id: 'pending', label: 'Chờ xác nhận' },
-    { id: 'confirmed', label: 'Vận chuyển' },
+    { id: 'confirmed', label: 'Đã xác nhận' }, // Tab mới cho Credit Card
+    { id: 'shipping', label: 'Đang giao' },     // Tab cho quá trình vận chuyển
     { id: 'completed', label: 'Hoàn thành' },
     { id: 'cancelled', label: 'Đã hủy' },
   ];
@@ -151,18 +153,20 @@ const OrderHistory: React.FC = () => {
   const filteredOrders = orders.filter(order => {
     if (activeTab === 'all') return true;
     if (activeTab === 'pending') return order.order_status === 'pending';
-    if (activeTab === 'confirmed') return ['confirmed', 'shipping', 'shipped'].includes(order.order_status);
+    if (activeTab === 'confirmed') return order.order_status === 'confirmed'; // Lọc đúng confirmed
+    if (activeTab === 'shipping') return ['shipping', 'shipped'].includes(order.order_status); // Lọc đúng shipping
     if (activeTab === 'completed') return order.order_status === 'completed';
     if (activeTab === 'cancelled') return order.order_status === 'cancelled';
     return true;
   }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+  // 👉 TÁCH MÀU CHO DỄ PHÂN BIỆT
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'text-amber-500';
-      case 'confirmed': return 'text-blue-500';
-      case 'shipping': return 'text-blue-500'
-      case 'shipped': return 'text-blue-500';
+      case 'confirmed': return 'text-indigo-500'; // Đã xác nhận màu chàm
+      case 'shipping': 
+      case 'shipped': return 'text-blue-500'; // Đang giao màu xanh lam
       case 'completed': return 'text-green-500';
       case 'cancelled': return 'text-red-500';
       default: return 'text-slate-500';
@@ -172,13 +176,25 @@ const OrderHistory: React.FC = () => {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'pending': return 'Chờ xác nhận';
-      case 'confirmed':
+      case 'confirmed': return 'Đã xác nhận (Chờ lấy hàng)'; // Đổi label rõ ràng hơn
       case 'shipping':
-      case 'shipped':
-        return 'Đang vận chuyển';
+      case 'shipped': return 'Đang vận chuyển';
       case 'completed': return 'Hoàn thành';
       case 'cancelled': return 'Đã hủy';
       default: return status;
+    }
+  };
+
+  // 👉 ĐỔI ICON TƯƠNG ỨNG TỪNG TRẠNG THÁI
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending': return 'hourglass_empty';
+      case 'confirmed': return 'inventory_2'; // Icon đóng gói hàng
+      case 'shipping':
+      case 'shipped': return 'local_shipping'; // Icon xe tải
+      case 'completed': return 'check_circle';
+      case 'cancelled': return 'cancel';
+      default: return 'info';
     }
   };
 
@@ -247,7 +263,6 @@ const OrderHistory: React.FC = () => {
                               )}
                             </div>
                             
-                            {/* HIỂN THỊ THỜI GIAN ĐẶT HÀNG */}
                             <div className="text-xs text-slate-500 flex items-center gap-1 font-medium mt-1">
                               <span className="material-symbols-outlined text-[14px]">schedule</span>
                               Đã đặt lúc: {formatDateTime(order.created_at)}
@@ -255,7 +270,7 @@ const OrderHistory: React.FC = () => {
                           </div>
 
                           <div className={`text-sm font-bold uppercase flex items-center gap-1 ${getStatusColor(order.order_status)}`}>
-                            <span className="material-symbols-outlined text-lg">{order.order_status === 'completed' ? 'check_circle' : 'local_shipping'}</span>
+                            <span className="material-symbols-outlined text-lg">{getStatusIcon(order.order_status)}</span>
                             {getStatusLabel(order.order_status)}
                           </div>
                         </div>
@@ -271,7 +286,6 @@ const OrderHistory: React.FC = () => {
                                   <div className="flex-1">
                                     <h3 className="font-medium line-clamp-2 dark:text-white group-hover:text-primary transition-colors">{item.name_snapshot}</h3>
                                     
-                                    {/* 👇 ĐÂY RỒI! HIỂN THỊ TYPE LÊN ĐÂY */}
                                     {item.type && (
                                         <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 inline-block rounded">
                                             Phân loại: {item.type}

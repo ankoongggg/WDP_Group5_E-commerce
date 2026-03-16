@@ -1,5 +1,3 @@
-import { create } from "domain";
-
 const API_BASE = 'http://localhost:9999/api';
 export const getGoogleAuthUrl = () => `${API_BASE}/auth/google`;
 
@@ -98,7 +96,6 @@ export const authApi = {
         return data;
     },
     
-    // Đã trả lại hàm register để bạn tạo tài khoản mượt mà
     register: (name: string, email: string, password: string, phone: string, street: string, district: string, city: string) =>
         api('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, phone, street, district, city }) }),
         
@@ -108,7 +105,6 @@ export const authApi = {
     
     logout: () => api('/auth/logout', { method: 'POST', requireAuth: true }),
 
-    // --- THÊM HÀM ĐỔI MẬT KHẨU VÀO ĐÂY NÈ ĐẠI CA ---
     changePassword: async (currentPassword: string, newPassword: string) => {
         return api('/users/change-password', {
             method: 'PUT',
@@ -116,7 +112,7 @@ export const authApi = {
             body: JSON.stringify({ currentPassword, newPassword })
         });
     },
-    // ---------------------------------------------
+
     toggleWishlist: (productId: string) => 
         api('/users/wishlist/toggle', {
             method: 'POST',
@@ -148,106 +144,86 @@ export const authApi = {
     },
 };
 
+// Tìm đến cục shopApi và thay bằng đoạn này:
 export const shopApi = {
-    // Lấy danh sách payment methods
     getPaymentMethods: () => api('/shop/payment-methods'),
+    createOrder: (orderData: any) => api('/shop/orders', { method: 'POST', requireAuth: true, body: JSON.stringify(orderData) }),
+    submitPayment: (orderId: string, paymentData: any) => api(`/shop/orders/${orderId}/payment`, { method: 'POST', requireAuth: true, body: JSON.stringify(paymentData) }),
     
-    // Tạo order từ cart
-    createOrder: (orderData: any) => 
-        api('/shop/orders', { 
-            method: 'POST', 
+    // 👉 ĐÃ FIX: Gọi đúng /orders/my-orders để hiện lại đơn hàng cũ
+    getMyOrders: () => api('/orders/my-orders', { requireAuth: true }),
+    
+    // 👉 ĐÃ FIX: Gọi đúng /orders/detail/...
+    getOrderDetail: (orderId: string) => api(`/orders/detail/${orderId}`, { requireAuth: true }),
+
+    // 👉 ĐÃ FIX: Gọi đúng /orders/cancel/...
+    cancelOrder: (orderId: string, reason: string) => 
+        api(`/orders/cancel/${orderId}`, { 
+            method: 'PUT', 
             requireAuth: true, 
-            body: JSON.stringify(orderData) 
+            body: JSON.stringify({ reason }) 
         }),
-    
-    // Gửi payment request
-    submitPayment: (orderId: string, paymentData: any) => 
-        api(`/shop/orders/${orderId}/payment`, { 
-            method: 'POST', 
-            requireAuth: true, 
-            body: JSON.stringify(paymentData) 
-        }),
-    
-    // Lấy danh sách orders của user
-    getMyOrders: () => api('/shop/orders', { requireAuth: true }),
-    
-    // Lấy chi tiết order
-    getOrderDetail: (orderId: string) => api(`/shop/orders/${orderId}`, { requireAuth: true }),
 };
 
 export const storeApi = {
-    // Đăng kí seller (gửi đơn yêu cầu)
-    registerSeller: (sellerData: any) =>
-        api('/store/register-seller', {
-            method: 'POST',
-            requireAuth: true,
-            body: JSON.stringify(sellerData)
-        }),
-    
-    // Lấy trạng thái đơn đăng kí seller
-    getSellerRegistrationStatus: () =>
-        api('/store/registration/status', { requireAuth: true }),
-
-    // Cập nhật đơn đăng kí seller
-    updateSellerRegistration: (sellerData: any) =>
-        api('/store/registration', { // Lưu ý: Route này phải khớp với route đã định nghĩa ở server (storeRoutes)
-            method: 'PUT',
-            requireAuth: true,
-            body: JSON.stringify(sellerData)
-        }),
-
-    // Lấy thông tin store của seller hiện tại
+    registerSeller: (sellerData: any) => api('/store/register-seller', { method: 'POST', requireAuth: true, body: JSON.stringify(sellerData) }),
+    getSellerRegistrationStatus: () => api('/store/registration/status', { requireAuth: true }),
+    updateSellerRegistration: (sellerData: any) => api('/store/registration', { method: 'PUT', requireAuth: true, body: JSON.stringify(sellerData) }),
     getMyStore: () => api('/store/my-store', { requireAuth: true }),
-
-    // Cập nhật thông tin store của seller hiện tại
-    updateMyStore: (payload: any) =>
-        api('/store/my-store', {
-            method: 'PUT',
-            requireAuth: true,
-            body: JSON.stringify(payload),
-        }),
-
-    // Lấy thống kê dashboard (Tổng quan)
+    updateMyStore: (payload: any) => api('/store/my-store', { method: 'PUT', requireAuth: true, body: JSON.stringify(payload) }),
     getSellerStats: () => api('/store/stats', { requireAuth: true }),
 
-    // Lấy danh sách đơn hàng của người bán
+    // 👉 ĐÃ FIX ĐƯỜNG DẪN SELLER CHO KHỚP VỚI SERVER.JS MỚI
     getSellerOrders: (status?: string, page?: number, search?: string) => {
         const params = new URLSearchParams();
-        if (status && status !== 'all') {
-            params.append('status', status);
-        }
-        if (page) {
-            params.append('page', page.toString());
-        }
-        if (search) {
-            params.append('search', search);
-        }
-        const endpoint = `/seller/orders?${params.toString()}`;
-        return api(endpoint, { requireAuth: true });
+        if (status && status !== 'all') params.append('status', status);
+        if (page) params.append('page', page.toString());
+        if (search) params.append('search', search);
+        return api(`/orders/seller/orders?${params.toString()}`, { requireAuth: true });
     },
 
-    // Cập nhật trạng thái đơn hàng (xác nhận/từ chối)
     updateOrderStatusBySeller: (orderId: string, status: string, reason?: string) =>
-        // Dựa trên orderRoutes.js, endpoint là /seller/:orderId/status
-        api(`/seller/${orderId}/status`, {
+        api(`/orders/seller/status/${orderId}`, {
             method: 'PUT',
             requireAuth: true,
             body: JSON.stringify({ status, reason })
         }),
     
-    // Lấy dữ liệu thống kê cho dashboard của người bán
-    getSellerDashboardStats: (options?: { revenuePeriod?: '7d' | '30d', startDate?: string, endDate?: string }) => {
-        const params = new URLSearchParams();
-        // Ưu tiên khoảng thời gian tùy chỉnh
-        if (options?.startDate && options?.endDate) {
-            params.append('startDate', options.startDate);
-            params.append('endDate', options.endDate);
-        } else if (options?.revenuePeriod) {
-            params.append('revenuePeriod', options.revenuePeriod);
-        }
-        const endpoint = `/seller/dashboard?${params.toString()}`;
-        return api(endpoint, { requireAuth: true });
+    getSellerDashboardStats: (options?: any) => {
+        const params = new URLSearchParams(options).toString();
+        return api(`/orders/seller/dashboard?${params}`, { requireAuth: true });
     },
+};
+export const cartApi = {
+    getCart: () => {
+        return api('/cart', { requireAuth: true });
+    },
+    
+    syncCart: (items: any[]) => {
+        const syncData = items.map(item => {
+            let rawId = item.product?._id || item.product;
+            let cleanId = typeof rawId === 'string' ? rawId.split('-')[0] : rawId;
+
+            return {
+                product_id: cleanId, 
+                quantity: item.quantity,
+                variant: item.type || '' 
+            };
+        });
+
+        return api('/cart/sync', {
+            method: 'PUT',
+            requireAuth: true,
+            body: JSON.stringify({ items: syncData })
+        });
+    },
+    
+    clearCart: () => {
+        return api('/cart', { 
+            method: 'DELETE', 
+            requireAuth: true 
+        });
+    }
 };
 
 export const orderApi = shopApi;

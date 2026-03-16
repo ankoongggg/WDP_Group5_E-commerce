@@ -51,7 +51,6 @@ import SellerRequests from './src/pages/admin/SellerRequests';
 import { AdminStores } from './src/pages/admin/Stores';
 
 // Seller Pages
-// import { SellerDashboard as SellerDashboardPage } from './Dashboard';
 import SellerOrders from './src/pages/seller/SellerOrders';
 import ProductsManager from './src/pages/seller/ProductsManager';
 import SellerProductForm from './src/pages/seller/SellerProductForm';
@@ -61,14 +60,13 @@ const ScrollToTop = () => {
   const { pathname } = useLocation();
   React.useEffect(() => {
     window.scrollTo(0, 0);
-
   }, [pathname]);
   return null;
 };
 
 const AppRoutes: React.FC = () => {
   return (
-    <AuthProvider>
+    <>
       <ScrollToTop />
       <Routes>
         {/* Auth Routes */}
@@ -109,18 +107,17 @@ const AppRoutes: React.FC = () => {
 
         {/* Admin Routes */}
         <Route element={<AdminRoute />}>
-        <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/admin/blacklist" element={<ProtectedRoute><AdminBlacklist /></ProtectedRoute>} />
-        <Route path="/admin/products" element={<ProtectedRoute><AdminProducts /></ProtectedRoute>} />
-        <Route path="/admin/reports" element={<ProtectedRoute><AdminReports /></ProtectedRoute>} />
-        <Route path="/admin/categories" element={<ProtectedRoute><AdminCategories /></ProtectedRoute>} />
-        <Route path="/admin/seller-requests" element={<ProtectedRoute><SellerRequests /></ProtectedRoute>} />
-        <Route path="/admin/stores" element={<ProtectedRoute><AdminStores /></ProtectedRoute>} />
-        <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
-        
+          <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/blacklist" element={<ProtectedRoute><AdminBlacklist /></ProtectedRoute>} />
+          <Route path="/admin/products" element={<ProtectedRoute><AdminProducts /></ProtectedRoute>} />
+          <Route path="/admin/reports" element={<ProtectedRoute><AdminReports /></ProtectedRoute>} />
+          <Route path="/admin/categories" element={<ProtectedRoute><AdminCategories /></ProtectedRoute>} />
+          <Route path="/admin/seller-requests" element={<ProtectedRoute><SellerRequests /></ProtectedRoute>} />
+          <Route path="/admin/stores" element={<ProtectedRoute><AdminStores /></ProtectedRoute>} />
+          <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
         </Route>
       </Routes>
-    </AuthProvider>
+    </>
   );
 };
 
@@ -130,9 +127,12 @@ const App: React.FC = () => {
       <ThemeProvider>
         <ToastProvider>
           <CurrencyProvider>
-            <CartProvider>
-              <AppRoutes />
-            </CartProvider>
+            {/* ĐÃ LÔI AuthProvider RA ĐÂY BỌC LẤY CartProvider */}
+            <AuthProvider>
+              <CartProvider>
+                <AppRoutes />
+              </CartProvider>
+            </AuthProvider>
           </CurrencyProvider>
         </ToastProvider>
       </ThemeProvider>
