@@ -242,6 +242,15 @@ const ProductDetail: React.FC = () => {
       setIsTogglingWishlist(false);
     }
   };
+  // vào product detail thì tick ngay vào type còn hàng
+  useEffect(() => {
+    if (hasVariants && product?.product_type) {
+      const firstAvailableVariant = product.product_type.findIndex((v: any) => v.stock > 0);
+      if (firstAvailableVariant !== -1) {
+        setSelectedTypeIndex(firstAvailableVariant);
+      }
+    }
+  }, [hasVariants, product?.product_type]);
 
   const handleAddToCart = () => {
     if (!product) return;

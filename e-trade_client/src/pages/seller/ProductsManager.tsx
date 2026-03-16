@@ -136,7 +136,6 @@ const ProductsManager: React.FC = () => {
                 <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-sm">
                   <th className="p-4 font-medium">Sản phẩm</th>
                   <th className="p-4 font-medium">Giá</th>
-                  <th className="p-4 font-medium w-32">Tồn kho</th>
                   <th className="p-4 font-medium">Trạng thái</th>
                   <th className="p-4 font-medium text-right">Hành động</th>
                 </tr>
@@ -185,21 +184,7 @@ const ProductsManager: React.FC = () => {
                         )}
                       </td>
                       
-                      {/* Cột hiển thị TỒN KHO và nút Tăng */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-700 dark:text-slate-300">
-                            {getStock(p)}
-                          </span>
-                          <button
-                            onClick={() => handleAddStock(p._id)}
-                            className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors"
-                            title="Nhập thêm hàng"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">add</span>
-                          </button>
-                        </div>
-                      </td>
+                      
 
                       <td className="p-4">{renderStatusBadge(p.status)}</td>
                       <td className="p-4">

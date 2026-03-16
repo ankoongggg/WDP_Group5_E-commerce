@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const Store = require('../models/Store');
+const BlacklistKeyword = require('../models/BlacklistKeyword');
 
 // Helper: lấy store của seller hiện tại
 const getCurrentSellerStore = async (userId) => {
@@ -100,8 +101,38 @@ exports.createSellerProduct = async (req, res) => {
             return res.status(400).json({ success: false, errors });
         }
 
+        // 1. Kiểm duyệt từ khóa cấm (dùng chung với pass item)
+        const blackListKeywords = await BlacklistKeyword.find();
+        const textToCheck = `${name} ${description || ''}`.toLowerCase();
+        let rejectionReason = '';
+
+        for (const item of blackListKeywords) {
+            if (textToCheck.includes(item.keyword.toLowerCase())) {
+                if (item.level === 'high' || item.level === 'critical') {
+                    return res.status(400).json({ success: false, message: `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"` });
+                }
+                if (item.level === 'medium') {
+                    rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
+                    break;
+                }
+            }
+        }
+
+        // 2. Chuẩn hoá product_type (không giới hạn stock của 2nd)
+        let finalProductType = Array.isArray(product_type) ? product_type : [];
+        if (finalProductType.length > 0) {
+            finalProductType = finalProductType.map((pt) => ({
+                description: pt.description || 'Mặc định',
+                stock: Number(pt.stock) || 0,
+                price_difference: Number(pt.price_difference) || 0,
+            }));
+        } else {
+            finalProductType = [{ description: 'Mặc định', stock: 0, price_difference: 0 }];
+        }
+
         const payload = {
             store_id: store._id,
+            user_id: userId,
             category_id,
             name: name.trim(),
             description,
@@ -109,9 +140,11 @@ exports.createSellerProduct = async (req, res) => {
             display_files: Array.isArray(display_files) ? display_files : [],
             price: Number(price),
             original_price: original_price ? Number(original_price) : undefined,
-            product_type: Array.isArray(product_type) ? product_type : [],
-            condition,
-            status: ['pending'],
+            product_type: finalProductType,
+            
+            condition: condition || 'New', // Mặc định là 'New' nếu không cung cấp
+            status: ['active'],
+            rejection_reason: rejectionReason,
             is_deleted: false,
         };
 
@@ -177,7 +210,19 @@ exports.updateSellerProduct = async (req, res) => {
         product.description = description;
         product.main_image = main_image;
         product.display_files = Array.isArray(display_files) ? display_files : [];
-        product.product_type = Array.isArray(product_type) ? product_type : [];
+
+        let updatedProductType = Array.isArray(product_type) ? product_type : [];
+        if (updatedProductType.length > 0) {
+            updatedProductType = updatedProductType.map((pt) => ({
+                description: pt.description || 'Mặc định',
+                stock: Number(pt.stock) || 0,
+                price_difference: Number(pt.price_difference) || 0,
+            }));
+        } else {
+            updatedProductType = [{ description: 'Mặc định', stock: 0, price_difference: 0 }];
+        }
+
+        product.product_type = updatedProductType;
         product.updated_at = new Date();
 
         await product.save();
