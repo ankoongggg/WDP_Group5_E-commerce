@@ -200,6 +200,7 @@ const OrderManagement: React.FC = () => {
                                     <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Khách Hàng</th>
                                     <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tổng Tiền</th>
                                     <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Trạng Thái</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Thanh Toán</th>
                                     <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Hành Động</th>
                                 </tr>
                             </thead>
@@ -214,6 +215,7 @@ const OrderManagement: React.FC = () => {
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white">{order.customer_id?.full_name || 'N/A'}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-800 dark:text-slate-100">{formatCurrency(order.total_amount)}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm">{renderStatusBadge(order.order_status)}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{order.payment_method || 'N/A'}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <button onClick={() => handleViewDetails(order)} className="text-primary hover:underline">Xem chi tiết</button>
                                             </td>
@@ -273,6 +275,10 @@ const OrderManagement: React.FC = () => {
                                     <p className="text-sm text-slate-600 dark:text-slate-400"><b>Người nhận:</b> {selectedOrder.shipping_address?.recipient_name || 'N/A'}</p>
                                     <p className="text-sm text-slate-600 dark:text-slate-400"><b>SĐT:</b> {selectedOrder.shipping_address?.phone || 'N/A'}</p>
                                     <p className="text-sm text-slate-600 dark:text-slate-400"><b>Địa chỉ:</b> {selectedOrder.shipping_address?.full_address || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-2">Thông tin thanh toán</h3>
+                                    <p className="text-sm text-slate-600 dark:text-slate-400"><b>Phương thức:</b> {selectedOrder.payment_method || 'N/A'}</p>
                                 </div>
                             </div>
 
