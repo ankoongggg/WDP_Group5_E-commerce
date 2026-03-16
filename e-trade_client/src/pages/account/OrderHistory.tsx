@@ -248,15 +248,28 @@ const OrderHistory: React.FC = () => {
                         <div className="flex justify-between items-start border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-slate-500 text-xl">storefront</span>
+                              
                               {order.seller_id?._id ? (
                                 <>
-                                  <Link to={`/store/${order.seller_id._id}`} className="font-bold text-slate-900 dark:text-white hover:text-primary transition-colors">
-                                    {order.seller_id.shop_name || order.seller_id.full_name || 'Cửa hàng'}
-                                  </Link>
-                                  <Link to={`/store/${order.seller_id._id}`} className="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white flex items-center gap-1">
+                                  {order.seller_id.shop_name ? (
+                                    <>
+                                    <span className="material-symbols-outlined text-slate-500 text-xl">storefront</span>
+                                    <Link to={`/store/${order.seller_id._id}`} className="font-bold text-slate-900 dark:text-white hover:text-primary transition-colors">
+                                      {order.seller_id.shop_name}
+                                    </Link>
+                                    <Link to={`/store/${order.seller_id._id}`} className="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white flex items-center gap-1">
                                     <span className="material-symbols-outlined text-[14px]">store</span> Xem Shop
                                   </Link>
+                                    </>
+                                    )
+                                    : (
+                                      <>
+                                      <span className="material-symbols-outlined text-slate-500 text-xl">man</span>
+                                      <span className="font-bold text-slate-900 dark:text-white">{order.seller_id.full_name || 'Người bán'}</span>
+                                    </>
+                                    )}
+                                  
+
                                 </>
                               ) : (
                                 <span className="font-bold dark:text-white">Cửa hàng</span>
