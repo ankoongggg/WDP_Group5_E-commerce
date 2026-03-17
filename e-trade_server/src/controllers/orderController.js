@@ -377,6 +377,23 @@ exports.updatePassedOrderStatus = async (req, res) => {
             order.note = reason;
             order.cancel_reason = reason;
             order.cancelled_by = 'seller';
+            for (const item of order.items) {
+                    const product = await Product.findById(item.product_id);
+                    if (product) {
+                        let variantFound = false;
+                        if (product.product_type && product.product_type.length > 0 && item.type && item.type !== 'default') {
+                            const variant = product.product_type.find(v => v.description === item.type);
+                            if (variant) {
+                                variant.stock = (variant.stock || 0) + item.quantity;
+                                variantFound = true;
+                            }
+                        }
+                        if (!variantFound) {
+                            product.stock = (product.stock || 0) + item.quantity;
+                        }
+                        await product.save();
+                    }
+                }
         }
         order.history_logs.push({ action: `Chủ hàng đã chuyển trạng thái thành ${status}`, created_at: new Date() });
         await order.save();

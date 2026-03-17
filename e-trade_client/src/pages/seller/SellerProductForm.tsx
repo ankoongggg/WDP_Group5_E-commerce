@@ -21,7 +21,7 @@ const SellerProductForm: React.FC = () => {
 
   useEffect(() => {
     const fetchCategories = async () => {
-      const res = await CategoryService.getAll({});
+      const res = await CategoryService.getAllOnHomePage({});
       if (Array.isArray(res)) setCategories(res);
       else if (Array.isArray(res?.data)) setCategories(res.data);
     };
@@ -254,6 +254,7 @@ const SellerProductForm: React.FC = () => {
                 {form.values.product_type.map((pt, idx) => (
                   <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2 items-end">
                     <div className="col-span-1 md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Tên</label>
                       <input
                         type="text"
                         value={pt.description}
@@ -270,6 +271,7 @@ const SellerProductForm: React.FC = () => {
                       )}
                     </div>
                     <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Số lượng</label>
                       <input
                         type="number"
                         min={0}
@@ -287,6 +289,7 @@ const SellerProductForm: React.FC = () => {
                       )}
                     </div>
                     <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Chênh lệch giá</label>
                       <input
                         type="number"
                         min={0}
