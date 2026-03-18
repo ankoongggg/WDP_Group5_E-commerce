@@ -7,6 +7,21 @@ const BlacklistKeyword = require('../models/BlacklistKeyword');
 const Order = require('../models/Order');
 const Category = require('../models/Category');
 
+/**
+ * Kiểm tra seller/customer chưa bị ban.
+ */
+const isSellerActive = (seller) => {
+    if (!seller) return false;
+    if (seller.status === 'banned') return false;
+    if (seller.banned_until && new Date(seller.banned_until) > new Date()) return false;
+    return true;
+};
+
+const isProductActive = (status) => {
+    if (Array.isArray(status)) return status.includes('active');
+    return status === 'active';
+};
+
 // ==========================================
 // CÁC HÀM CỦA TÚ (Quản lý tìm kiếm, lọc)
 // ==========================================
@@ -50,7 +65,34 @@ exports.getProductsOnHomePage = async (req, res) => {
                 .map(id => new mongoose.Types.ObjectId(id));
         }
 
-        let pipeline = [ { $match: { status: 'active' } } ];
+        const now = new Date();
+
+        let pipeline = [
+            { $match: { status: 'active' } },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'user_id',
+                    foreignField: '_id',
+                    as: 'seller'
+                }
+            },
+            { $unwind: { path: '$seller', preserveNullAndEmptyArrays: true } },
+            {
+                $match: {
+                    $and: [
+                        { 'seller.status': { $ne: 'banned' } },
+                        {
+                            $or: [
+                                { 'seller.banned_until': { $exists: false } },
+                                { 'seller.banned_until': null },
+                                { 'seller.banned_until': { $lte: now } }
+                            ]
+                        }
+                    ]
+                }
+            }
+        ];
 
         pipeline.push({
             $addFields: {
@@ -105,17 +147,24 @@ exports.getProductsOnHomePage = async (req, res) => {
         const total = products.length;
         const paginatedProducts = products.slice(skip, skip + parseInt(limit));
 
-        await Product.populate(paginatedProducts, [
+        // Xoá thông tin seller lookup tạm thời đã dùng để lọc
+        const cleanedProducts = paginatedProducts.map(p => {
+            const copy = { ...p };
+            delete copy.seller;
+            return copy;
+        });
+
+        await Product.populate(cleanedProducts, [
             { path: 'store_id', select: 'shop_name' },
             { path: 'user_id', select: 'full_name' }
         ]);
 
         res.json({
             success: true,
-            count: paginatedProducts.length,
+            count: cleanedProducts.length,
             total_pages: Math.ceil(total / limit),
             current_page: parseInt(page),
-            data: paginatedProducts
+            data: cleanedProducts
         });
 
     } catch (error) {
@@ -144,6 +193,20 @@ exports.getRandomUsedProducts = async (req, res) => {
                 } 
             },
             { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+            {
+                $match: {
+                    $and: [
+                        { 'user.status': { $ne: 'banned' } },
+                        {
+                            $or: [
+                                { 'user.banned_until': { $exists: false } },
+                                { 'user.banned_until': null },
+                                { 'user.banned_until': { $lte: new Date() } }
+                            ]
+                        }
+                    ]
+                }
+            },
             {
                 $addFields: {
                     calculated_stock: {
@@ -227,12 +290,23 @@ exports.getProductsOnProductList = async (req, res) => {
             ];
         }
 
+        const now = new Date();
+
         let products = await Product.find(matchStage)
             .populate('store_id', 'shop_name')
-            .populate('user_id', 'full_name')
+            .populate('user_id', 'full_name status banned_until')
             .lean();
 
         let fallbackProducts = [];
+
+        const filterBannedSellers = (item) => {
+            if (!item.user_id) return false;
+            if (item.user_id.status === 'banned') return false;
+            if (item.user_id.banned_until && new Date(item.user_id.banned_until) > now) return false;
+            return true;
+        };
+
+        products = products.filter(filterBannedSellers);
 
         if (products.length === 0 && isSearching && category) {
             console.log("-> Không tìm thấy Keyword trong Category. Bật chế độ Fallback.");
@@ -265,7 +339,7 @@ exports.getProductsOnProductList = async (req, res) => {
 
         products = products.map(mapProductData);
         if (fallbackProducts.length > 0) {
-            fallbackProducts = fallbackProducts.map(mapProductData);
+            fallbackProducts = fallbackProducts.filter(filterBannedSellers).map(mapProductData);
         }
 
         products.sort((a, b) => {
@@ -422,8 +496,22 @@ exports.getProductById = async (req, res) => {
             .populate('store_id', 'shop_name pickup_address')
             .populate('category_id', 'name');
 
-        if (!product) {
+        if (!product || !isProductActive(product.status)) {
             return res.status(404).json({ success: false, message: 'Product not found' });
+        }
+
+        if (product.user_id) {
+            const seller = await User.findById(product.user_id).select('status banned_until');
+            if (!isSellerActive(seller)) {
+                return res.status(404).json({ success: false, message: 'Product not found' });
+            }
+        }
+
+        if (product.store_id) {
+            const store = await Store.findById(product.store_id).populate('user_id', 'status banned_until');
+            if (store && store.user_id && !isSellerActive(store.user_id)) {
+                return res.status(404).json({ success: false, message: 'Product not found' });
+            }
         }
 
         res.json({ success: true, data: product });
@@ -445,8 +533,22 @@ exports.getProductDetails = async (req, res) => {
             .populate('store_id', 'shop_name description')
             .populate('category_id', 'name description');
 
-        if (!product) {
+        if (!product || !isProductActive(product.status)) {
             return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
+        }
+
+        if (product.user_id) {
+            const seller = await User.findById(product.user_id).select('status banned_until');
+            if (!isSellerActive(seller)) {
+                return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
+            }
+        }
+
+        if (product.store_id) {
+            const store = await Store.findById(product.store_id).populate('user_id', 'status banned_until');
+            if (store && store.user_id && !isSellerActive(store.user_id)) {
+                return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
+            }
         }
 
         const statsResult = await Review.aggregate([

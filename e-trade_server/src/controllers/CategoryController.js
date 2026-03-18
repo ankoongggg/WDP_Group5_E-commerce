@@ -42,10 +42,21 @@ exports.getCategoryById = async (req, res) => {
 exports.getProductsByCategory = async (req, res) => {
     try {
         const categoryId = req.params.id;
+        const now = new Date();
+
         const products = await Product.find({ category_id: categoryId, status: 'active' })
             .populate('store_id', 'shop_name pickup_address')
-            .populate('category_id', 'name');
-        res.json({ success: true, count: products.length, data: products });
+            .populate('category_id', 'name')
+            .populate('user_id', 'status banned_until');
+
+        const filtered = products.filter(p => {
+            if (!p.user_id) return false;
+            if (p.user_id.status === 'banned') return false;
+            if (p.user_id.banned_until && new Date(p.user_id.banned_until) > now) return false;
+            return true;
+        });
+
+        res.json({ success: true, count: filtered.length, data: filtered });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Server Error', error: err.message });
     }   
