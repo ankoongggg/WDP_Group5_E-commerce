@@ -171,8 +171,8 @@ const SellerProductForm: React.FC = () => {
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/60"
                   >
                     <option value="">Chọn tình trạng</option>
-                    <option value="new">Mới</option>
-                    <option value="used">Đã qua sử dụng</option>
+                    <option value="New">Mới</option>
+                    <option value="Used">Đã qua sử dụng</option>
                   </select>
                   {form.errors.condition && <p className="text-xs text-red-500 mt-1">{form.errors.condition}</p>}
                 </div>
