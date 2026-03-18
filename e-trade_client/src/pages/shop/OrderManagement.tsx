@@ -259,7 +259,6 @@ const OrderManagement: React.FC = () => {
                             Chi tiết Đơn hàng <span className="text-primary">#{selectedOrder._id.slice(-6).toUpperCase()}</span>
                         </h2>
 
-                        {/* 👇 PHẪU THUẬT: HIỂN THỊ LÝ DO HỦY NGAY ĐÂY 👇 */}
                         {selectedOrder.order_status === 'cancelled' && (
                             <div className="mb-6 p-5 bg-red-50 dark:bg-red-900/30 border-2 border-red-200 dark:border-red-800 rounded-2xl shadow-sm">
                                 <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-black uppercase text-sm mb-2">
@@ -276,7 +275,6 @@ const OrderManagement: React.FC = () => {
                                 </div>
                             </div>
                         )}
-                        {/* 👆 KẾT THÚC PHẪU THUẬT 👆 */}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             {/* Left Column: Customer & Shipping */}
@@ -360,7 +358,7 @@ const OrderManagement: React.FC = () => {
                                         </button>
                                     )}
 
-                                    {['pending', 'confirmed'].includes(selectedOrder.order_status) && (
+                                    {selectedOrder.order_status === 'pending' && (
                                         <button
                                             onClick={openRejectModal}
                                             disabled={updatingStatus}
