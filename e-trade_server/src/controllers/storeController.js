@@ -262,14 +262,9 @@ exports.getStoreProducts = async (req, res) => {
         // Lọc và tìm kiếm
         const { search, sortBy, minPrice, maxPrice, exclude } = req.query;
 
-        // Kiểm tra xem cửa hàng có tồn tại và seller không bị ban
-        const store = await Store.findById(storeId).populate('user_id', 'status banned_until');
-        if (!store) {
-            return res.status(404).json({ message: 'Không tìm thấy cửa hàng' });
-        }
-
-        const now = new Date();
-        if (!store.user_id || store.user_id.status === 'banned' || (store.user_id.banned_until && new Date(store.user_id.banned_until) > now)) {
+        // Kiểm tra xem cửa hàng có tồn tại không
+        const storeExists = await Store.findById(storeId).select('_id');
+        if (!storeExists) {
             return res.status(404).json({ message: 'Không tìm thấy cửa hàng' });
         }
 
@@ -310,24 +305,15 @@ exports.getStoreProducts = async (req, res) => {
         }
 
         // Lấy sản phẩm với phân trang, lọc và sắp xếp
-        let products = await Product.find(filter)
-            .select('name main_image price original_price stock product_type store_id user_id')
+        const products = await Product.find(filter)
+            .select('name main_image price original_price stock product_type store_id')
             .populate('store_id', 'shop_name') // Thêm populate để lấy tên shop
-            .populate('user_id', 'status banned_until')
             .sort(sortOptions)
             .skip(skip)
             .limit(limit);
 
-        
-        products = products.filter(p => {
-            if (!p.user_id) return true;
-            if (p.user_id.status === 'banned') return false;
-            if (p.user_id.banned_until && new Date(p.user_id.banned_until) > now) return false;
-            return true;
-        });
-
-        // Lấy tổng số sản phẩm sau khi lọc ban
-        const totalProducts = products.length;
+        // Lấy tổng số sản phẩm khớp với bộ lọc để phân trang
+        const totalProducts = await Product.countDocuments(filter);
 
         res.status(200).json({
             products,
