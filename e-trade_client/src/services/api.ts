@@ -142,6 +142,17 @@ export const authApi = {
         if (params.limit) query.append('limit', params.limit.toString());
         return api(`/users/following?${query.toString()}`, { requireAuth: true });
     },
+    forgotPassword: (email: string) =>
+        api('/auth/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+        }),
+
+    resetPassword: (token: string, password: string, confirmPassword: string) =>
+        api('/auth/reset-password', {
+            method: 'POST',
+            body: JSON.stringify({ token, password, confirmPassword }),
+        }),
 };
 
 // Tìm đến cục shopApi và thay bằng đoạn này:

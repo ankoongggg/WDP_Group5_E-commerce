@@ -1,7 +1,10 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const { sendResetPasswordEmail } = require('../utils/mailer');
 const jwt = require('jsonwebtoken');
 const passport = require('../configs/passport');
 const User = require('../models/User');
+const PasswordResetToken = require('../models/PasswordResetToken');
 
 const generateAccessToken = (user) => jwt.sign(
     { id: user._id, email: user.email, role: user.role },
@@ -42,12 +45,12 @@ const login = async (req, res) => {
     try {
         const { email, password } = req.body;
         const user = await User.findOne({ email: email.toLowerCase() });
-        if (!user) return res.status(401).json({ success: false, message: 'Sai pass' });
+        if (!user) return res.status(401).json({ success: false, message: 'Email không tồn tại' });
         if (user.provider === 'google') {
-            return res.status(401).json({ success: false, message: 'Please sign in with Google' });
+            return res.status(401).json({ success: false, message: 'Vui lòng đăng nhập với Google' });
         }
         if (!user.password || !(await bcrypt.compare(password, user.password))) {
-            return res.status(401).json({ success: false, message: 'Sai pass' });
+            return res.status(401).json({ success: false, message: 'Mật khẩu không chính xác' });
         }
 
         // Kiểm tra trạng thái ban
@@ -157,4 +160,77 @@ const googleCallback = async (req, res, next) => {
     })(req, res, next);
 };
 
-module.exports = { register, login, logout, googleAuth, googleCallback };
+const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const safeMessage = 'If this email is registered, we have sent a password reset link.';
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+        if (!user) {
+            return res.json({ message: safeMessage });
+        }
+
+        await PasswordResetToken.deleteMany({ user_id: user._id });
+
+        const token = crypto.randomBytes(32).toString('hex');
+        await PasswordResetToken.create({ user_id: user._id, token });
+
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+        const resetLink = `${clientUrl}/#/reset-password?token=${token}`;
+
+        await sendResetPasswordEmail({
+            email: user.email,
+            resetLink,
+            name: user.full_name || user.account_name || user.email,
+        });
+
+        res.json({ message: safeMessage });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+const resetPassword = async (req, res) => {
+    try {
+        const { token, password, confirmPassword } = req.body;
+
+        if (!token || !password) {
+            return res.status(400).json({ message: 'Token and password are required' });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({ message: 'Password must be at least 6 characters' });
+        }
+
+        if (password !== confirmPassword) {
+            return res.status(400).json({ message: 'Passwords do not match' });
+        }
+
+        const resetToken = await PasswordResetToken.findOne({ token });
+        if (!resetToken) {
+            return res.status(400).json({ message: 'Invalid or expired reset token' });
+        }
+
+        const user = await User.findById(resetToken.user_id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const salt = await bcrypt.genSalt(12);
+        user.password = await bcrypt.hash(password, salt);
+        user.updated_at = Date.now();
+        await user.save();
+
+        await PasswordResetToken.deleteMany({ user_id: user._id });
+
+        res.json({ message: 'Password has been reset successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+module.exports = { register, login, logout, googleAuth, googleCallback, forgotPassword, resetPassword };
