@@ -147,6 +147,27 @@ const ProductDetail: React.FC = () => {
 
   const REVIEWS_PER_PAGE = 5;
 
+  const fetchWishlistStatus = async () => {
+    if (!isAuthenticated || !product?._id) {
+      setIsWishlisted(false);
+      return;
+    }
+    try {
+      const response = await authApi.getWishlist({});
+      const wishlist: string[] = response.data || [];
+      setIsWishlisted(wishlist.includes(product._id));
+    } catch (error) {
+      console.error('Failed to fetch wishlist status:', error);
+      setIsWishlisted(false);
+    }
+  };
+
+
+  useEffect(() => {
+    fetchWishlistStatus();
+  }, [isAuthenticated, product]);
+
+
   const fetchReviews = async (page: number) => {
     if (!id) return;
     const isLoadingFirstPage = page === 1;
@@ -383,14 +404,14 @@ const ProductDetail: React.FC = () => {
 
             <div className="flex items-baseline gap-4">
               <span className="text-4xl font-black text-primary">{formatPrice(finalPrice)}</span>
-              {product.original_price > product.price && (
+              {/* {product.original_price > product.price && (
                 <>
                   <span className="text-xl text-slate-400 line-through font-medium">{formatPrice(product.original_price)}</span>
                   {discount > 0 && (
                     <span className="text-sm font-bold text-green-600 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">Tiết kiệm {discount}%</span>
                   )}
                 </>
-              )}
+              )} */}
             </div>
 
             {hasVariants && (
@@ -442,20 +463,26 @@ const ProductDetail: React.FC = () => {
                 <button onClick={handleBuyNow} disabled={isActionDisabled} className={`flex-1 flex items-center justify-center gap-2 px-8 py-4 font-bold rounded-xl shadow-lg transition-all ${isActionDisabled ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-primary text-white shadow-primary/20 hover:bg-primary/90'}`}>
                   <span className="material-symbols-outlined">bolt</span> Mua ngay
                 </button>
-                <button
-                  onClick={handleToggleWishlist}
-                  disabled={isTogglingWishlist}
-                  className={`p-4 rounded-xl border-2 transition-colors flex items-center justify-center ${isTogglingWishlist ? 'cursor-wait' : ''
-                    } ${isWishlisted
-                      ? 'bg-red-100 border-red-200 text-red-500 hover:bg-red-200'
+                {/* IF WISHLIST fetched has product id => show red heart, else show empty heart. When click, if not logged in => navigate to login, else toggle wishlist status and update heart icon
+                 */}
+                  {isAuthenticated && (
+                    <button
+                      onClick={handleToggleWishlist}
+                      disabled={isTogglingWishlist}
+                      className={`p-4 rounded-xl border-2 transition-colors flex items-center justify-center ${isTogglingWishlist ? 'cursor-wait' : ''
+                        } ${isWishlisted
+                        ? 'bg-red-100 border-red-200 text-red-500 hover:bg-red-200'
                       : 'border-slate-300 dark:border-white/20 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5'
                     }`}
                   title={isWishlisted ? 'Bỏ yêu thích' : 'Yêu thích'}
                 >
-                  <span className={`material-symbols-outlined ${isWishlisted ? 'fill' : ''}`}>
+                  <span className={`material-symbols-outlined ${isWishlisted ? 'fill text-red-500' : ''}`}>
                     favorite
                   </span>
                 </button>
+                  )}
+
+                
               </div>
             </div>
           </div>

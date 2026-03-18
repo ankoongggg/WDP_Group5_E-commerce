@@ -124,9 +124,14 @@ const PassingProductSalesOrders: React.FC = () => {
                                             </>
                                         )}
                                         {order.order_status === 'confirmed' && (
+                                            <>
+                                            <button onClick={() => handleUpdateStatus(order._id, 'cancelled', 'Chủ hàng không thể giao')} className="flex-1 sm:flex-none px-4 py-2 border border-red-200 text-red-500 rounded-lg text-sm font-bold hover:bg-red-50 transition-colors">
+                                                    Từ chối
+                                                </button>
                                             <button onClick={() => handleUpdateStatus(order._id, 'shipping')} className="flex-1 sm:flex-none px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors">
                                                 Đã gửi hàng cho Ship
                                             </button>
+                                            </>
                                         )}
                                         {/* Các trạng thái 'shipping', 'completed' thường do Khách hàng bấm nhận hoặc Admin xử lý, nên Seller chỉ xem */}
                                         {(order.order_status === 'shipping' || order.order_status === 'completed' || order.order_status === 'cancelled') && (
