@@ -262,9 +262,14 @@ exports.getStoreProducts = async (req, res) => {
         // Lọc và tìm kiếm
         const { search, sortBy, minPrice, maxPrice, exclude } = req.query;
 
-        // Kiểm tra xem cửa hàng có tồn tại không
-        const storeExists = await Store.findById(storeId).select('_id');
-        if (!storeExists) {
+        // Kiểm tra xem cửa hàng và owner có được phép
+        const store = await Store.findById(storeId).populate('user_id', 'status banned_until');
+        if (!store || store.status !== 'active') {
+            return res.status(404).json({ message: 'Không tìm thấy cửa hàng' });
+        }
+
+        const now = new Date();
+        if (!store.user_id || store.user_id.status !== 'active' ) {
             return res.status(404).json({ message: 'Không tìm thấy cửa hàng' });
         }
 

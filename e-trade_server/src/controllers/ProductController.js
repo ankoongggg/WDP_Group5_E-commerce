@@ -7,9 +7,43 @@ const BlacklistKeyword = require('../models/BlacklistKeyword');
 const Order = require('../models/Order');
 const Category = require('../models/Category');
 
+const getActiveUserIds = async () => {
+    const now = new Date();
+    const activeUsers = await User.find({
+        status: 'active',
+    }).select('_id').lean();
+    return activeUsers.map(u => u._id);
+};
+
+const getActiveStoreIds = async (activeUserIds) => {
+    const activeStores = await Store.find({
+        status: 'active',
+        user_id: { $in: activeUserIds }
+    }).select('_id').lean();
+    return activeStores.map(s => s._id);
+};
+
+
 // ==========================================
 // CÁC HÀM CỦA TÚ (Quản lý tìm kiếm, lọc)
 // ==========================================
+
+const isActiveUser = (user) => {
+    if (user.status !== 'active') return false;
+    //trường hợp người dùng là seller 100%
+    if (!user) return true;
+
+    return true;
+};
+
+const isActiveStore = (store) => {
+    if ( store.status !== 'active') return false;
+    //trường hợp người dùng chỉ bán đồ cũ không mở shop
+    if (!store) return true;
+
+    return true;
+};
+
 
 const getTopSellingProductIds = async () => {
     const orderStats = await Order.aggregate([
@@ -36,12 +70,10 @@ const getOrderCounts = async () => {
 
 exports.getProductsOnHomePage = async (req, res) => {
     try {
-        const { keyword, interests, category_interests, page = 1, limit = 18 } = req.query;
-        const skip = (page - 1) * limit;
+        console.log("=== START GET HOME PRODUCTS ===");
+        const { interests, category_interests, limit = 18 } = req.query;
 
-        const searchKeyword = keyword ? keyword.trim().toLowerCase() : null;
         const interestWords = interests ? interests.replace(/,/g, ' ').trim() : null;
-        
         let catIds = [];
         if (category_interests) {
             catIds = category_interests.split(',')
@@ -50,51 +82,59 @@ exports.getProductsOnHomePage = async (req, res) => {
                 .map(id => new mongoose.Types.ObjectId(id));
         }
 
-        let pipeline = [ { $match: { status: 'active' } } ];
+        // 1. PRE-FETCH ACTIVE USERS & STORES (active user + store-owner active)
+        const activeUserIds = await getActiveUserIds();
+        const activeStoreIds = await getActiveStoreIds(activeUserIds);
 
-        pipeline.push({
-            $addFields: {
-                calculated_stock: {
-                    $cond: {
-                        if: { $isArray: "$product_type" }, 
-                        then: { $sum: "$product_type.stock" },
-                        else: { $ifNull: ["$stock", 0] }
-                    }
+        let matchStage = {
+            $and: [
+                { status: 'active' },
+                { is_deleted: { $ne: true } },
+                {
+                    $or: [
+                        { user_id: { $in: activeUserIds } },
+                        { store_id: { $in: activeStoreIds } }
+                    ]
                 }
-            }
-        }, {
-            $addFields: {
-                is_in_stock: { $cond: { if: { $gt: ["$calculated_stock", 0] }, then: 1, else: 0 } }
-            }
-        });
+            ]
+        };
 
-        let scoreLogic = { $add: [0] };
+        // Tìm tất cả sản phẩm hợp lệ
+        let products = await Product.find(matchStage)
+            .populate('store_id', 'shop_name')
+            .populate('user_id', 'full_name')
+            .lean();
 
-        if (searchKeyword) {
-            const regex = new RegExp(searchKeyword.split(/\s+/).join('|'), 'i');
-            scoreLogic.$add.push({ $cond: [{ $regexMatch: { input: { $ifNull: ["$name", ""] }, regex: regex } }, 100, 0] });
-        }
-        
-        if (!searchKeyword) {
-            if (catIds.length > 0) {
-                scoreLogic.$add.push({ $cond: [{ $in: ["$category_id", catIds] }, 50, 0] });
-            }
-            if (interestWords) {
-                const regexInt = new RegExp(interestWords.split(/\s+/).join('|'), 'i');
-                scoreLogic.$add.push({ $cond: [{ $regexMatch: { input: { $ifNull: ["$name", ""] }, regex: regexInt } }, 30, 0] });
-            }
-        }
+        const orderMap = await getOrderCounts();
 
-        pipeline.push({ $addFields: { match_score: scoreLogic } });
-
-        let products = await Product.aggregate(pipeline);
-        const orderCountMap = await getOrderCounts();
-
+        // Map data và tính điểm Relevance
         products = products.map(p => {
-            p.totalOrders = orderCountMap[p._id.toString()] || 0;
+            let totalStock = 0;
+            if (Array.isArray(p.product_type) && p.product_type.length > 0) {
+                totalStock = p.product_type.reduce((sum, pt) => sum + (pt.stock || 0), 0);
+            } else {
+                totalStock = p.stock || 0;
+            }
+
+            p.calculated_stock = totalStock;
+            p.is_in_stock = totalStock > 0 ? 1 : 0;
+            p.totalOrders = orderMap[p._id.toString()] || 0;
+            if (p.user_id) p.user_id.name = p.user_id.full_name;
+
+            // Tính điểm Relevance dựa vào LocalStorage của User
+            let score = 0;
+            if (catIds.length > 0 && catIds.some(id => p.category_id.some(c => c.toString() === id.toString()))) {
+                score += 50; // Trúng Category đã xem
+            }
+            if (interestWords && new RegExp(interestWords.split(/\s+/).join('|'), 'i').test(p.name)) {
+                score += 30; // Trúng Keyword đã xem
+            }
+            p.match_score = score;
+
             return p;
         });
 
+        // SORT GỢI Ý: Còn hàng -> Trúng sở thích -> Nhiều Order -> Mới nhất
         products.sort((a, b) => {
             if (a.is_in_stock !== b.is_in_stock) return b.is_in_stock - a.is_in_stock;
             if (a.match_score !== b.match_score) return b.match_score - a.match_score;
@@ -102,24 +142,16 @@ exports.getProductsOnHomePage = async (req, res) => {
             return new Date(b.created_at) - new Date(a.created_at);
         });
 
-        const total = products.length;
-        const paginatedProducts = products.slice(skip, skip + parseInt(limit));
-
-        await Product.populate(paginatedProducts, [
-            { path: 'store_id', select: 'shop_name' },
-            { path: 'user_id', select: 'full_name' }
-        ]);
+        const finalProducts = products.slice(0, parseInt(limit));
 
         res.json({
             success: true,
-            count: paginatedProducts.length,
-            total_pages: Math.ceil(total / limit),
-            current_page: parseInt(page),
-            data: paginatedProducts
+            count: finalProducts.length,
+            data: finalProducts
         });
 
     } catch (error) {
-        console.error("[GET PRODUCTS ERROR]", error.message);
+        console.error("[Lỗi GET Home Products]", error.message);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
@@ -186,10 +218,20 @@ exports.getRandomUsedProducts = async (req, res) => {
 
         const products = await Product.aggregate(pipeline);
 
+        // Filter user-based deactive/banned safety for non-store used products at sync level (defensive)
+        const now = new Date();
+        const activeUsers = await getActiveUserIds();
+        const setActiveUserIds = new Set(activeUsers.map(id => id.toString()));
+
+        const filtered = products.filter(p => {
+            if (!p.user_id) return true;
+            return setActiveUserIds.has(p.user_id._id ? p.user_id._id.toString() : p.user_id.toString());
+        });
+
         res.status(200).json({
             success: true,
-            count: products.length,
-            data: products
+            count: filtered.length,
+            data: filtered
         });
 
     } catch (err) {
@@ -204,16 +246,35 @@ exports.getProductsOnProductList = async (req, res) => {
         const { keyword, category, filter, page = 1, limit = 12 } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        let matchStage = { status: 'active' };
+        // 1. PRE-FETCH ACTIVE USERS & STORES ĐỂ LỌC (QUAN TRỌNG)
+        const activeUserIds = await getActiveUserIds();
+        const activeStoreIds = await getActiveStoreIds(activeUserIds);
+
+        // 2. KHỞI TẠO MATCH STAGE
+        let matchStage = {
+            $and: [
+                // Sản phẩm phải active và không bị xóa
+                { status: 'active' },
+                { is_deleted: { $ne: true } },
+                {
+                    $or: [
+                        { user_id: { $in: activeUserIds } },
+                        { store_id: { $in: activeStoreIds } }
+                    ]
+                }
+            ]
+        };
+
         let isSearching = false;
 
+        // 3. XỬ LÝ FILTER CATEGORY & KEYWORD
         if (category) {
             const catIds = category.split(',')
                 .map(id => id.trim())
                 .filter(id => mongoose.Types.ObjectId.isValid(id))
                 .map(id => new mongoose.Types.ObjectId(id));
             if (catIds.length > 0) {
-                matchStage.category_id = { $in: catIds };
+                matchStage.$and.push({ category_id: { $in: catIds } });
             }
         }
 
@@ -221,22 +282,41 @@ exports.getProductsOnProductList = async (req, res) => {
             isSearching = true;
             const cleanKeyword = keyword.trim().replace(/\s+/g, ' ');
             const searchRegex = new RegExp(cleanKeyword, 'i');
-            matchStage.$or = [
-                { name: searchRegex },
-                { description: searchRegex }
-            ];
+            matchStage.$and.push({
+                $or: [
+                    { name: searchRegex },
+                    { description: searchRegex }
+                ]
+            });
         }
 
+        // 4. TRUY VẤN SẢN PHẨM THỎA MÃN
         let products = await Product.find(matchStage)
             .populate('store_id', 'shop_name')
             .populate('user_id', 'full_name')
             .lean();
 
+        // 5. XỬ LÝ FALLBACK (NẾU TÌM KEYWORD KHÔNG RA MÀ CÓ CHỌN CATEGORY)
         let fallbackProducts = [];
-
         if (products.length === 0 && isSearching && category) {
-            console.log("-> Không tìm thấy Keyword trong Category. Bật chế độ Fallback.");
-            let fallbackMatch = { status: 'active', category_id: matchStage.category_id };
+            console.log("-> Bật chế độ Fallback: Bỏ qua Keyword, tìm trong Category.");
+            
+            // Xây dựng lại matchStage cho fallback: giữ nguyên quy tắc an toàn User/Store, bỏ Keyword
+            let fallbackMatch = {
+                $and: [
+                    { status: 'active' },
+                    { is_deleted: { $ne: true } },
+                    {
+                        $or: [
+                            { user_id: { $in: activeUserIds } },
+                            { store_id: { $in: activeStoreIds } }
+                        ]
+                    },
+                    // Chỉ giữ lại category
+                    { category_id: matchStage.$and.find(cond => cond.category_id)?.category_id }
+                ]
+            };
+
             fallbackProducts = await Product.find(fallbackMatch)
                 .populate('store_id', 'shop_name')
                 .populate('user_id', 'full_name')
@@ -244,6 +324,7 @@ exports.getProductsOnProductList = async (req, res) => {
                 .lean();
         }
 
+        // 6. XỬ LÝ DATA: TÍNH STOCK VÀ GHÉP SỐ ĐƠN (TOTAL ORDERS)
         const orderMap = await getOrderCounts();
         
         const mapProductData = (p) => {
@@ -259,7 +340,6 @@ exports.getProductsOnProductList = async (req, res) => {
             p.totalOrders = orderMap[p._id.toString()] || 0;
             
             if (p.user_id) p.user_id.name = p.user_id.full_name;
-
             return p;
         };
 
@@ -268,28 +348,27 @@ exports.getProductsOnProductList = async (req, res) => {
             fallbackProducts = fallbackProducts.map(mapProductData);
         }
 
+        // 7. SORTING (Thuật toán sắp xếp)
         products.sort((a, b) => {
+            // LUÔN ƯU TIÊN: Còn hàng lên trước
             if (a.is_in_stock !== b.is_in_stock) return b.is_in_stock - a.is_in_stock;
 
             switch (filter) {
-                case 'popular': 
-                    return b.totalOrders - a.totalOrders;
-                case 'latest': 
-                    return new Date(b.created_at) - new Date(a.created_at);
-                case 'price-asc': 
-                    return a.price - b.price;
-                case 'price-desc': 
-                    return b.price - a.price;
+                case 'popular': return b.totalOrders - a.totalOrders;
+                case 'latest': return new Date(b.created_at) - new Date(a.created_at);
+                case 'price-asc': return a.price - b.price;
+                case 'price-desc': return b.price - a.price;
                 default: 
                     if (a.totalOrders !== b.totalOrders) return b.totalOrders - a.totalOrders;
                     return new Date(b.created_at) - new Date(a.created_at);
             }
         });
 
+        // 8. PHÂN TRANG & TRẢ KẾT QUẢ
         const total = products.length;
         const paginatedProducts = products.slice(skip, skip + parseInt(limit));
 
-        console.log(`[GET LIST] Đã trả về ${paginatedProducts.length}/${total} sản phẩm. Fallback: ${fallbackProducts.length}`);
+        console.log(`[GET LIST] Trả về ${paginatedProducts.length}/${total} sản phẩm.`);
         
         res.json({
             success: true,
@@ -329,14 +408,20 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
     try {
         const { keyword, limit = 10 } = req.query;
         const limitNum = parseInt(limit);
+        const activeUserIds = await getActiveUserIds();
+        const activeStoreIds = await getActiveStoreIds(activeUserIds);
 
         let pipeline = [
-            { 
-                $match: { 
-                    status: 'active', 
+            {
+                $match: {
+                    status: 'active',
                     original_price: { $gt: 0 },
-                    condition: 'New'
-                } 
+                    condition: 'New',
+                    $or: [
+                        { store_id: { $in: activeStoreIds } },
+                        { user_id: { $in: activeUserIds } }
+                    ]
+                }
             }
         ];
 
@@ -419,10 +504,10 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
 exports.getProductById = async (req, res) => {
     try {
         const product = await Product.findById(req.params.id)
-            .populate('store_id', 'shop_name pickup_address')
+            .populate('store_id', 'shop_name pickup_address status user_id')
             .populate('category_id', 'name');
 
-        if (!product) {
+        if (!product || product.status !== 'active') {
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
 
@@ -440,15 +525,56 @@ exports.getProductDetails = async (req, res) => {
     try {
         const productId = req.params.id;
 
+        // 1. LẤY DATA VÀ POPULATE ĐẦY ĐỦ CẢ STORE VÀ USER
         const product = await Product.findById(productId)
-            .select("_id store_id category_id name description main_image display_files price original_price product_type stock condition status rejection_reason")
-            .populate('store_id', 'shop_name description')
+            .select("_id store_id user_id category_id name description main_image display_files price original_price product_type stock condition status rejection_reason")
+            .populate('store_id', 'shop_name description pickup_address status user_id') // Data của Shop
+            .populate('user_id', 'full_name account_name avatar status')                 // Data của Người bán 2nd
             .populate('category_id', 'name description');
 
         if (!product) {
             return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
         }
 
+        // 2. KIỂM TRA SẢN PHẨM CÓ ACTIVE KHÔNG
+        // (Xử lý an toàn cho cả trường hợp DB lưu status là Array ["active"] hoặc String "active")
+        const isActiveProduct = Array.isArray(product.status) 
+            ? product.status.includes('active') || product.status.includes('Active')
+            : product.status === 'active' || product.status === 'Active';
+
+        if (!isActiveProduct) {
+            return res.status(404).json({ message: 'Sản phẩm không tồn tại hoặc đang chờ duyệt.' });
+        }
+
+        // 3. KIỂM TRA QUYỀN HIỂN THỊ (TÀI KHOẢN NGƯỜI BÁN CÓ BỊ KHOÁ KHÔNG?)
+        let isSellerActive = false;
+
+        if (product.store_id) {
+            // TRƯỜNG HỢP A: HÀNG CỦA SHOP BÁN
+            // Cửa hàng phải Active VÀ Chủ cửa hàng cũng phải Active
+            const isStoreActive = product.store_id.status === 'active' || product.store_id.status === 'Active';
+            
+            // Tìm chủ cửa hàng
+            const storeOwner = await User.findById(product.store_id.user_id).select('status');
+            const isOwnerActive = storeOwner && (storeOwner.status === 'active' || storeOwner.status === 'Active');
+            
+            if (isStoreActive && isOwnerActive) {
+                isSellerActive = true;
+            }
+        } else if (product.user_id) {
+            // TRƯỜNG HỢP B: HÀNG 2ND PASS CỦA USER
+            // Chỉ cần kiểm tra User đó có đang Active không
+            const isUserActive = product.user_id.status === 'active' || product.user_id.status === 'Active';
+            if (isUserActive) {
+                isSellerActive = true;
+            }
+        }
+
+        if (!isSellerActive) {
+            return res.status(404).json({ message: 'Sản phẩm này hiện không khả dụng do tài khoản người bán đã bị khóa.' });
+        }
+
+        // 4. LẤY ĐÁNH GIÁ (REVIEWS) - Giữ nguyên logic cũ của bạn
         const statsResult = await Review.aggregate([
             { $match: { product_id: new mongoose.Types.ObjectId(productId) } },
             {
@@ -480,15 +606,18 @@ exports.getProductDetails = async (req, res) => {
             }
         });
 
+        // 5. TRẢ DỮ LIỆU VỀ FRONTEND
         res.status(200).json({
+            success: true,
             product,
             totalReviews: overallStats.totalReviews,
             averageRating: overallStats.averageRating ? parseFloat(overallStats.averageRating.toFixed(1)) : 0,
             ratingCounts 
         });
+
     } catch (error) {
         console.error('Error fetching product details:', error);
-        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: error.message });
     }
 };
 

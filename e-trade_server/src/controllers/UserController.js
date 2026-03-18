@@ -368,6 +368,8 @@ const banAccount = async (req, res) => {
             user.banned_until = bannedUntilDate;
         } else if (action === 'unban') {
             user.status = 'active';
+            user.ban_reason = null;
+            user.banned_until = null;
             // Giữ lại ban_reason và banned_until theo yêu cầu
         } else {
             return res.status(400).json({ success: false, message: 'Hành động không hợp lệ' });
