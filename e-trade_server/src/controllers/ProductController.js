@@ -403,85 +403,130 @@ exports.getProductGotMostOrders = async (req, res) => {
 exports.getProductsGotSaleMoreThan50PercentRecommendedByAdmin = async (req, res) => {
 
 }
-
 exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
     try {
-        const { keyword, limit = 10 } = req.query;
-        const limitNum = parseInt(limit);
+        const limit = parseInt(req.query.limit) || 10;
+        const keyword = req.query.keyword ? req.query.keyword.trim() : null;
+
+        // 1. LẤY DANH SÁCH USER VÀ STORE ĐANG HOẠT ĐỘNG
         const activeUserIds = await getActiveUserIds();
         const activeStoreIds = await getActiveStoreIds(activeUserIds);
 
-        let pipeline = [
-            {
-                $match: {
-                    status: 'active',
-                    original_price: { $gt: 0 },
-                    condition: 'New',
+        // 2. KHỞI TẠO ĐIỀU KIỆN LỌC (MATCH STAGE)
+        let matchStage = {
+            status: { $in: ['active', 'Active'] },
+            condition: { $in: ['New', 'new', 'NEW'] }, // Đảm bảo lấy đúng hàng mới
+            
+            // CHECK AN TOÀN: SẢN PHẨM CỦA SHOP ACTIVE HOẶC USER ACTIVE (NẾU KHÔNG PHẢI SHOP)
+            $or: [
+                { store_id: { $in: activeStoreIds } },
+                { user_id: { $in: activeUserIds }, store_id: { $exists: false } },
+                { user_id: { $in: activeUserIds }, store_id: null }
+            ]
+        };
+
+        // NẾU CÓ KEYWORD
+        if (keyword) {
+            const searchRegex = new RegExp(keyword.replace(/\s+/g, '|'), 'i');
+            matchStage.$and = [
+                {
                     $or: [
-                        { store_id: { $in: activeStoreIds } },
-                        { user_id: { $in: activeUserIds } }
+                        { name: searchRegex },
+                        { description: searchRegex }
                     ]
+                }
+            ];
+        }
+
+        // 3. PIPELINE LẤY DATA & TÍNH STOCK, % SALE
+        const pipeline = [
+            { $match: matchStage },
+            
+            // Tính Stock Thực Tế
+            {
+                $addFields: {
+                    calculated_stock: {
+                        $cond: {
+                            if: { $isArray: "$product_type" }, 
+                            then: { $sum: "$product_type.stock" },
+                            else: { $ifNull: ["$stock", 0] }
+                        }
+                    }
+                }
+            },
+            
+            // Chỉ lấy hàng còn Stock (Gỡ dòng này nếu muốn show cả hàng hết kho)
+            { $match: { calculated_stock: { $gt: 0 } } },
+
+            // Tính % Giảm giá
+            {
+                $addFields: {
+                    discount_numeric: {
+                        $multiply: [
+                            { $divide: [{ $subtract: ["$original_price", "$price"] }, "$original_price"] },
+                            100
+                        ]
+                    }
+                }
+            },
+
+            // Chỉ giữ lại hàng có giảm giá (Price < Original Price)
+            { $match: { discount_numeric: { $gt: 0 } } },
+
+            // Gán thêm random value để Sort ngẫu nhiên đa dạng Shop
+            { $addFields: { random_sort: { $rand: {} } } },
+            
+            // Format dữ liệu trả về cho nhẹ
+            {
+                $project: {
+                    _id: 1, name: 1, main_image: 1, display_files: 1, 
+                    price: 1, original_price: 1, product_type: 1, 
+                    condition: 1, status: 1, store_id: 1, user_id: 1, category_id: 1,
+                    calculated_stock: 1, discount_numeric: 1, random_sort: 1
                 }
             }
         ];
 
-        if (keyword) {
-            pipeline.push({
-                $match: {
-                    $or: [
-                        { name: { $regex: keyword, $options: 'i' } },
-                        { description: { $regex: keyword, $options: 'i' } }
-                    ]
-                }
-            });
-        }
+        let products = await Product.aggregate(pipeline);
 
-        pipeline.push({
-            $addFields: {
-                discount_numeric: {
-                    $multiply: [
-                        { $divide: [{ $subtract: ["$original_price", "$price"] }, "$original_price"] },
-                        100
-                    ]
-                }
-            }
-        });
-
-        pipeline.push({ $match: { discount_numeric: { $gt: 0 } } });
-
-        pipeline.push({
-            $facet: {
-                deepSale: [
-                    { $match: { discount_numeric: { $gt: 50 } } },
-                    { $sample: { size: limitNum } } 
-                ],
-                topSale: [
-                    { $sort: { discount_numeric: -1 } }, 
-                    { $limit: limitNum }
-                ]
-            }
-        });
-
-        const result = await Product.aggregate(pipeline);
-        const deepSale = result[0].deepSale;
-        const topSale = result[0].topSale;
-
+        // 4. PHÂN NHÁNH DEEP SALE BẰNG JAVASCRIPT (Đảm bảo không rớt Data do MongoDB $sample)
+        let deepSaleProducts = products.filter(p => p.discount_numeric >= 50);
         let finalResult = [];
         let strategyUsed = '';
 
-        if (deepSale.length > 0) {
+        if (deepSaleProducts.length >= limit / 2) {
+            // Nếu có nhiều hàng Deep Sale -> Trộn ngẫu nhiên và lấy ra đủ số lượng
             strategyUsed = 'random_deep_sale';
-            finalResult = deepSale;
+            // Sort theo random_sort (giúp các sản phẩm của các Shop khác nhau nằm xen kẽ)
+            finalResult = deepSaleProducts.sort((a, b) => a.random_sort - b.random_sort).slice(0, limit);
         } else {
+            // Nếu ít hàng Deep Sale -> Lấy Top những mặt hàng giảm giá cao nhất (Bất kể % là bao nhiêu)
             strategyUsed = 'highest_available';
-            finalResult = topSale;
+            finalResult = products.sort((a, b) => {
+                // Ưu tiên 1: % Giảm giá cao hơn
+                if (b.discount_numeric !== a.discount_numeric) return b.discount_numeric - a.discount_numeric;
+                // Ưu tiên 2: Nếu bằng % giảm giá thì Random để đa dạng Shop
+                return a.random_sort - b.random_sort;
+            }).slice(0, limit);
         }
 
-        await Product.populate(finalResult, { path: 'store_id', select: 'shop_name' });
+        // 5. POPULATE THÔNG TIN CHỦ SHOP
+        await Product.populate(finalResult, [
+            { path: 'store_id', select: 'shop_name' },
+            { path: 'user_id', select: 'full_name account_name' }
+        ]);
 
+        // 6. FORMAT JSON RESPONSE
         finalResult = finalResult.map(p => ({
             ...p,
-            discount_percentage: Math.round(p.discount_numeric) + '%'
+            stock: p.calculated_stock,
+            is_in_stock: p.calculated_stock > 0 ? 1 : 0,
+            discount_percentage: Math.round(p.discount_numeric) + '%',
+            user_id: p.user_id ? { 
+                _id: p.user_id._id, 
+                name: p.user_id.full_name || p.user_id.account_name 
+            } : null,
+            random_sort: undefined // Xóa trường tạm
         }));
 
         res.status(200).json({
@@ -492,11 +537,10 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
         });
 
     } catch (err) {
-        console.error("Sale Logic Error:", err);
+        console.error("[SALE LOGIC ERROR]:", err.message);
         res.status(500).json({
             success: false,
-            message: 'Server Error',
-            error: err.message
+            message: 'Server Error'
         });
     }
 };
