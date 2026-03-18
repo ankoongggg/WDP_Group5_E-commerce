@@ -404,14 +404,14 @@ const ProductDetail: React.FC = () => {
 
             <div className="flex items-baseline gap-4">
               <span className="text-4xl font-black text-primary">{formatPrice(finalPrice)}</span>
-              {product.original_price > product.price && (
+              {/* {product.original_price > product.price && (
                 <>
                   <span className="text-xl text-slate-400 line-through font-medium">{formatPrice(product.original_price)}</span>
                   {discount > 0 && (
                     <span className="text-sm font-bold text-green-600 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">Tiết kiệm {discount}%</span>
                   )}
                 </>
-              )}
+              )} */}
             </div>
 
             {hasVariants && (
