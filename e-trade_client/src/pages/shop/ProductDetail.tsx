@@ -21,9 +21,14 @@ interface Product {
     _id: string;
     name: string;
   }[];
-  store_id: {
+  store_id?: {
     _id: string;
     shop_name: string;
+  };
+  user_id?: {
+    _id: string;
+    full_name?: string;
+    account_name?: string;
   };
   product_type?: {
     description: string;
@@ -68,6 +73,15 @@ interface RelatedProduct {
   original_price?: number;
   stock?: number;
   product_type?: { stock: number }[];
+  store_id?: {
+    shop_name: string;
+  };
+  user_id?: {
+    name: string;
+  };
+  averageRating?: number;
+  totalReviews?: number;
+  totalOrders?: number;
 }
 
 const ProductDetail: React.FC = () => {
@@ -384,8 +398,20 @@ const ProductDetail: React.FC = () => {
 
           <div className="flex flex-col gap-6">
             <div>
-              <div className="text-sm text-slate-500 mb-2 dark:text-slate-400">
-                Bán bởi {product.store_id ? <Link to={`/store/${product.store_id._id}`} className="font-bold text-primary hover:underline">{product.store_id.shop_name}</Link> : <span className="font-bold text-slate-400">Unknown Store</span>}
+              <div className="flex items-center gap-1.5 text-sm text-slate-500 mb-2 dark:text-slate-400">
+                Bán bởi: {product.store_id?.shop_name ? (
+                  <Link to={`/store/${product.store_id._id}`} className="font-bold text-primary hover:underline flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[16px]">storefront</span>
+                    {product.store_id.shop_name}
+                  </Link>
+                ) : product.user_id ? (
+                  <span className="font-bold text-blue-500 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[16px]">person</span>
+                    {product.user_id.full_name || product.user_id.account_name || 'Người dùng'}
+                  </span>
+                ) : (
+                  <span className="font-bold text-slate-400">Không xác định</span>
+                )}
               </div>
               {product.category_id?.[0] && (
                 <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-wider mb-2">{product.category_id[0].name}</span>
@@ -577,14 +603,14 @@ const ProductDetail: React.FC = () => {
           </div>
         </div>
 
-        {relatedProducts.length > 0 && (
+        {relatedProducts.length > 0 && product.store_id && (
           <section className="mt-20">
             <h2 className="text-2xl font-bold mb-6 dark:text-white border-b-2 border-primary pb-2 inline-block">
-              Sản phẩm khác từ {product.store_id.shop_name}
+              Sản phẩm khác từ {product.store_id?.shop_name}
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
               {relatedProducts.map(p => (
-                <ProductCard key={p._id} product={p} />
+                <ProductCard key={p._id} product={p as any} />
               ))}
             </div>
           </section>

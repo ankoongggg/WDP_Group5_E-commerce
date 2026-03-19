@@ -45,10 +45,58 @@ const isActiveStore = (store) => {
 };
 
 
+// 2. HÀM MỚI: TÍNH ĐIỂM ĐÁNH GIÁ TRUNG BÌNH CỦA TỪNG SẢN PHẨM
+const getRatingStats = async () => {
+    const stats = await Review.aggregate([
+        {
+            $group: {
+                _id: "$product_id",
+                averageRating: { $avg: "$rating" },
+                totalReviews: { $sum: 1 }
+            }
+        }
+    ]);
+    const map = {};
+    stats.forEach(s => { 
+        if (s._id) {
+            map[s._id.toString()] = {
+                rating: parseFloat(s.averageRating.toFixed(1)), // Làm tròn 1 chữ số thập phân (VD: 4.5)
+                reviewsCount: s.totalReviews
+            };
+        }
+    });
+    return map;
+};
+
+// 3. CẬP NHẬT HÀM MAP DỮ LIỆU
+// Nhớ truyền ratingMap vào hàm mapProductData
+const mapProductData = (p, orderMap, ratingMap) => {
+    let totalStock = 0;
+    if (Array.isArray(p.product_type) && p.product_type.length > 0) {
+        totalStock = p.product_type.reduce((sum, pt) => sum + (pt.stock || 0), 0);
+    } else {
+        totalStock = p.stock || 0;
+    }
+
+    p.calculated_stock = totalStock;
+    p.is_in_stock = totalStock > 0 ? 1 : 0;
+    p.totalOrders = orderMap[p._id?.toString()] || 0;
+    
+    // Gắn thêm Rating
+    const ratingInfo = ratingMap[p._id?.toString()] || { rating: 0, reviewsCount: 0 };
+    p.averageRating = ratingInfo.rating;
+    p.totalReviews = ratingInfo.reviewsCount;
+    
+    if (p.user_id && p.user_id.full_name) p.user_id.name = p.user_id.full_name;
+    return p;
+};
+
+
 const getTopSellingProductIds = async () => {
     const orderStats = await Order.aggregate([
+        { $match: { order_status: 'completed' } },
         { $unwind: "$items" },
-        { $group: { _id: "$items.product_id", totalOrders: { $sum: 1 } } }
+        { $group: { _id: "$items.product_id", totalOrders: { $sum: "$items.quantity" } } }
     ]);
     
     const map = {};
@@ -60,9 +108,11 @@ const getTopSellingProductIds = async () => {
 
 const getOrderCounts = async () => {
     const stats = await Order.aggregate([
+        { $match: { order_status: 'completed' } },
         { $unwind: "$items" },
-        { $group: { _id: "$items.product_id", totalOrders: { $sum: 1 } } }
+        { $group: { _id: "$items.product_id", totalOrders: { $sum: "$items.quantity" } } }
     ]);
+    console.log("Stats:", stats);
     const map = {};
     stats.forEach(s => { if (s._id) map[s._id.toString()] = s.totalOrders; });
     return map;
@@ -104,33 +154,25 @@ exports.getProductsOnHomePage = async (req, res) => {
             .populate('user_id', 'full_name')
             .lean();
 
+            
+
         const orderMap = await getOrderCounts();
+        const ratingMap = await getRatingStats();
 
-        // Map data và tính điểm Relevance
         products = products.map(p => {
-            let totalStock = 0;
-            if (Array.isArray(p.product_type) && p.product_type.length > 0) {
-                totalStock = p.product_type.reduce((sum, pt) => sum + (pt.stock || 0), 0);
-            } else {
-                totalStock = p.stock || 0;
-            }
-
-            p.calculated_stock = totalStock;
-            p.is_in_stock = totalStock > 0 ? 1 : 0;
-            p.totalOrders = orderMap[p._id.toString()] || 0;
-            if (p.user_id) p.user_id.name = p.user_id.full_name;
+            const mappedP = mapProductData(p, orderMap, ratingMap);
 
             // Tính điểm Relevance dựa vào LocalStorage của User
             let score = 0;
-            if (catIds.length > 0 && catIds.some(id => p.category_id.some(c => c.toString() === id.toString()))) {
+            if (catIds.length > 0 && catIds.some(id => mappedP.category_id.some(c => c.toString() === id.toString()))) {
                 score += 50; // Trúng Category đã xem
             }
-            if (interestWords && new RegExp(interestWords.split(/\s+/).join('|'), 'i').test(p.name)) {
+            if (interestWords && new RegExp(interestWords.split(/\s+/).join('|'), 'i').test(mappedP.name)) {
                 score += 30; // Trúng Keyword đã xem
             }
-            p.match_score = score;
+            mappedP.match_score = score;
 
-            return p;
+            return mappedP;
         });
 
         // SORT GỢI Ý: Còn hàng -> Trúng sở thích -> Nhiều Order -> Mới nhất
@@ -332,6 +374,13 @@ exports.getProductsOnProductList = async (req, res) => {
                 }
             }
 
+            // GỌI 2 HÀM HELPER ĐỂ LẤY MAP
+        const orderMap = await getOrderCounts();
+        const ratingMap = await getRatingStats();
+
+        // TRUYỀN VÀO MAPPER
+        products = products.map(p => mapProductData(p, orderMap, ratingMap));
+
             fallbackProducts = await Product.find(fallbackMatch)
                 .populate('store_id', 'shop_name')
                 .populate('user_id', 'full_name')
@@ -341,26 +390,11 @@ exports.getProductsOnProductList = async (req, res) => {
 
         // 6. XỬ LÝ DATA: TÍNH STOCK VÀ GHÉP SỐ ĐƠN (TOTAL ORDERS)
         const orderMap = await getOrderCounts();
-        
-        const mapProductData = (p) => {
-            let totalStock = 0;
-            if (Array.isArray(p.product_type) && p.product_type.length > 0) {
-                totalStock = p.product_type.reduce((sum, pt) => sum + (pt.stock || 0), 0);
-            } else {
-                totalStock = p.stock || 0;
-            }
+        const ratingMap = await getRatingStats();
 
-            p.calculated_stock = totalStock;
-            p.is_in_stock = totalStock > 0 ? 1 : 0;
-            p.totalOrders = orderMap[p._id.toString()] || 0;
-            
-            if (p.user_id) p.user_id.name = p.user_id.full_name;
-            return p;
-        };
-
-        products = products.map(mapProductData);
+        products = products.map(p => mapProductData(p, orderMap, ratingMap));
         if (fallbackProducts.length > 0) {
-            fallbackProducts = fallbackProducts.map(mapProductData);
+            fallbackProducts = fallbackProducts.map(p => mapProductData(p, orderMap, ratingMap));
         }
 
         // 7. SORTING (Thuật toán sắp xếp)
@@ -532,12 +566,17 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
             { path: 'user_id', select: 'full_name account_name' }
         ]);
 
+        const orderMap = await getOrderCounts();
+        const ratingMap = await getRatingStats();
+
         // 6. FORMAT JSON RESPONSE
         finalResult = finalResult.map(p => ({
             ...p,
             stock: p.calculated_stock,
             is_in_stock: p.calculated_stock > 0 ? 1 : 0,
             discount_percentage: Math.round(p.discount_numeric) + '%',
+            totalOrders: orderMap[p._id?.toString()] || 0,
+            averageRating: ratingMap[p._id?.toString()]?.rating || 0,
             user_id: p.user_id ? { 
                 _id: p.user_id._id, 
                 name: p.user_id.full_name || p.user_id.account_name 
@@ -666,10 +705,23 @@ exports.getProductDetails = async (req, res) => {
             }
         });
 
+        // 4.5. LẤY TỔNG SỐ LƯỢNG ĐÃ BÁN (TOTAL ORDERS) TỪ CÁC ĐƠN HÀNG COMPLETED
+        const orderCountAgg = await Order.aggregate([
+            { $match: { order_status: 'completed' } },
+            { $unwind: "$items" },
+            { $match: { "items.product_id": new mongoose.Types.ObjectId(productId) } },
+            { $group: { _id: null, totalSold: { $sum: "$items.quantity" } } }
+        ]);
+        const totalSold = orderCountAgg[0]?.totalSold || 0;
+
+        // Thêm trường totalOrders vào object product để render UI
+        const productData = product.toObject ? product.toObject() : product;
+        productData.totalOrders = totalSold;
+
         // 5. TRẢ DỮ LIỆU VỀ FRONTEND
         res.status(200).json({
             success: true,
-            product,
+            product: productData,
             totalReviews: overallStats.totalReviews,
             averageRating: overallStats.averageRating ? parseFloat(overallStats.averageRating.toFixed(1)) : 0,
             ratingCounts 
