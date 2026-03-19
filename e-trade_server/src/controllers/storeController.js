@@ -554,6 +554,8 @@ exports.rejectSeller = async (req, res) => {
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
     }
 };
+// ... (GIỮ NGUYÊN CÁC HÀM BÊN TRÊN CỦA ĐẠI CA) ...
+
 //admin func
 exports.getListingStoresAndRevenuesTotalOrdersFromProductOfEachStore = async (req,res) => {
     try {
@@ -588,4 +590,32 @@ exports.getListingStoresAndRevenuesTotalOrdersFromProductOfEachStore = async (re
         console.error('Lỗi khi lấy danh sách cửa hàng:', err);
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });    
     }
-}
+};
+
+// 👇 THÊM HÀM MỚI: Cập nhật trạng thái Store cho Admin
+exports.updateStoreStatus = async (req, res) => {
+    try {
+        const storeId = req.params.id;
+        const { status } = req.body;
+
+        // Trạng thái chỉ được phép là 'active' hoặc 'banned'
+        if (!['active', 'banned'].includes(status)) {
+            return res.status(400).json({ message: 'Trạng thái không hợp lệ' });
+        }
+
+        const store = await Store.findByIdAndUpdate(
+            storeId,
+            { status: status },
+            { new: true }
+        );
+
+        if (!store) {
+            return res.status(404).json({ message: 'Không tìm thấy cửa hàng' });
+        }
+
+        res.status(200).json({ message: 'Cập nhật trạng thái thành công', store });
+    } catch (error) {
+        console.error('Lỗi cập nhật trạng thái cửa hàng:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};
