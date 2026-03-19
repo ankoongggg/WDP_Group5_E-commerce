@@ -187,8 +187,11 @@ const ProductsManager: React.FC = () => {
                       
 
                       <td className="p-4">{renderStatusBadge(p.status)}</td>
+                      
                       <td className="p-4">
                         <div className="flex justify-end gap-2">
+                        {!(p.status.includes('cancelled') || p.status.includes('rejected')) && (
+                          <>
                           <button
                             onClick={() => navigate(`/seller/products/${p._id}/edit`)}
                             className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1"
@@ -205,10 +208,13 @@ const ProductsManager: React.FC = () => {
                             </span>
                             {Array.isArray(p.status) ? (p.status.includes('active') ? 'Ẩn' : 'Hiển thị') : p.status === 'active' ? 'Ẩn' : 'Hiển thị'}
                           </button>
+                          </>
+               ) }
                           <button
                             onClick={() => handleSoftDelete(p._id)}
                             className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 text-red-600 hover:bg-red-50"
                           >
+                            
                             <span className="material-symbols-outlined text-[18px]">delete</span>
                             Xoá
                           </button>

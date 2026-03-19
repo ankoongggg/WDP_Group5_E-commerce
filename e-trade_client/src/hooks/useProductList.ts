@@ -20,14 +20,8 @@ export const useProductList = () => {
   const keyword = searchParams.get('keyword') || '';
   const filter = searchParams.get('filter') || '';
 
-  const [condition, setCondition] = useState<string>(''); // used, new
+  const conditionParam = searchParams.get('condition') || '';
 
-  useEffect(() => {
-    if (filter === 'Used') setCondition('Used');
-    else if (filter === 'New') setCondition('New');
-    else setCondition('');
-
-  }, [filter]);
 
 
 
@@ -58,7 +52,8 @@ export const useProductList = () => {
            limit: 12,
            keyword,
            category: categoryParam,
-           filter
+           filter,
+           condition: conditionParam
         });
 
         if (res.success) {
@@ -74,7 +69,7 @@ export const useProductList = () => {
     };
 
     fetchProducts();
-  }, [page, keyword, categoryParam, filter]); // Component sẽ tự Re-render khi một trong số này đổi
+  }, [page, keyword, categoryParam, filter, conditionParam]); // Component sẽ tự Re-render khi một trong số này đổi
 
   const goToPage = (newPage: number) => {
     setSearchParams(prev => {

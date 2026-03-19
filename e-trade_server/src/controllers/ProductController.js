@@ -70,7 +70,6 @@ const getOrderCounts = async () => {
 
 exports.getProductsOnHomePage = async (req, res) => {
     try {
-        console.log("=== START GET HOME PRODUCTS ===");
         const { interests, category_interests, limit = 18 } = req.query;
 
         const interestWords = interests ? interests.replace(/,/g, ' ').trim() : null;
@@ -242,8 +241,8 @@ exports.getRandomUsedProducts = async (req, res) => {
 
 exports.getProductsOnProductList = async (req, res) => {
     try {
-        console.log("=== START GET PRODUCT LIST ===");
-        const { keyword, category, filter, page = 1, limit = 12 } = req.query;
+        // console.log("=== START GET PRODUCT LIST ===");
+        const { keyword, category, filter, condition, page = 1, limit = 12 } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
         // 1. PRE-FETCH ACTIVE USERS & STORES ĐỂ LỌC (QUAN TRỌNG)
@@ -290,6 +289,14 @@ exports.getProductsOnProductList = async (req, res) => {
             });
         }
 
+        if (condition) {
+            if (condition.toLowerCase() === 'new') {
+                matchStage.$and.push({ condition: { $in: ['New', 'new', 'NEW'] } });
+            } else if (condition.toLowerCase() === 'used') {
+                matchStage.$and.push({ condition: { $in: ['Used', 'used', 'USED'] } });
+            }
+        }
+
         // 4. TRUY VẤN SẢN PHẨM THỎA MÃN
         let products = await Product.find(matchStage)
             .populate('store_id', 'shop_name')
@@ -299,7 +306,7 @@ exports.getProductsOnProductList = async (req, res) => {
         // 5. XỬ LÝ FALLBACK (NẾU TÌM KEYWORD KHÔNG RA MÀ CÓ CHỌN CATEGORY)
         let fallbackProducts = [];
         if (products.length === 0 && isSearching && category) {
-            console.log("-> Bật chế độ Fallback: Bỏ qua Keyword, tìm trong Category.");
+            // console.log("-> Bật chế độ Fallback: Bỏ qua Keyword, tìm trong Category.");
             
             // Xây dựng lại matchStage cho fallback: giữ nguyên quy tắc an toàn User/Store, bỏ Keyword
             let fallbackMatch = {
@@ -316,6 +323,14 @@ exports.getProductsOnProductList = async (req, res) => {
                     { category_id: matchStage.$and.find(cond => cond.category_id)?.category_id }
                 ]
             };
+
+            if (condition) {
+                if (condition.toLowerCase() === 'new') {
+                    fallbackMatch.$and.push({ condition: { $in: ['New', 'new', 'NEW'] } });
+                } else if (condition.toLowerCase() === 'used') {
+                    fallbackMatch.$and.push({ condition: { $in: ['Used', 'used', 'USED'] } });
+                }
+            }
 
             fallbackProducts = await Product.find(fallbackMatch)
                 .populate('store_id', 'shop_name')
@@ -359,6 +374,7 @@ exports.getProductsOnProductList = async (req, res) => {
                 case 'price-asc': return a.price - b.price;
                 case 'price-desc': return b.price - a.price;
                 default: 
+                    // Mặc định: Phổ biến nhất -> Mới nhất
                     if (a.totalOrders !== b.totalOrders) return b.totalOrders - a.totalOrders;
                     return new Date(b.created_at) - new Date(a.created_at);
             }
@@ -368,7 +384,7 @@ exports.getProductsOnProductList = async (req, res) => {
         const total = products.length;
         const paginatedProducts = products.slice(skip, skip + parseInt(limit));
 
-        console.log(`[GET LIST] Trả về ${paginatedProducts.length}/${total} sản phẩm.`);
+        // console.log(`[GET LIST] Trả về ${paginatedProducts.length}/${total} sản phẩm.`);
         
         res.json({
             success: true,
@@ -735,23 +751,80 @@ exports.updateCustomerPassedProduct = async (req, res) => {
             return res.status(403).json({ message: 'Bạn không có quyền chỉnh sửa sản phẩm này.' });
         }
 
-        if (name) product.name = name;
-        if (description) product.description = description;
+        // --- VALIDATE KÝ TỰ KHÔNG HỢP LỆ (XSS & Ký tự đặc biệt) ---
+        const dangerousPattern = /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>|<iframe\b|<object\b|javascript:|on\w+=/gi;
+
+        if (name) {
+            if (dangerousPattern.test(name) || /[<>{}\[\]\\]/g.test(name)) {
+                return res.status(400).json({ success: false, message: 'Tên sản phẩm chứa ký tự không hợp lệ (Không dùng < > [ ] { }).' });
+            }
+            product.name = name.trim();
+        }
+
+        if (description !== undefined) {
+            if (dangerousPattern.test(description)) {
+                return res.status(400).json({ success: false, message: 'Mô tả chứa nội dung không hợp lệ.' });
+            }
+            product.description = (description.trim() !== '') ? description.trim() : "Mặc định";
+        }
+
         if (category_id) product.category_id = category_id;
         if (main_image) product.main_image = main_image;
         if (display_files) product.display_files = display_files;
         if (price !== undefined) product.price = price;
         if (original_price !== undefined) product.original_price = original_price;
 
-        if (product_type && Array.isArray(product_type)) {
-            product.product_type = product_type.map(pt => ({
-                ...pt,
-                stock: Math.min(10, Math.max(0, Number(pt.stock) || 0))
-            }));
+        // --- XỬ LÝ PRODUCT_TYPE (Tự động fallback về Mặc định / Stock: 1) ---
+        let finalProductType = [];
+        try {
+            if (Array.isArray(product_type) && product_type.length > 0) {
+                finalProductType = product_type.map((pt) => {
+                    let desc = (pt.description && typeof pt.description === 'string' && pt.description.trim() !== '') 
+                                ? pt.description.trim() 
+                                : 'Mặc định';
+                    
+                    if (dangerousPattern.test(desc) || /[<>{}\[\]\\]/g.test(desc)) {
+                        throw new Error('Tên phân loại chứa ký tự không hợp lệ.');
+                    }
+
+                    return {
+                        ...pt,
+                        description: desc,
+                        stock: Math.min(10, Math.max(1, Number(pt.stock) || 1)),
+                        price_difference: Number(pt.price_difference) || 0
+                    };
+                });
+            } else {
+                finalProductType = [{ description: 'Mặc định', stock: 1, price_difference: 0 }];
+            }
+        } catch (err) {
+            return res.status(400).json({ success: false, message: err.message });
+        }
+
+         // 3. Kiểm duyệt từ khóa cấm
+        const blackListKeywords = await BlacklistKeyword.find();
+        const textToCheck = `${name} ${description || ''}`.toLowerCase();
+        
+        // TRẢ LẠI TÊN CHO EM: LUÔN PENDING CHỜ ADMIN DUYỆT!
+        let finalStatus = 'pending'; 
+        let rejectionReason = '';
+
+        for (const item of blackListKeywords) {
+            if (textToCheck.includes(item.keyword.toLowerCase())) {
+                if (item.level === 'high' || item.level === 'critical') {
+                    rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
+                    return res.status(400).json({ success: false, message: rejectionReason });
+                }
+                if (item.level === 'medium') {
+                    rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
+                    break; 
+                }
+            }
         }
 
         product.updated_at = new Date();
-
+        product.product_type = finalProductType;
+        product.status = finalStatus;
         await product.save();
         res.status(200).json({ success: true, data: product, message: 'Đã cập nhật sản phẩm.' });
     } catch (error) {
@@ -791,22 +864,54 @@ exports.createPassing2ndProduct = async (req, res) => {
             return res.status(403).json({ message: 'Bạn đã đạt giới hạn 10 bài đăng Pass đồ cá nhân.' });
         }
 
+        // --- VALIDATE KÝ TỰ KHÔNG HỢP LỆ ---
+        const dangerousPattern = /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>|<iframe\b|<object\b|javascript:|on\w+=/gi;
+        
+        if (!name || name.trim() === '') {
+            return res.status(400).json({ success: false, message: 'Tên sản phẩm không được để trống.' });
+        }
+        if (dangerousPattern.test(name) || /[<>{}\[\]\\]/g.test(name)) {
+            return res.status(400).json({ success: false, message: 'Tên sản phẩm chứa ký tự không hợp lệ (Không dùng < > [ ] { }).' });
+        }
+        if (description && dangerousPattern.test(description)) {
+            return res.status(400).json({ success: false, message: 'Mô tả chứa nội dung không hợp lệ.' });
+        }
+
+        const safeDescription = (description && description.trim() !== '') ? description.trim() : "Mặc định";
+        
         // 2. Ép cứng tình trạng Used
         const finalCondition = 'Used';
 
-        let finalProductType = Array.isArray(product_type) ? product_type : [];
-        if (finalProductType.length > 0) {
-            finalProductType = finalProductType.map((pt) => ({
-                ...pt,
-                stock: Math.min(10, Math.max(0, Number(pt.stock) || 0))
-            }));
-        } else {
-            finalProductType = [{ description: 'Mặc định', stock: 1, price_difference: 0 }];
+        // --- XỬ LÝ PRODUCT_TYPE (Tự động fallback về Mặc định / Stock: 1) ---
+        let finalProductType = [];
+        try {
+            if (Array.isArray(product_type) && product_type.length > 0) {
+                finalProductType = product_type.map((pt) => {
+                    let desc = (pt.description && typeof pt.description === 'string' && pt.description.trim() !== '') 
+                                ? pt.description.trim() 
+                                : 'Mặc định';
+                    
+                    if (dangerousPattern.test(desc) || /[<>{}\[\]\\]/g.test(desc)) {
+                        throw new Error('Tên phân loại chứa ký tự không hợp lệ.');
+                    }
+
+                    return {
+                        ...pt,
+                        description: desc,
+                        stock: Math.min(10, Math.max(1, Number(pt.stock) || 1)),
+                        price_difference: Number(pt.price_difference) || 0
+                    };
+                });
+            } else {
+                finalProductType = [{ description: 'Mặc định', stock: 1, price_difference: 0 }];
+            }
+        } catch (err) {
+            return res.status(400).json({ success: false, message: err.message });
         }
 
         // 3. Kiểm duyệt từ khóa cấm
         const blackListKeywords = await BlacklistKeyword.find();
-        const textToCheck = `${name} ${description || ''}`.toLowerCase();
+        const textToCheck = `${name} ${safeDescription}`.toLowerCase();
         
         // TRẢ LẠI TÊN CHO EM: LUÔN PENDING CHỜ ADMIN DUYỆT!
         let finalStatus = 'pending'; 
@@ -824,14 +929,14 @@ exports.createPassing2ndProduct = async (req, res) => {
                 }
             }
         }
-
+        
         // 4. Tạo sản phẩm cá nhân (Tuyệt đối không có store_id)
         const newProduct = new Product({
             store_id: undefined, 
             user_id: userId, 
             category_id,
-            name,
-            description,
+            name: name.trim(),
+            description: safeDescription,
             main_image,
             display_files,
             price,

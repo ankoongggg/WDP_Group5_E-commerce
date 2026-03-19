@@ -261,7 +261,7 @@ const getFollowingStores = async (req, res) => {
 // Admin User functions
 const getUserList = async (req, res) => {
     try {
-        const { search = '', page = 1, limit = 20, role, status } = req.query;
+        const { search = '', page = 1, limit = 100, role, status } = req.query;
         const query = {};
 
         if (search.trim()) {

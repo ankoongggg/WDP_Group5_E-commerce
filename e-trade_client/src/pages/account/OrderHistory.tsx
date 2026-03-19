@@ -267,7 +267,8 @@ const OrderHistory: React.FC = () => {
                                       <span className="material-symbols-outlined text-slate-500 text-xl">man</span>
                                       <span className="font-bold text-slate-900 dark:text-white">{order.seller_id.full_name || 'Người bán'}</span>
                                     </>
-                                    )}
+                                    )
+                                    }
                                   
 
                                 </>

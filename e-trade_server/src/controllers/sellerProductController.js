@@ -101,22 +101,7 @@ exports.createSellerProduct = async (req, res) => {
             return res.status(400).json({ success: false, errors });
         }
 
-        // 1. Kiểm duyệt từ khóa cấm (dùng chung với pass item)
-        const blackListKeywords = await BlacklistKeyword.find();
-        const textToCheck = `${name} ${description || ''}`.toLowerCase();
-        let rejectionReason = '';
-
-        for (const item of blackListKeywords) {
-            if (textToCheck.includes(item.keyword.toLowerCase())) {
-                if (item.level === 'high' || item.level === 'critical') {
-                    return res.status(400).json({ success: false, message: `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"` });
-                }
-                if (item.level === 'medium') {
-                    rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
-                    break;
-                }
-            }
-        }
+        
 
         // 2. Chuẩn hoá product_type (không giới hạn stock của 2nd)
         let finalProductType = Array.isArray(product_type) ? product_type : [];
@@ -144,9 +129,26 @@ exports.createSellerProduct = async (req, res) => {
             
             condition: condition || 'New', // Mặc định là 'New' nếu không cung cấp
             status: ['active'],
-            rejection_reason: rejectionReason,
             is_deleted: false,
         };
+
+        // 1. Kiểm duyệt từ khóa cấm (dùng chung với pass item)
+        const blackListKeywords = await BlacklistKeyword.find();
+        const textToCheck = `${name} ${description || ''}`.toLowerCase();
+        let rejectionReason = '';
+
+        for (const item of blackListKeywords) {
+            if (textToCheck.includes(item.keyword.toLowerCase())) {
+                if (item.level === 'high' || item.level === 'critical') {
+                    return res.status(400).json({ success: false, message: `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"` });
+                }
+                if (item.level === 'medium') {
+                    rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
+                    payload.status = ['pending'];
+                    break;
+                }
+            }
+        }
 
         const created = await Product.create(payload);
         res.status(201).json({ success: true, data: created });
@@ -224,6 +226,24 @@ exports.updateSellerProduct = async (req, res) => {
 
         product.product_type = updatedProductType;
         product.updated_at = new Date();
+
+         // 1. Kiểm duyệt từ khóa cấm (dùng chung với pass item)
+        const blackListKeywords = await BlacklistKeyword.find();
+        const textToCheck = `${name} ${description || ''}`.toLowerCase();
+        let rejectionReason = '';
+
+        for (const item of blackListKeywords) {
+            if (textToCheck.includes(item.keyword.toLowerCase())) {
+                if (item.level === 'high' || item.level === 'critical') {
+                    return res.status(400).json({ success: false, message: `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"` });
+                }
+                if (item.level === 'medium') {
+                    rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
+                    product.status = ['pending'];
+                    break;
+                }
+            }
+        }
 
         await product.save();
 

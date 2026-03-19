@@ -6,6 +6,117 @@ import { useAdminPendingProducts } from '../../hooks/admin/useAdminPendingProduc
 import { useCurrency } from '../../context/CurrencyContext'; // Format tiền
 import { Link } from 'react-router-dom';
 
+// --- TYPES ---
+interface PendingProduct {
+  _id: string;
+  name: string;
+  main_image: string;
+  display_files: string[];
+  price: number;
+  description: string;
+  condition: string;
+  product_type: { description: string; stock: number; price_difference: number }[];
+  store_id?: {
+    _id: string;
+    shop_name: string;
+  };
+  user_id?: {
+    _id: string;
+    full_name: string;
+    email: string;
+    phone: string;
+    status: string;
+    avatar?: string;
+  };
+  category_id: { _id: string; name: string }[];
+}
+
+// --- MODAL COMPONENTS ---
+
+const ProductDetailModal = ({ product, onClose, onViewSeller }: { product: PendingProduct, onClose: () => void, onViewSeller: () => void }) => {
+  const { formatPrice } = useCurrency();
+  const allImages = [product.main_image, ...(product.display_files || [])].filter(Boolean);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="p-6 border-b border-slate-200 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
+          <h3 className="text-xl font-bold dark:text-white">{product.name}</h3>
+          <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><span className="material-symbols-outlined">close</span></button>
+        </div>
+        <div className="p-6 space-y-6">
+          {/* Images */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <img src={product.main_image} alt="Main" className="w-full aspect-square object-cover rounded-lg border dark:border-slate-700" />
+            <div className="grid grid-cols-2 gap-2">
+              {(product.display_files || []).slice(0, 4).map((img, i) => (
+                <img key={i} src={img} alt={`sub-${i}`} className="w-full aspect-square object-cover rounded-lg border dark:border-slate-700" />
+              ))}
+            </div>
+          </div>
+          {/* Details */}
+          <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.description || 'Không có mô tả.' }} />
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div><strong className="text-slate-500">Giá:</strong> <span className="font-bold text-primary">{formatPrice(product.price)}</span></div>
+            <div><strong className="text-slate-500">Tình trạng:</strong> <span className="font-semibold">{product.condition}</span></div>
+            <div><strong className="text-slate-500">Danh mục:</strong> {product.category_id?.map(c => c.name).join(', ') || 'N/A'}</div>
+          </div>
+          {/* Variants */}
+          {product.product_type && product.product_type.length > 0 && (
+            <div>
+              <strong className="text-slate-500 text-sm">Phân loại:</strong>
+              <ul className="list-disc list-inside mt-2 text-sm space-y-1">
+                {product.product_type.map((v, i) => (
+                  <li key={i}>{v.description} - Tồn kho: {v.stock} - Chênh lệch giá: {formatPrice(v.price_difference)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        <div className="p-6 border-t border-slate-200 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900">
+          <button onClick={onViewSeller} className="w-full bg-primary/10 text-primary font-bold py-3 rounded-lg hover:bg-primary/20 transition-colors">Xem thông tin người bán</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SellerDetailModal = ({ product, onClose, onBack }: { product: PendingProduct, onClose: () => void, onBack: () => void }) => {
+  const seller = product.store_id ? null : product.user_id;
+  const store = product.store_id;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="p-6 border-b border-slate-200 dark:border-slate-800 relative">
+          <h3 className="text-xl font-bold dark:text-white">Thông tin người bán</h3>
+          <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><span className="material-symbols-outlined">close</span></button>
+        </div>
+        <div className="p-6 space-y-3 text-sm">
+          {store ? (
+            <>
+              <p><strong className="text-slate-500 w-24 inline-block">Loại:</strong> Cửa hàng</p>
+              <p><strong className="text-slate-500 w-24 inline-block">Tên Shop:</strong> <span className="font-semibold">{store.shop_name}</span></p>
+              {/* Here you would ideally populate the store owner's details */}
+            </>
+          ) : seller ? (
+            <>
+              <p><strong className="text-slate-500 w-24 inline-block">Loại:</strong> Người dùng cá nhân</p>
+              <p><strong className="text-slate-500 w-24 inline-block">Họ tên:</strong> <span className="font-semibold">{seller.full_name}</span></p>
+              <p><strong className="text-slate-500 w-24 inline-block">Email:</strong> {seller.email}</p>
+              <p><strong className="text-slate-500 w-24 inline-block">SĐT:</strong> {seller.phone || 'Chưa có'}</p>
+              <p><strong className="text-slate-500 w-24 inline-block">Trạng thái:</strong> <span className={`font-bold ${seller.status === 'active' ? 'text-emerald-500' : 'text-red-500'}`}>{seller.status}</span></p>
+            </>
+          ) : <p>Không có thông tin người bán.</p>}
+        </div>
+        <div className="p-6 border-t border-slate-200 dark:border-slate-800">
+          <button onClick={onBack} className="w-full bg-slate-100 dark:bg-slate-800 font-bold py-3 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Quay lại chi tiết sản phẩm</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const AdminProducts: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'pending' | 'categories'>('pending');
   const { formatPrice } = useCurrency();
@@ -32,6 +143,10 @@ export const AdminProducts: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
+  // Modal States
+  const [modalType, setModalType] = useState<'product' | 'seller' | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<PendingProduct | null>(null);
+
   const onSubmitAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     await handleAddCategory(newCatName);
@@ -51,6 +166,20 @@ export const AdminProducts: React.FC = () => {
   const cancelEditing = () => {
     setEditingId(null);
     setEditingName('');
+  };
+
+  const handleCloseModal = () => {
+    setModalType(null);
+    setSelectedProduct(null);
+  };
+
+  const handleViewProduct = (product: PendingProduct) => {
+    setSelectedProduct(product);
+    setModalType('product');
+  };
+
+  const handleViewSeller = () => {
+    setModalType('seller');
   };
 
   return (
@@ -86,7 +215,7 @@ export const AdminProducts: React.FC = () => {
                <table className="w-full text-left border-collapse min-w-[700px]">
                  <thead>
                    <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-sm">
-                     <th className="p-4 font-medium">Sản phẩm</th>
+                     <th className="p-4 font-medium w-[40%]">Sản phẩm</th>
                      <th className="p-4 font-medium">Cửa hàng</th>
                      <th className="p-4 font-medium">Giá</th>
                      <th className="p-4 font-medium text-center">Hành động</th>
@@ -114,14 +243,32 @@ export const AdminProducts: React.FC = () => {
                            </div>
                          </td>
                          <td className="p-4 font-medium text-slate-700 dark:text-slate-300">
-                           {/* Bạn cần .populate('store_id') ở backend để trường này có data object */}
-                           {product.store_id?.shop_name || 'Không xác định'}
+                           {product.store_id ? (
+                               <div className="flex items-center gap-2">
+                                   <span className="material-symbols-outlined text-base text-slate-400">storefront</span>
+                                   <span className="font-semibold text-primary">{product.store_id.shop_name}</span>
+                               </div>
+                           ) : product.user_id ? (
+                               <div className="flex items-center gap-2">
+                                   <span className="material-symbols-outlined text-base text-slate-400">person</span>
+                                   <span className="font-semibold text-amber-600">{product.user_id.full_name}</span>
+                               </div>
+                           ) : (
+                               <span className="text-slate-400">Không xác định</span>
+                           )}
                          </td>
                          <td className="p-4 font-bold text-primary">
                            {formatPrice(product.price)}
                          </td>
                          <td className="p-4">
                            <div className="flex justify-center gap-2">
+                             <button 
+                               onClick={() => handleViewProduct(product)}
+                               className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold hover:bg-blue-500 hover:text-white transition-colors flex items-center gap-1"
+                               title="Xem chi tiết"
+                             >
+                               <span className="material-symbols-outlined text-[18px]">visibility</span> Chi tiết
+                             </button>
                              <button 
                                onClick={() => handleApproveProduct(product._id)}
                                className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-bold hover:bg-emerald-500 hover:text-white transition-colors flex items-center gap-1"
@@ -258,6 +405,21 @@ export const AdminProducts: React.FC = () => {
            </div>
         )}
       </div>
+
+      {/* --- RENDER MODALS --- */}
+      {modalType === 'product' && selectedProduct && (
+        <ProductDetailModal 
+          product={selectedProduct} 
+          onClose={handleCloseModal} 
+          onViewSeller={handleViewSeller} 
+        />
+      )}
+      {modalType === 'seller' && selectedProduct && (
+        <SellerDetailModal 
+          product={selectedProduct} 
+          onClose={handleCloseModal} 
+          onBack={() => setModalType('product')} />
+      )}
     </AdminLayout>
   );
 };

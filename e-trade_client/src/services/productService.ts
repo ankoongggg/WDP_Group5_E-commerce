@@ -12,7 +12,7 @@ export const ProductService = {
     const response = await axios.get(API_BASE_URL + '/products/home', { params });
     return response.data;
   },
-  getOnProductList: async (params: { page?: number; limit?: number; keyword?: string; category?: string; filter?: string }): Promise<ProductResponse> => {
+  getOnProductList: async (params: { page?: number; limit?: number; keyword?: string; category?: string; filter?: string; condition?: string}): Promise<ProductResponse> => {
     const response = await axios.get(API_BASE_URL + '/products', { params });
     return response.data;
   },
