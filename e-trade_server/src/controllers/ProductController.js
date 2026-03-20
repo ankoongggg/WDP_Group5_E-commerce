@@ -112,7 +112,7 @@ const getOrderCounts = async () => {
         { $unwind: "$items" },
         { $group: { _id: "$items.product_id", totalOrders: { $sum: "$items.quantity" } } }
     ]);
-    console.log("Stats:", stats);
+    // console.log("Stats:", stats);
     const map = {};
     stats.forEach(s => { if (s._id) map[s._id.toString()] = s.totalOrders; });
     return map;
@@ -155,7 +155,7 @@ exports.getProductsOnHomePage = async (req, res) => {
             .lean();
 
             
-
+        // gán ordercount và rating count
         const orderMap = await getOrderCounts();
         const ratingMap = await getRatingStats();
 
@@ -257,17 +257,25 @@ exports.getRandomUsedProducts = async (req, res) => {
             }
         ];
 
-        const products = await Product.aggregate(pipeline);
+        let products = await Product.aggregate(pipeline);
 
         // Filter user-based deactive/banned safety for non-store used products at sync level (defensive)
         const now = new Date();
         const activeUsers = await getActiveUserIds();
         const setActiveUserIds = new Set(activeUsers.map(id => id.toString()));
 
+        // gán ordercount và rating count
+        const orderMap = await getOrderCounts();
+        const ratingMap = await getRatingStats();
+
+        products = products.map(p => mapProductData(p, orderMap, ratingMap));
+
         const filtered = products.filter(p => {
             if (!p.user_id) return true;
             return setActiveUserIds.has(p.user_id._id ? p.user_id._id.toString() : p.user_id.toString());
         });
+
+        
 
         res.status(200).json({
             success: true,
@@ -577,6 +585,7 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
             discount_percentage: Math.round(p.discount_numeric) + '%',
             totalOrders: orderMap[p._id?.toString()] || 0,
             averageRating: ratingMap[p._id?.toString()]?.rating || 0,
+            totalReviews: ratingMap[p._id?.toString()]?.reviewsCount || 0,
             user_id: p.user_id ? { 
                 _id: p.user_id._id, 
                 name: p.user_id.full_name || p.user_id.account_name 
