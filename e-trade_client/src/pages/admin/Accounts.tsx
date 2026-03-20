@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { AdminLayout } from '../components/admin/AdminLayout';
+import React, { useEffect, useState } from 'react';
 import { useAdminUsers } from '../../hooks/admin/useAdminUsers';
 import type { AdminUser } from '../../services/userService';
+import { AdminLayout } from '../components/admin/AdminLayout';
 
 const formatDate = (dateStr?: string | null) => {
   if (!dateStr) return '';
@@ -34,7 +34,30 @@ export const AdminUsers: React.FC = () => {
     updateUserRole,
     banUser,
     createUser,
+    page,
+    setPage,
+    total,
+    totalPages,
+    limit,
+    setLimit,
   } = useAdminUsers();
+
+  // Debounce cho ô search để tránh gọi API liên tục khi gõ
+  const [searchInput, setSearchInput] = useState(search);
+  useEffect(() => {
+    setSearchInput(search);
+  }, [search]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // cập nhật search vào hook + reset page về 1 (handleSearchSubmit)
+      setSearch(searchInput);
+      handleSearchSubmit();
+    }, 400);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [showRoleModal, setShowRoleModal] = useState(false);
@@ -61,7 +84,53 @@ export const AdminUsers: React.FC = () => {
   const [newPasswordError, setNewPasswordError] = useState('');
   const [newPasswordConfirmError, setNewPasswordConfirmError] = useState('');
 
-  const totalUsers = users.length;
+  const totalUsers = total;
+  const fromIndex = totalUsers === 0 ? 0 : (page - 1) * limit + 1;
+  const toIndex = Math.min(totalUsers, page * limit);
+
+  const renderPaginationPages = () => {
+    if (totalPages <= 1) return null;
+
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+
+      const left = Math.max(2, page - 1);
+      const right = Math.min(totalPages - 1, page + 1);
+
+      if (left > 2) pages.push('ellipsis');
+      for (let i = left; i <= right; i++) pages.push(i);
+      if (right < totalPages - 1) pages.push('ellipsis');
+
+      pages.push(totalPages);
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        {pages.map((p, idx) =>
+          p === 'ellipsis' ? (
+            <span key={`${p}-${idx}`} className="text-slate-400 px-1 select-none">
+              ...
+            </span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              className={`min-w-9 h-9 rounded-lg text-sm font-semibold px-2 transition-colors ${
+                p === page
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'bg-transparent border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+            >
+              {p}
+            </button>
+          )
+        )}
+      </div>
+    );
+  };
 
   const handleOpenRoleModal = (user: AdminUser) => {
     setSelectedUser(user);
@@ -320,6 +389,76 @@ export const AdminUsers: React.FC = () => {
                 })}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination */}
+        <div className="p-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+          <div className="text-sm text-slate-600 dark:text-slate-300">
+            {totalUsers > 0 ? (
+              <>
+                Hiển thị <span className="font-bold">{fromIndex}</span>-<span className="font-bold">{toIndex}</span> /{' '}
+                <span className="font-bold">{totalUsers}</span> tài khoản
+              </>
+            ) : (
+              <>0 tài khoản</>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 justify-between sm:justify-end">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap">Hiển thị</span>
+              <select
+                value={limit}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  setLimit(next);
+                  setPage(1);
+                }}
+                className="bg-slate-100 min-w-[60px] dark:bg-slate-800 border-none rounded-xl py-2 px-3 text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-primary/50 outline-none"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(1)}
+                disabled={totalPages <= 1 || page <= 1}
+                className="min-w-10 h-9 rounded-lg text-sm font-semibold px-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                First
+              </button>
+
+              <button
+                onClick={() => setPage(Math.max(1, page - 1))}
+                disabled={totalPages <= 1 || page <= 1}
+                className="min-w-10 h-9 rounded-lg text-sm font-semibold px-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Prev
+              </button>
+
+              {renderPaginationPages()}
+
+              <button
+                onClick={() => setPage(Math.min(totalPages || 1, page + 1))}
+                disabled={totalPages <= 1 || page >= totalPages}
+                className="min-w-10 h-9 rounded-lg text-sm font-semibold px-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Next
+              </button>
+
+              <button
+                onClick={() => setPage(totalPages)}
+                disabled={totalPages <= 1 || page >= totalPages}
+                className="min-w-10 h-9 rounded-lg text-sm font-semibold px-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Last
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

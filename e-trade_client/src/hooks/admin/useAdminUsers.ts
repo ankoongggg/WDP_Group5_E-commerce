@@ -13,7 +13,7 @@ export const useAdminUsers = ({ initialSearch = '' }: UseAdminUsersOptions = {})
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
-    const [limit] = useState(20);
+    const [limit, setLimit] = useState(25);
     const [roleFilter, setRoleFilter] = useState<string>('');
     const [statusFilter, setStatusFilter] = useState<string>('');
 
@@ -39,7 +39,7 @@ export const useAdminUsers = ({ initialSearch = '' }: UseAdminUsersOptions = {})
     useEffect(() => {
         fetchUsers();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, search, roleFilter, statusFilter]);
+    }, [page, search, roleFilter, statusFilter, limit]);
 
     const handleSearchSubmit = () => {
         // chỉ reset về trang 1, useEffect sẽ tự fetch với state mới
@@ -88,6 +88,7 @@ export const useAdminUsers = ({ initialSearch = '' }: UseAdminUsersOptions = {})
         total,
         totalPages,
         limit,
+        setLimit,
         roleFilter,
         setRoleFilter,
         statusFilter,
