@@ -17,8 +17,9 @@ exports.getSellerProducts = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Bạn chưa có cửa hàng' });
         }
 
-        const page = parseInt(req.query.page, 10) || 1;
-        const limit = parseInt(req.query.limit, 10) || 20;
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const allowedLimits = [10, 25, 50, 100];
+        const limit = allowedLimits.includes(parseInt(req.query.limit, 10)) ? parseInt(req.query.limit, 10) : 25;
         const skip = (page - 1) * limit;
         const { status, search } = req.query;
 
