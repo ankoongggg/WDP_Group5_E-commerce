@@ -71,26 +71,28 @@ const Checkout: React.FC = () => {
 
       const orderData = {
         items: displayItems.map((item: any) => {
-          // 👉 ĐÃ SỬA: Lấy ID chuẩn xác bất chấp nguồn từ Cart hay BuyNow
+          // 👉 1. Lấy ID chuẩn xác
           let pId = item.product?._id || item.productId || item._id || item.product_id; 
           
           if (typeof pId === 'string' && pId.includes('-')) {
               pId = pId.split('-')[0];
           }
 
+          // 👉 2. ĐÃ SỬA: Lấy Type chuẩn từ Giỏ Hàng (KHÔNG dùng Regex cắt tên bừa bãi nữa)
           let itemType = 'default';
-          if (item.type && item.type !== 'default') {
-              itemType = item.type;
+          
+          if (item.type !== undefined && item.type !== null) {
+              // Ưu tiên 1: Lấy từ field 'type' (từ CartContext)
+              itemType = item.type === '' ? 'default' : item.type;
+          } else if (typeof item.variant === 'string') {
+              // Ưu tiên 2: Lấy từ field 'variant' dạng chuỗi (từ Backend API trả về)
+              itemType = item.variant === '' ? 'default' : item.variant;
           } else if (item.variant?.description) {
+              // Ưu tiên 3: Dạng object
               itemType = item.variant.description;
           } else if (item._id && typeof item._id === 'string' && item._id.includes('-')) {
+              // Ưu tiên 4: Dạng dính liền ID (Vd: 12345-Red)
               itemType = item._id.split('-').slice(1).join('-');
-          } else if (item.product?.name && item.product.name.includes('(') && item.product.name.endsWith(')')) {
-              const match = item.product.name.match(/\(([^)]+)\)$/);
-              if (match) itemType = match[1].trim();
-          } else if (item.name && item.name.includes('(') && item.name.endsWith(')')) {
-              const match = item.name.match(/\(([^)]+)\)$/);
-              if (match) itemType = match[1].trim();
           }
 
           return {

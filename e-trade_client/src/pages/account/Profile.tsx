@@ -61,6 +61,10 @@ const Profile: React.FC = () => {
         }
     };
 
+    const maxDate18 = new Date();
+    maxDate18.setFullYear(maxDate18.getFullYear() - 18);
+    const maxDateString = maxDate18.toISOString().split("T")[0];
+
     // ==========================================
     // LOGIC KIỂM TRA DỮ LIỆU (PHẪU THUẬT TẠI ĐÂY)
     // ==========================================
@@ -83,13 +87,21 @@ const Profile: React.FC = () => {
         if (form.dob) {
             const selectedDate = new Date(form.dob);
             const today = new Date();
+            
+            let age = today.getFullYear() - selectedDate.getFullYear();
+            const m = today.getMonth() - selectedDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < selectedDate.getDate())) {
+                age--;
+            }
+
+            if (age < 18) {
+                toast.error("Bạn phải đủ 18 tuổi trở lên!");
+                return false;
+            }
+
             const minAgeDate = new Date();
             minAgeDate.setFullYear(today.getFullYear() - 100); // Không thể quá 100 tuổi
 
-            if (selectedDate > today) {
-                toast.error("Ngày sinh không thể ở tương lai!");
-                return false;
-            }
             if (selectedDate < minAgeDate) {
                 toast.error("Ngày sinh không hợp lệ!");
                 return false;
@@ -215,7 +227,7 @@ const Profile: React.FC = () => {
                                             type="date" 
                                             className="w-full px-4 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700 dark:text-white" 
                                             value={form.dob} 
-                                            max={new Date().toISOString().split("T")[0]} // Chặn chọn ngày tương lai trên lịch
+                                        max={maxDateString} // Chặn chọn người dưới 18 tuổi trên lịch
                                             onChange={(e) => setForm({...form, dob: e.target.value})} 
                                         />
                                     </div>

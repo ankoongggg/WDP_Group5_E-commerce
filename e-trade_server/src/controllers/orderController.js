@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const Store = require('../models/Store');
 const Product = require('../models/Product');
+const ReviewProduct = require('../models/ReviewProduct');
 
 /**
  * @desc    [SELLER] Lấy danh sách đơn hàng của cửa hàng
@@ -412,8 +413,26 @@ exports.getMyOrders = async (req, res) => {
         const orders = await Order.find({ customer_id: userId })
             .populate('seller_id', 'shop_name full_name avatar')
             .populate('items.product_id', 'name main_image price')
-            .sort({ created_at: -1 });
-        res.status(200).json({ success: true, data: orders });
+            .sort({ created_at: -1 })
+            .lean(); // Lấy data thuần để thêm trường user_review
+
+        // Lấy tất cả đánh giá của user
+        const userReviews = await ReviewProduct.find({ user_id: userId }).lean();
+
+        // Gắn đánh giá vào từng item trong order
+        const formattedOrders = orders.map(order => {
+            order.items = order.items.map(item => {
+                const review = userReviews.find(r => 
+                    r.order_id.toString() === order._id.toString() && 
+                    r.product_id.toString() === (item.product_id?._id || item.product_id).toString()
+                );
+                if (review) item.user_review = review;
+                return item;
+            });
+            return order;
+        });
+
+        res.status(200).json({ success: true, data: formattedOrders });
     } catch (error) {
         res.status(500).json({ message: 'Lỗi khi lấy lịch sử đơn hàng', error: error.message });
     }
@@ -428,10 +447,21 @@ exports.getOrderDetail = async (req, res) => {
         const userId = req.user.id;
         const order = await Order.findById(orderId)
             .populate('seller_id', 'shop_name full_name avatar phone')
-            .populate('items.product_id', 'name main_image price');
+            .populate('items.product_id', 'name main_image price')
+            .lean(); // Lấy data thuần
         
         if (!order) return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
         if (order.customer_id.toString() !== userId) return res.status(403).json({ success: false, message: 'Không có quyền' });
+
+        // Lấy các đánh giá của user cho đơn hàng này
+        const userReviews = await ReviewProduct.find({ user_id: userId, order_id: orderId }).lean();
+        
+        // Gắn đánh giá vào từng item
+        order.items = order.items.map(item => {
+            const review = userReviews.find(r => r.product_id.toString() === (item.product_id?._id || item.product_id).toString());
+            if (review) item.user_review = review;
+            return item;
+        });
 
         res.json({ success: true, data: order });
     } catch (error) {

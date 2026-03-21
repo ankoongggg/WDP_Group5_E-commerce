@@ -2,8 +2,8 @@ const Cart = require('../models/cart.js');
 
 exports.getCart = async (req, res) => {
     try {
-        const userId = req.user.id || req.user._id; // Bắt chuẩn ID
-        let cart = await Cart.findOne({ user_id: userId }).populate('items.product_id');
+        const userId = req.user.id || req.user._id; 
+        let cart = await Cart.findOne({ user_id: userId }).populate('items.product_id').lean();
         if (!cart) {
             cart = await Cart.create({ user_id: userId, items: [] });
         }
@@ -16,22 +16,33 @@ exports.getCart = async (req, res) => {
 exports.syncCart = async (req, res) => {
     try {
         const userId = req.user.id || req.user._id;
-        if (!userId) return res.status(401).json({ success: false, message: 'Thiếu User ID' });
+        const items = req.body.items || [];
+        
+        const formattedItems = items.map(item => {
+            const productId = item.product?._id || item.product_id || item.product;
+            let typeStr = item.type || item.variant || '';
+            if (typeof typeStr === 'object') {
+                typeStr = typeStr.description || typeStr.name || '';
+            }
 
-        const { items } = req.body;
-        let cart = await Cart.findOne({ user_id: userId });
+            return {
+                product_id: productId,
+                quantity: Number(item.quantity) || 1,
+                type: String(typeStr),
+                variant: String(typeStr)
+            };
+        }).filter(item => item.product_id); 
 
-        if (!cart) {
-            cart = new Cart({ user_id: userId, items: items || [] });
-        } else {
-            cart.items = items || [];
-        }
+        await Cart.findOneAndUpdate(
+            { user_id: userId },
+            { $set: { items: formattedItems } },
+            { new: true, upsert: true }
+        );
 
-        await cart.save();
         res.status(200).json({ success: true, message: 'Đồng bộ thành công' });
     } catch (error) {
         console.error('Lỗi DB Sync:', error);
-        res.status(500).json({ success: false, message: error.message }); // Báo lỗi chi tiết thay vì chung chung
+        res.status(500).json({ success: false, message: error.message }); 
     }
 };
 

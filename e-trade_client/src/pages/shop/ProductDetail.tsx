@@ -306,7 +306,7 @@ const ProductDetail: React.FC = () => {
       productId: product._id,
       type: selectedVariant ? selectedVariant.description : 'default' // ÉP TYPE VÀO ĐÂY
     };
-    addToCart(itemForCart, quantity);
+    addToCart(itemForCart, quantity, itemForCart.type);
     toast.success('Đã thêm vào giỏ hàng!');
     setQuantity(1);
   };

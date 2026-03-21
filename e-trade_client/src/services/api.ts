@@ -218,6 +218,7 @@ export const cartApi = {
             return {
                 product_id: cleanId, 
                 quantity: item.quantity,
+                type: item.type || '',     // 👉 BẮT BUỘC CÓ DÒNG NÀY
                 variant: item.type || '' 
             };
         });

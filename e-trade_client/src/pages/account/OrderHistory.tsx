@@ -340,15 +340,7 @@ const OrderHistory: React.FC = () => {
                           <div className="flex gap-3">
 
                             {order.order_status === 'completed' && firstItem?.product_id?._id && (
-                              hasReview ? (
-                                <button
-                                  onClick={() => setSelectedReviewItem(firstItem)}
-                                  className="px-6 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
-                                >
-                                  <span className="material-symbols-outlined text-[18px]">visibility</span>
-                                  Xem đánh giá
-                                </button>
-                              ) : (
+                              !hasReview ? (
                                 <Link
                                   to={`/account/feedback?productId=${firstItem.product_id._id}&orderId=${order._id}`}
                                   className="px-6 py-2 rounded-lg border border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 font-medium hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors flex items-center gap-1"
@@ -356,6 +348,22 @@ const OrderHistory: React.FC = () => {
                                   <span className="material-symbols-outlined text-[18px]">star</span>
                                   Đánh giá
                                 </Link>
+                              ) : !hasReview.is_edited ? (
+                                <button
+                                  onClick={() => setSelectedReviewItem(firstItem)}
+                                  className="px-6 py-2 rounded-lg border border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400 font-medium hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors flex items-center gap-1"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                                  Sửa đánh giá
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => setSelectedReviewItem(firstItem)}
+                                  className="px-6 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">visibility</span>
+                                  Xem đánh giá
+                                </button>
                               )
                             )}
 
