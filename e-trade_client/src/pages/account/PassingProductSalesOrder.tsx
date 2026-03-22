@@ -4,6 +4,7 @@ import { AccountLayout } from '../components/AccountLayout';
 import { customerPassApi } from '../../services/customerPassService';
 import { useToast } from '../../context/ToastContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import axios from 'axios';
 
 const PassingProductSalesOrders: React.FC = () => {
     const [orders, setOrders] = useState<any[]>([]);
@@ -36,6 +37,21 @@ const PassingProductSalesOrders: React.FC = () => {
             fetchOrders();
         } catch (error: any) {
             toast.error(error.response?.data?.message || "Cập nhật thất bại.");
+        }
+    };
+
+    const handleRefundOrder = async (orderId: string) => {
+        if (!window.confirm('Bạn xác nhận ĐÃ HOÀN TIỀN cho khách hàng này?')) return;
+        try {
+            const token = localStorage.getItem('accessToken');
+            await axios.put(`http://localhost:9999/api/shop/orders/${orderId}/refund`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success('Xác nhận hoàn tiền thành công!');
+            fetchOrders();
+        } catch (error: any) {
+            const msg = error.response?.data?.message || 'Hoàn tiền thất bại';
+            toast.error(msg);
         }
     };
 
@@ -113,6 +129,11 @@ const PassingProductSalesOrders: React.FC = () => {
                                     
                                     {/* Action Buttons dựa trên Order Status */}
                                     <div className="flex gap-2 w-full sm:w-auto">
+                                        {order.order_status === 'cancelled' && order.payment_status === 'refunding' && (
+                                            <button onClick={() => handleRefundOrder(order._id)} className="flex-1 sm:flex-none px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold hover:bg-amber-600 transition-colors shadow-md shadow-amber-500/20">
+                                                Xác nhận đã hoàn tiền
+                                            </button>
+                                        )}
                                         {order.order_status === 'pending' && (
                                             <>
                                                 <button onClick={() => handleUpdateStatus(order._id, 'cancelled', 'Chủ hàng không thể giao')} className="flex-1 sm:flex-none px-4 py-2 border border-red-200 text-red-500 rounded-lg text-sm font-bold hover:bg-red-50 transition-colors">

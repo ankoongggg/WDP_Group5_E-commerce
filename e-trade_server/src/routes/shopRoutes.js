@@ -7,6 +7,7 @@ const {
     getMyOrders,
     getOrderDetail 
 } = require('../controllers/ShopController');
+const orderController = require('../controllers/orderController');
 const { protect } = require('../middlewares/auth');
 
 // =====================================================
@@ -31,5 +32,8 @@ router.get('/orders', protect, getMyOrders);
 
 // Lấy chi tiết order
 router.get('/orders/:orderId', protect, getOrderDetail);
+
+// refund gaming
+router.put('/orders/:orderId/refund', protect, orderController.refundOrderBySeller);
 
 module.exports = router;

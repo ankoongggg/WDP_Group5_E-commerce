@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import SellerLayout from '../seller/SellerLayout';
 import { useToast } from '../../context/ToastContext';
 import { storeApi } from '../../services/api';
+import axios from 'axios';
 import { format } from 'date-fns';
 
 // Debounce hook để tối ưu việc tìm kiếm
@@ -74,6 +75,26 @@ const OrderManagement: React.FC = () => {
             setLoading(false);
         }
     }, [toast]);
+
+    const handleRefundOrder = async (orderId: string) => {
+        if (!window.confirm('Bạn xác nhận ĐÃ CHUYỂN KHOẢN HOÀN TIỀN cho khách hàng này?')) return;
+        setUpdatingStatus(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            await axios.put(`http://localhost:9999/api/shop/orders/${orderId}/refund`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success('Xác nhận hoàn tiền thành công!');
+            if (isDetailModalOpen) setIsDetailModalOpen(false);
+            setSelectedOrder(null);
+            fetchOrders(activeTab, pagination.currentPage, debouncedSearchTerm);
+        } catch (error: any) {
+            const msg = error.response?.data?.message || 'Hoàn tiền thất bại';
+            toast.error(msg);
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
 
     useEffect(() => {
         setPagination(p => ({ ...p, currentPage: 1 }));
@@ -273,6 +294,19 @@ const OrderManagement: React.FC = () => {
                                         <strong>Lý do hủy:</strong> <span className="text-red-600 dark:text-red-400 font-black italic">"{selectedOrder.cancel_reason || selectedOrder.note || 'Không có lý do cụ thể'}"</span>
                                     </p>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* 👇 NÚT HOÀN TIỀN DÀNH CHO SELLER */}
+                        {selectedOrder.order_status === 'cancelled' && selectedOrder.payment_status === 'refunding' && (
+                            <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-center justify-between">
+                                <div>
+                                    <p className="font-bold text-amber-700 dark:text-amber-400">Đơn hàng cần hoàn tiền</p>
+                                    <p className="text-sm text-amber-600 dark:text-amber-300">Khách hàng đã thanh toán trước qua thẻ.</p>
+                                </div>
+                                <button onClick={() => handleRefundOrder(selectedOrder._id)} disabled={updatingStatus} className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-lg shadow-amber-500/30 transition-all disabled:opacity-50">
+                                    {updatingStatus ? 'Đang xử lý...' : 'XÁC NHẬN ĐÃ HOÀN TIỀN'}
+                                </button>
                             </div>
                         )}
 

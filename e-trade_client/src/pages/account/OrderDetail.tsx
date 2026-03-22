@@ -188,6 +188,16 @@ const OrderDetail: React.FC = () => {
                                     Lý do: "{order.cancel_reason}"
                                 </p>
                             )}
+                            {order.payment_status === 'refunding' && (
+                                <p className="text-amber-600 dark:text-amber-400 font-bold mt-3 text-sm bg-amber-50 dark:bg-amber-900/30 inline-block px-3 py-1.5 rounded-lg">
+                                    <span className="material-symbols-outlined align-middle text-[18px] mr-1">schedule</span> Đang chờ người bán hoàn tiền...
+                                </p>
+                            )}
+                            {order.payment_status === 'refunded' && (
+                                <p className="text-green-600 dark:text-green-400 font-bold mt-3 text-sm bg-green-50 dark:bg-green-900/30 inline-block px-3 py-1.5 rounded-lg">
+                                    <span className="material-symbols-outlined align-middle text-[18px] mr-1">task_alt</span> Đã hoàn tiền thành công
+                                </p>
+                            )}
                         </div>
                     ) : (
                         <div className="flex justify-between relative">
@@ -325,7 +335,7 @@ const OrderDetail: React.FC = () => {
 
                         {/* 👉 NÚT HỦY ĐƠN HÀNG */}
                         <div className="flex justify-end gap-3 pt-4">
-                            {order.order_status === 'pending' && order.payment_method === 'cod' && (
+                            {(order.order_status === 'pending' || order.order_status === 'confirmed') && (
                                 <button 
                                     onClick={() => setIsCancelModalOpen(true)}
                                     className="px-6 py-2.5 rounded-xl border-2 border-red-100 text-red-500 font-bold hover:bg-red-50 hover:border-red-200 transition-all"

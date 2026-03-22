@@ -595,13 +595,22 @@ exports.rejectSeller = async (req, res) => {
             return res.status(400).json({ message: 'Đơn đăng kí này đã được xử lý' });
         }
 
+        // Tăng số lần bị từ chối lên 1
+        const currentRejects = registration.get('rejection_count') || 0;
+        const newRejects = currentRejects + 1;
+
+        if (newRejects >= 2) {
+            await SellerRegistration.findByIdAndDelete(registrationId);
+            return res.status(200).json({ message: 'Đơn đăng ký đã bị từ chối 2 lần và đã bị xóa vĩnh viễn khỏi hệ thống.' });
+        }
+
         // Cập nhật trạng thái thành 'rejected' và lưu lý do để người dùng xem
         registration.status = 'rejected';
         registration.rejection_reason = reason || 'Thông tin cung cấp chưa hợp lệ. Vui lòng chỉnh sửa và gửi lại.';
-        // some existing documents may lack required fields; skip validation on save to avoid errors
+        registration.set('rejection_count', newRejects);
         await registration.save({ validateBeforeSave: false });
 
-        res.status(200).json({ message: 'Từ chối seller thành công', registration });
+        res.status(200).json({ message: 'Từ chối seller thành công. Người dùng còn 1 lần cập nhật.', registration });
     } catch (error) {
         console.error('Lỗi khi từ chối seller:', error);
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });

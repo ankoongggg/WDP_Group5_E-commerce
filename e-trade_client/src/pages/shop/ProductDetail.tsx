@@ -288,6 +288,12 @@ const ProductDetail: React.FC = () => {
   }, [hasVariants, product?.product_type]);
 
   const handleAddToCart = () => {
+    if (!isAuthenticated) {
+      toast.info('Vui lòng đăng nhập để thêm vào giỏ hàng!');
+      navigate('/login');
+      return;
+    }
+
     if (!product) return;
     if (hasVariants && selectedTypeIndex === null) {
       toast.error('Vui lòng chọn loại sản phẩm!');
@@ -312,6 +318,12 @@ const ProductDetail: React.FC = () => {
   };
 
   const handleBuyNow = () => {
+    if (!isAuthenticated) {
+      toast.info('Vui lòng đăng nhập để mua hàng!');
+      navigate('/login');
+      return;
+    }
+
     if (!product) return;
     if (hasVariants && selectedTypeIndex === null) {
       toast.error('Vui lòng chọn loại sản phẩm!');

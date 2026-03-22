@@ -111,6 +111,7 @@ const Checkout: React.FC = () => {
         shippingMethod,
         paymentMethod,
         shippingCost,
+        clientTotal: displayTotal, // Gửi tổng tiền mong đợi để Backend đối chiếu
       };
 
       console.log('SENDING ORDER DATA:', orderData);
