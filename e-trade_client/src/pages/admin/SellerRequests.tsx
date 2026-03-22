@@ -12,7 +12,12 @@ export const AdminSellerRequests: React.FC = () => {
     dateFrom, setDateFrom,
     dateTo, setDateTo,
     handleApprove,
-    handleReject
+    handleReject,
+    totalItems,
+    totalPages,
+    page,
+    setPage,
+    limit
   } = useSellerRequests();
 
   // State mở modal xem chi tiết CCCD/Mô tả (tùy chọn)
@@ -21,7 +26,8 @@ export const AdminSellerRequests: React.FC = () => {
   const renderStatus = (status: string) => {
     switch (status) {
       case 'pending': return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Chờ duyệt</span>;
-      case 'active': return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Đã duyệt</span>;
+      case 'approved': return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Đã duyệt</span>;
+      case 'active': return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Đã duyệt (Active)</span>;
       case 'rejected': return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Từ chối</span>;
       default: return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{status}</span>;
     }
@@ -81,7 +87,7 @@ export const AdminSellerRequests: React.FC = () => {
             >
               <option value="all">Tất cả trạng thái</option>
               <option value="pending">Chờ duyệt</option>
-              <option value="active">Đã duyệt (Active)</option>
+              <option value="approved">Đã duyệt</option>
               <option value="rejected">Bị từ chối</option>
             </select>
           </div>
@@ -171,6 +177,21 @@ export const AdminSellerRequests: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {!loading && totalPages > 1 && (
+              <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                  <span className="text-sm text-slate-500 dark:text-slate-400">
+                      Hiển thị {(page - 1) * limit + 1} - {Math.min(page * limit, totalItems)} trong tổng số {totalItems}
+                  </span>
+                  <div className="flex gap-2">
+                      <button disabled={page === 1} onClick={() => setPage(page - 1)} className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors">Trước</button>
+                      <span className="px-4 py-1.5 font-bold text-sm bg-slate-100 dark:bg-slate-800 rounded-lg dark:text-white">{page} / {totalPages}</span>
+                      <button disabled={page === totalPages} onClick={() => setPage(page + 1)} className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors">Sau</button>
+                  </div>
+              </div>
+          )}
+
         </div>
 
         {/* Modal xem mô tả Shop */}
