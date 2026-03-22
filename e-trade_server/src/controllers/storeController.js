@@ -523,13 +523,13 @@ exports.updateSellerRegistration = async (req, res) => {
 // Controller: Lấy danh sách seller đang chờ duyệt
 exports.getPendingSellers = async (req, res) => {
     try {
-        const pendingSellers = await SellerRegistration.find({ status: 'pending' })
+        const sellers = await SellerRegistration.find({})
             .populate('user_id', 'full_name email')
             .sort({ created_at: -1 });
 
-        res.status(200).json(pendingSellers);
+        res.status(200).json(sellers);
     } catch (error) {
-        console.error('Lỗi khi lấy danh sách seller chờ duyệt:', error);
+        console.error('Lỗi khi lấy danh sách seller:', error);
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
     }
 };
@@ -570,7 +570,8 @@ exports.approveSeller = async (req, res) => {
         });
 
         // Xóa đơn đăng kí đã được xử lý để dọn dẹp
-        await SellerRegistration.findByIdAndDelete(registrationId);
+        registration.status = 'approved';
+        await registration.save({ validateBeforeSave: false });
 
         res.status(200).json({ message: 'Phê duyệt seller thành công', store: newStore });
     } catch (error) {
@@ -595,13 +596,22 @@ exports.rejectSeller = async (req, res) => {
             return res.status(400).json({ message: 'Đơn đăng kí này đã được xử lý' });
         }
 
+        // Tăng số lần bị từ chối lên 1
+        const currentRejects = registration.get('rejection_count') || 0;
+        const newRejects = currentRejects + 1;
+
+        if (newRejects >= 2) {
+            await SellerRegistration.findByIdAndDelete(registrationId);
+            return res.status(200).json({ message: 'Đơn đăng ký đã bị từ chối 2 lần và đã bị xóa vĩnh viễn khỏi hệ thống.' });
+        }
+
         // Cập nhật trạng thái thành 'rejected' và lưu lý do để người dùng xem
         registration.status = 'rejected';
         registration.rejection_reason = reason || 'Thông tin cung cấp chưa hợp lệ. Vui lòng chỉnh sửa và gửi lại.';
-        // some existing documents may lack required fields; skip validation on save to avoid errors
+        registration.set('rejection_count', newRejects);
         await registration.save({ validateBeforeSave: false });
 
-        res.status(200).json({ message: 'Từ chối seller thành công', registration });
+        res.status(200).json({ message: 'Từ chối seller thành công. Người dùng còn 1 lần cập nhật.', registration });
     } catch (error) {
         console.error('Lỗi khi từ chối seller:', error);
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });

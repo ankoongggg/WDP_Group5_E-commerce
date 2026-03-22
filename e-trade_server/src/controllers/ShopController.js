@@ -30,7 +30,7 @@ const createOrder = async (req, res) => {
     try {
         console.log('[LOG] 1. Received createOrder request.');
         
-        const { items, shippingAddress, shipping_address, shippingMethod, paymentMethod, shippingCost } = req.body;
+        const { items, shippingAddress, shipping_address, shippingMethod, paymentMethod, shippingCost, clientTotal } = req.body;
         const customerId = req.user.id;
 
         if (!items || items.length === 0) {
@@ -48,6 +48,7 @@ const createOrder = async (req, res) => {
 
         const stockErrors = [];
         const ordersByShop = {};
+        let backendCalculatedTotal = 0; // Biến lưu tổng tiền thực tế từ DB
 
         for (const item of items) {
             const pId = item.productId || item.product_id;
@@ -121,6 +122,7 @@ const createOrder = async (req, res) => {
                 unitPrice += targetVariant.price_difference;
             }
             const itemPrice = unitPrice * item.quantity;
+            backendCalculatedTotal += itemPrice; // Cộng dồn giá chuẩn
             
             ordersByShop[groupKey].total_price += itemPrice;
             ordersByShop[groupKey].items.push({
@@ -142,6 +144,14 @@ const createOrder = async (req, res) => {
 
         if (stockErrors.length > 0) {
             return res.status(400).json({ success: false, message: "Một hoặc nhiều sản phẩm bị lỗi:\n- " + stockErrors.join('\n- ') });
+        }
+        
+        // 👉 ĐỐI CHIẾU GIÁ: Chống gian lận F12 hoặc Shop bất ngờ đổi giá
+        if (clientTotal !== undefined && clientTotal !== backendCalculatedTotal) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Giá sản phẩm hoặc giỏ hàng đã thay đổi (Có thể do Shop vừa cập nhật). Vui lòng làm mới trang và kiểm tra lại giỏ hàng!' 
+            });
         }
 
         const savePromises = Array.from(productMap.values()).map(p => p.save());

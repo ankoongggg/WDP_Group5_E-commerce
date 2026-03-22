@@ -167,8 +167,17 @@ exports.getProductsOnHomePage = async (req, res) => {
             if (catIds.length > 0 && catIds.some(id => mappedP.category_id.some(c => c.toString() === id.toString()))) {
                 score += 50; // Trúng Category đã xem
             }
-            if (interestWords && new RegExp(interestWords.split(/\s+/).join('|'), 'i').test(mappedP.name)) {
-                score += 30; // Trúng Keyword đã xem
+            
+            if (interestWords) {
+                try {
+                    const safeWords = interestWords.split(/\s+/)
+                        .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) // Thoát ký tự đặc biệt cho Regex
+                        .filter(Boolean)
+                        .join('|');
+                    if (safeWords && new RegExp(safeWords, 'i').test(mappedP.name)) {
+                        score += 30; // Trúng Keyword đã xem
+                    }
+                } catch (e) {}
             }
             mappedP.match_score = score;
 
@@ -329,7 +338,8 @@ exports.getProductsOnProductList = async (req, res) => {
 
         if (keyword) {
             isSearching = true;
-            const cleanKeyword = keyword.trim().replace(/\s+/g, ' ');
+            // Escape ký tự đặc biệt để không bị lỗi regex
+            const cleanKeyword = keyword.trim().replace(/\s+/g, ' ').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const searchRegex = new RegExp(cleanKeyword, 'i');
             matchStage.$and.push({
                 $or: [
@@ -485,15 +495,18 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
 
         // NẾU CÓ KEYWORD
         if (keyword) {
-            const searchRegex = new RegExp(keyword.replace(/\s+/g, '|'), 'i');
-            matchStage.$and = [
-                {
-                    $or: [
-                        { name: searchRegex },
-                        { description: searchRegex }
-                    ]
-                }
-            ];
+            const safeKeyword = keyword.trim().split(/\s+/).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).filter(Boolean).join('|');
+            if (safeKeyword) {
+                const searchRegex = new RegExp(safeKeyword, 'i');
+                matchStage.$and = [
+                    {
+                        $or: [
+                            { name: searchRegex },
+                            { description: searchRegex }
+                        ]
+                    }
+                ];
+            }
         }
 
         // 3. PIPELINE LẤY DATA & TÍNH STOCK, % SALE

@@ -247,7 +247,7 @@ exports.updateOrderStatusBySeller = async (req, res) => {
             logMessage = `Người bán đã hủy đơn hàng. Lý do: ${reason || 'Không có'}`;
 
             if (order.payment_status === 'completed') {
-                order.payment_status = 'refunded';
+                order.payment_status = 'refunding'; // Đổi thành chờ hoàn tiền
             }
 
             // --- LOGIC HOÀN KHO CHO SELLER ---
@@ -287,6 +287,42 @@ exports.updateOrderStatusBySeller = async (req, res) => {
 };
 
 /**
+ * @desc    [SELLER/USER] Xác nhận đã hoàn tiền cho đơn hàng hủy
+ */
+exports.refundOrderBySeller = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const userId = req.user.id;
+
+        const order = await Order.findById(orderId);
+        if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+        
+        let hasPermission = false;
+        if (order.seller_type === 'Store') {
+            const store = await Store.findOne({ user_id: userId }).select('_id');
+            if (store && order.seller_id.toString() === store._id.toString()) hasPermission = true;
+        } else {
+            // Cho phép cả người dùng pass đồ cũ tự hoàn tiền
+            if (order.seller_id.toString() === userId) hasPermission = true;
+        }
+
+        if (!hasPermission) return res.status(403).json({ message: 'Không có quyền thực hiện' });
+
+        if (order.order_status !== 'cancelled' || order.payment_status !== 'refunding') {
+            return res.status(400).json({ message: 'Trạng thái không hợp lệ để hoàn tiền' });
+        }
+
+        order.payment_status = 'refunded';
+        order.history_logs.push({ action: 'Người bán đã chuyển khoản hoàn tiền cho khách hàng.', created_at: new Date() });
+        await order.save();
+        
+        res.status(200).json({ success: true, message: 'Xác nhận hoàn tiền thành công', data: order });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};
+
+/**
  * @desc    [CUSTOMER] Khách hàng tự hủy đơn COD khi còn PENDING
  */
 exports.customerCancelOrder = async (req, res) => {
@@ -302,15 +338,23 @@ exports.customerCancelOrder = async (req, res) => {
             return res.status(403).json({ message: 'Bạn không có quyền hủy đơn hàng này.' });
         }
 
-        if (order.order_status !== 'pending' || order.payment_method !== 'cod') {
-            return res.status(400).json({ message: 'Chỉ có thể hủy đơn COD đang chờ xác nhận.' });
+        // Chỉ cho phép hủy khi đơn chưa được giao (chưa chuyển sang shipping)
+        if (order.order_status === 'shipping' || order.order_status === 'completed' || order.order_status === 'cancelled') {
+            return res.status(400).json({ message: 'Không thể hủy đơn hàng ở trạng thái này.' });
+        }
+
+        // Logic Hoàn tiền (Refund) nếu đã thanh toán trước
+        let refundMessage = '';
+        if (order.payment_status === 'completed') {
+            order.payment_status = 'refunding'; // Chuyển sang trạng thái chờ
+            refundMessage = ' Vui lòng chờ người bán hoàn tiền lại cho bạn.';
         }
 
         order.order_status = 'cancelled';
         order.cancel_reason = reason || 'Người mua tự hủy đơn.';
         order.cancelled_by = 'customer';
         order.history_logs.push({ 
-            action: `Người mua đã chủ động hủy đơn hàng. Lý do: ${reason}`, 
+            action: `Người mua đã chủ động hủy đơn hàng.${refundMessage} Lý do: ${reason}`, 
             created_at: new Date() 
         });
 
@@ -335,7 +379,7 @@ exports.customerCancelOrder = async (req, res) => {
         }
 
         await order.save();
-        res.status(200).json({ success: true, message: 'Đã hủy đơn hàng thành công.' });
+        res.status(200).json({ success: true, message: `Đã hủy đơn hàng thành công.${refundMessage}` });
     } catch (error) {
         res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
@@ -378,6 +422,9 @@ exports.updatePassedOrderStatus = async (req, res) => {
             order.note = reason;
             order.cancel_reason = reason;
             order.cancelled_by = 'seller';
+            if (order.payment_status === 'completed') {
+                order.payment_status = 'refunding';
+            }
             for (const item of order.items) {
                     const product = await Product.findById(item.product_id);
                     if (product) {

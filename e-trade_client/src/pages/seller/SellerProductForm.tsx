@@ -172,7 +172,7 @@ const SellerProductForm: React.FC = () => {
                   >
                     <option value="">Chọn tình trạng</option>
                     <option value="New">Mới</option>
-                    <option value="Used">Đã qua sử dụng</option>
+                    
                   </select>
                   {form.errors.condition && <p className="text-xs text-red-500 mt-1">{form.errors.condition}</p>}
                 </div>

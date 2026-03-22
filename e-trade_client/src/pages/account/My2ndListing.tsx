@@ -43,7 +43,21 @@ const My2ndListings: React.FC = () => {
                         <p className="text-sm text-slate-500 mt-1">Quản lý các món đồ bạn đang Pass.</p>
                     </div>
                     <button 
-                        onClick={() => setShowModal(true)}
+                        onClick={() => {
+                            setEditingItem(null);
+                            setFormData((prev: any) => ({
+                                ...prev,
+                                name: '',
+                                description: '',
+                                price: '',
+                                original_price: '',
+                                category_id: [],
+                                product_type: [{ description: '', stock: '', price_difference: '' }],
+                                main_image: '',
+                                display_files: []
+                            }));
+                            setShowModal(true);
+                        }}
                         className="bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-primary/90 hover:scale-105 transition-all shadow-md shadow-primary/20"
                     >
                         <span className="material-symbols-outlined text-[18px]">add</span> Đăng Bán
@@ -104,7 +118,21 @@ const My2ndListings: React.FC = () => {
                                 <span className="material-symbols-outlined text-primary">sell</span>
                                 {editingItem ? 'Cập nhật bài đăng' : 'Đăng Pass Đồ'}
                             </h3>
-                            <button onClick={() => { setShowModal(false); setEditingItem(null); }} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+                            <button onClick={() => { 
+                                setShowModal(false); 
+                                setEditingItem(null); 
+                                setFormData((prev: any) => ({
+                                    ...prev,
+                                    name: '',
+                                    description: '',
+                                    price: '',
+                                    original_price: '',
+                                    category_id: [],
+                                    product_type: [{ description: '', stock: '', price_difference: '' }],
+                                    main_image: '',
+                                    display_files: []
+                                }));
+                            }} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
                                 <span className="material-symbols-outlined block text-[20px]">close</span>
                             </button>
                         </div>
@@ -306,7 +334,21 @@ const My2ndListings: React.FC = () => {
                             </div>
 
                             <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex gap-4">
-                                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 font-bold rounded-xl text-slate-700 dark:text-slate-300 transition-colors">Hủy bỏ</button>
+                                <button type="button" onClick={() => {
+                                    setShowModal(false);
+                                    setEditingItem(null);
+                                    setFormData((prev: any) => ({
+                                        ...prev,
+                                        name: '',
+                                        description: '',
+                                        price: '',
+                                        original_price: '',
+                                        category_id: [],
+                                        product_type: [{ description: '', stock: '', price_difference: '' }],
+                                        main_image: '',
+                                        display_files: []
+                                    }));
+                                }} className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 font-bold rounded-xl text-slate-700 dark:text-slate-300 transition-colors">Hủy bỏ</button>
                                 <button type="submit" disabled={isSubmitting || uploadingImages} className="flex-1 py-3.5 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2">
                                     {isSubmitting ? <><span className="material-symbols-outlined animate-spin">sync</span> Đang xử lý</> : (editingItem ? 'Lưu Thay Đổi' : 'Đăng Bán Ngay')}
                                 </button>

@@ -89,7 +89,7 @@ const StoreDetail: React.FC = () => {
 
   const [storeDetails, setStoreDetails] = useState<StoreDetailsResponse | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
-  
+
   const [loadingStore, setLoadingStore] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,10 +99,10 @@ const StoreDetail: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
-  const [sortBy, setSortBy] = useState('created_at_desc'); 
-  
+  const [sortBy, setSortBy] = useState('created_at_desc');
+
   // 👇 STATE LỌC ĐỒ MỚI / ĐỒ 2ND
-  const [condition, setCondition] = useState<string>(''); 
+  const [condition, setCondition] = useState<string>('');
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const debouncedMinPrice = useDebounce(minPrice, 500);
@@ -149,7 +149,7 @@ const StoreDetail: React.FC = () => {
         if (condition) params.append('condition', condition); // Truyền bộ lọc
 
         const response = await axios.get<StoreProductsResponse>(`http://localhost:9999/api/store/${id}/products`, { params });
-        
+
         setProducts(response.data.products);
         setTotalPages(response.data.totalPages);
       } catch (err) {
@@ -160,7 +160,7 @@ const StoreDetail: React.FC = () => {
       }
     };
     fetchProducts();
-  }, [id, page, debouncedSearchTerm, debouncedMinPrice, debouncedMaxPrice, sortBy, condition]); 
+  }, [id, page, debouncedSearchTerm, debouncedMinPrice, debouncedMaxPrice, sortBy, condition]);
 
   useEffect(() => {
     setPage(1);
@@ -168,35 +168,35 @@ const StoreDetail: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated && user?.following_stores && storeDetails?.store._id) {
-        setIsFollowing(user.following_stores.includes(storeDetails.store._id));
+      setIsFollowing(user.following_stores.includes(storeDetails.store._id));
     } else {
-        setIsFollowing(false);
+      setIsFollowing(false);
     }
   }, [user, storeDetails, isAuthenticated]);
 
   const handleToggleFollow = async () => {
     if (!isAuthenticated) {
-        toast.info('Vui lòng đăng nhập để theo dõi cửa hàng.');
-        navigate('/login');
-        return;
+      toast.info('Vui lòng đăng nhập để theo dõi cửa hàng.');
+      navigate('/login');
+      return;
     }
     if (!storeDetails?.store._id || isTogglingFollow) return;
 
     setIsTogglingFollow(true);
     try {
-        const response = await authApi.toggleFollowStore(storeDetails.store._id);
-        toast.success(response.message);
-        
-        const newFollowing: string[] = response.data || [];
-        setIsFollowing(newFollowing.includes(storeDetails.store._id));
+      const response = await authApi.toggleFollowStore(storeDetails.store._id);
+      toast.success(response.message);
 
-        if (setUser) {
-            setUser(currentUser => currentUser ? { ...currentUser, following_stores: newFollowing } : null);
-        }
+      const newFollowing: string[] = response.data || [];
+      setIsFollowing(newFollowing.includes(storeDetails.store._id));
+
+      if (setUser) {
+        setUser(currentUser => currentUser ? { ...currentUser, following_stores: newFollowing } : null);
+      }
     } catch (error: any) {
-        toast.error(error.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+      toast.error(error.message || 'Có lỗi xảy ra, vui lòng thử lại.');
     } finally {
-        setIsTogglingFollow(false);
+      setIsTogglingFollow(false);
     }
   };
 
@@ -297,11 +297,11 @@ const StoreDetail: React.FC = () => {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto px-4 py-8">
-        
+
         {/* Store Header */}
         <div className="flex flex-col md:flex-row items-center gap-8 p-8 rounded-t-xl bg-slate-100 dark:bg-slate-800">
-          <img 
-            src={store.user_id?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(store.shop_name)}&background=random&color=fff`} 
+          <img
+            src={store.user_id?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(store.shop_name)}&background=random&color=fff`}
             alt={store.shop_name}
             className="w-32 h-32 rounded-full object-cover border-4 border-white dark:border-slate-700 shadow-lg"
           />
@@ -309,16 +309,15 @@ const StoreDetail: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-center md:justify-start gap-4 mb-2">
               <h1 className="text-4xl font-extrabold dark:text-white">{store.shop_name}</h1>
               <button
-                  onClick={handleToggleFollow}
-                  disabled={isTogglingFollow}
-                  className={`px-5 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-70 ${
-                      isFollowing
-                          ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
-                          : 'bg-primary text-white hover:bg-primary/90'
+                onClick={handleToggleFollow}
+                disabled={isTogglingFollow}
+                className={`px-5 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-70 ${isFollowing
+                  ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
+                  : 'bg-primary text-white hover:bg-primary/90'
                   }`}
               >
-                  <span className="material-symbols-outlined text-base">{isFollowing ? 'check' : 'add'}</span>
-                  {isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
+                <span className="material-symbols-outlined text-base">{isFollowing ? 'check' : 'add'}</span>
+                {isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
               </button>
             </div>
             <p className="text-slate-600 dark:text-slate-300">{store.description}</p>
@@ -343,75 +342,53 @@ const StoreDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* 👇 DÀN NÚT LỌC ĐÃ ĐƯỢC CHUYỂN LÊN SÁT VÁCH HEADER SHOP 👇 */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-b-xl shadow-sm p-4 mb-8 flex justify-center md:justify-start gap-3">
-            <button
-                onClick={() => setCondition('')}
-                className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${condition === '' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}
-            >
-                Tất cả sản phẩm
-            </button>
-            <button
-                onClick={() => setCondition('New')}
-                className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${condition === 'New' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}
-            >
-                <span className="material-symbols-outlined text-[18px]">new_releases</span> Hàng Mới
-            </button>
-            <button
-                onClick={() => setCondition('Used')}
-                className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${condition === 'Used' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}
-            >
-                <span className="material-symbols-outlined text-[18px]">recycling</span> Đồ Pass (2nd)
-            </button>
-        </div>
-        {/* 👆 KẾT THÚC DÀN NÚT LỌC 👆 */}
-
+        <br></br>
         {/* Cụm Tìm Kiếm & Lọc Giá */}
         <div ref={productSectionRef} className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-                <div className="md:col-span-2">
-                    <div className="relative">
-                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-                        <input
-                        type="text"
-                        placeholder="Tìm kiếm trong cửa hàng..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white"
-                        />
-                    </div>
-                </div>
-                <div className="flex items-center gap-2">
-                    <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="Giá từ"
-                    value={formatPriceInput(minPrice)}
-                    onChange={(e) => handlePriceInputChange(e, setMinPrice)}
-                    className="w-full px-4 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white"
-                    />
-                    <span className="text-slate-400">-</span>
-                    <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="Giá đến"
-                    value={formatPriceInput(maxPrice)}
-                    onChange={(e) => handlePriceInputChange(e, setMaxPrice)}
-                    className="w-full px-4 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white"
-                    />
-                </div>
-                <div>
-                    <select
-                    value={sortBy}
-                    onChange={handleSortChange}
-                    className="w-full px-4 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white"
-                    >
-                    <option value="created_at_desc">Mới nhất</option>
-                    <option value="price_asc">Giá: Thấp đến Cao</option>
-                    <option value="price_desc">Giá: Cao đến Thấp</option>
-                    </select>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+            <div className="md:col-span-2">
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm trong cửa hàng..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white"
+                />
+              </div>
             </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="Giá từ"
+                value={formatPriceInput(minPrice)}
+                onChange={(e) => handlePriceInputChange(e, setMinPrice)}
+                className="w-full px-4 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white"
+              />
+              <span className="text-slate-400">-</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="Giá đến"
+                value={formatPriceInput(maxPrice)}
+                onChange={(e) => handlePriceInputChange(e, setMaxPrice)}
+                className="w-full px-4 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white"
+              />
+            </div>
+            <div>
+              <select
+                value={sortBy}
+                onChange={handleSortChange}
+                className="w-full px-4 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all dark:text-white"
+              >
+                <option value="created_at_desc">Mới nhất</option>
+                <option value="price_asc">Giá: Thấp đến Cao</option>
+                <option value="price_desc">Giá: Cao đến Thấp</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         {/* Product Grid */}
@@ -422,7 +399,7 @@ const StoreDetail: React.FC = () => {
             {inStockProducts.length > 0 && (
               <section>
                 <h2 className="text-2xl font-bold mb-6 dark:text-white border-b-2 border-primary pb-2 inline-block">
-                    {condition === 'New' ? 'Hàng Mới' : condition === 'Used' ? 'Đồ Pass' : 'Sản phẩm còn hàng'}
+                  {condition === 'New' ? 'Hàng Mới' : condition === 'Used' ? 'Đồ Pass' : 'Sản phẩm còn hàng'}
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {inStockProducts.map(product => (

@@ -1,5 +1,5 @@
 // src/pages/admin/AdminProducts.tsx
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AdminLayout } from '../components/admin/AdminLayout';
 import { useAdminCategories } from '../../hooks/admin/useAdminCategories';
 import { useAdminPendingProducts } from '../../hooks/admin/useAdminPendingProducts'; // Hook mới
@@ -138,6 +138,33 @@ export const AdminProducts: React.FC = () => {
     handleRejectProduct
   } = useAdminPendingProducts();
 
+  // --- Pagination & Filter States ---
+  const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
+  // Reset page when search term changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
+
+  const filteredProducts = useMemo(() => {
+    if (!searchTerm) return pendingProducts;
+    const term = searchTerm.toLowerCase();
+    return pendingProducts.filter(product => {
+      const productName = product.name?.toLowerCase() || '';
+      const shopName = product.store_id?.shop_name?.toLowerCase() || '';
+      const userName = product.user_id?.full_name?.toLowerCase() || '';
+      return productName.includes(term) || shopName.includes(term) || userName.includes(term);
+    });
+  }, [pendingProducts, searchTerm]);
+
+  const totalProducts = filteredProducts.length;
+  const totalPages = Math.ceil(totalProducts / limit);
+  const paginatedProducts = useMemo(() => {
+    return filteredProducts.slice((page - 1) * limit, page * limit);
+  }, [filteredProducts, page, limit]);
+
   // --- Category States & Functions ---
   const [newCatName, setNewCatName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -204,11 +231,21 @@ export const AdminProducts: React.FC = () => {
         {/* TAB 1: DUYỆT SẢN PHẨM */}
         {activeTab === 'pending' && (
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-             <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-red-50/50 dark:bg-red-900/10">
-                 <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                     <span className="material-symbols-outlined text-red-500">warning</span>
-                     Sản phẩm chứa từ khóa cấm cần kiểm duyệt ({pendingProducts.length})
-                 </h3>
+             {/* Toolbar: Search */}
+             <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="relative w-full sm:w-80">
+                  <span className="absolute left-3 top-2.5 text-slate-400 material-symbols-outlined text-[20px]">search</span>
+                  <input 
+                    type="text" 
+                    placeholder="Tìm tên sản phẩm, shop, người bán..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/50 outline-none dark:text-white transition-all" 
+                  />
+                </div>
+                <div className="text-sm text-slate-500">
+                  Tổng cộng: <span className="font-bold text-slate-800 dark:text-white">{filteredProducts.length}</span> sản phẩm
+                </div>
              </div>
              
              <div className="overflow-x-auto">
@@ -224,10 +261,12 @@ export const AdminProducts: React.FC = () => {
                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
                    {prodLoading ? (
                       <tr><td colSpan={4} className="p-8 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
-                   ) : pendingProducts.length === 0 ? (
-                      <tr><td colSpan={4} className="p-8 text-center text-emerald-500 font-medium">Tuyệt vời! Không có sản phẩm nào vi phạm chờ duyệt.</td></tr>
+                   ) : paginatedProducts.length === 0 ? (
+                      <tr><td colSpan={4} className="p-8 text-center text-emerald-500 font-medium">
+                        {searchTerm ? 'Không tìm thấy sản phẩm nào phù hợp.' : 'Tuyệt vời! Không có sản phẩm nào vi phạm chờ duyệt.'}
+                      </td></tr>
                    ) : (
-                     pendingProducts.map((product) => (
+                     paginatedProducts.map((product) => (
                        <tr key={product._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                          <td className="p-4 flex gap-3 items-center">
                            <div className="w-16 h-16 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200 dark:border-slate-700">
@@ -291,6 +330,20 @@ export const AdminProducts: React.FC = () => {
                  </tbody>
                </table>
              </div>
+
+             {/* Pagination */}
+             {!prodLoading && totalPages > 1 && (
+                <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                        Hiển thị {(page - 1) * limit + 1} - {Math.min(page * limit, totalProducts)} trong tổng số {totalProducts}
+                    </span>
+                    <div className="flex gap-2">
+                        <button disabled={page === 1} onClick={() => setPage(page - 1)} className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors">Trước</button>
+                        <span className="px-4 py-1.5 font-bold text-sm bg-slate-100 dark:bg-slate-800 rounded-lg dark:text-white">{page} / {totalPages}</span>
+                        <button disabled={page === totalPages} onClick={() => setPage(page + 1)} className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors">Sau</button>
+                    </div>
+                </div>
+             )}
           </div>
         )}
 
