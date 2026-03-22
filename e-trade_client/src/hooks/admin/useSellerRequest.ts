@@ -11,9 +11,13 @@ export const useSellerRequests = () => {
 
     // Search & Filter state
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('pending'); // 'pending', 'active', 'rejected', 'all'
+    const [statusFilter, setStatusFilter] = useState('pending'); // 'pending', 'approved', 'rejected', 'all'
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
+
+    // Pagination state
+    const [page, setPage] = useState(1);
+    const limit = 10;
 
     const fetchRequests = async () => {
         setLoading(true);
@@ -65,6 +69,11 @@ export const useSellerRequests = () => {
         }
     };
 
+    // Reset page when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [searchTerm, statusFilter, dateFrom, dateTo]);
+
     // Lọc dữ liệu client-side
     const filteredRequests = useMemo(() => {
         return requests.filter((req) => {
@@ -98,8 +107,17 @@ export const useSellerRequests = () => {
         });
     }, [requests, searchTerm, statusFilter, dateFrom, dateTo]);
 
+    const paginatedRequests = useMemo(() => {
+        const start = (page - 1) * limit;
+        return filteredRequests.slice(start, start + limit);
+    }, [filteredRequests, page, limit]);
+
+    const totalPages = Math.ceil(filteredRequests.length / limit) || 1;
+    const totalItems = filteredRequests.length;
+
     return {
-        requests: filteredRequests,
+        requests: paginatedRequests,
+        totalItems, totalPages, page, setPage, limit,
         loading,
         searchTerm, setSearchTerm,
         statusFilter, setStatusFilter,

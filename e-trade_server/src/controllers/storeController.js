@@ -523,13 +523,13 @@ exports.updateSellerRegistration = async (req, res) => {
 // Controller: Lấy danh sách seller đang chờ duyệt
 exports.getPendingSellers = async (req, res) => {
     try {
-        const pendingSellers = await SellerRegistration.find({ status: 'pending' })
+        const sellers = await SellerRegistration.find({})
             .populate('user_id', 'full_name email')
             .sort({ created_at: -1 });
 
-        res.status(200).json(pendingSellers);
+        res.status(200).json(sellers);
     } catch (error) {
-        console.error('Lỗi khi lấy danh sách seller chờ duyệt:', error);
+        console.error('Lỗi khi lấy danh sách seller:', error);
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
     }
 };
@@ -570,7 +570,8 @@ exports.approveSeller = async (req, res) => {
         });
 
         // Xóa đơn đăng kí đã được xử lý để dọn dẹp
-        await SellerRegistration.findByIdAndDelete(registrationId);
+        registration.status = 'approved';
+        await registration.save({ validateBeforeSave: false });
 
         res.status(200).json({ message: 'Phê duyệt seller thành công', store: newStore });
     } catch (error) {
