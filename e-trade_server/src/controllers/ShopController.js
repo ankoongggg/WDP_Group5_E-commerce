@@ -26,10 +26,6 @@ const getPaymentMethods = async (req, res) => {
 // PLACE ORDER
 // =====================================================
 
-// Tạo đơn hàng từ cart (ĐÃ FIX: TÁCH ĐƠN THEO SHOP + XỬ LÝ PHÂN LOẠI CHUẨN)
-// Tạo đơn hàng từ cart (ĐÃ FIX TẬN GỐC LỖI TÌM PHÂN LOẠI NULL)
-// Tạo đơn hàng từ cart (ĐÃ FIX TẬN GỐC LỖI THIẾU STORE_ID VÀ PHÂN LOẠI NULL)
-// Tạo đơn hàng từ cart (ĐÃ FIX: HỖ TRỢ CẢ HÀNG STORE VÀ HÀNG PASS ĐỒ CŨ)
 const createOrder = async (req, res) => {
     try {
         console.log('[LOG] 1. Received createOrder request.');
@@ -56,7 +52,7 @@ const createOrder = async (req, res) => {
         for (const item of items) {
             const pId = item.productId || item.product_id;
             const product = productMap.get(pId);
-            const itemType = item.type || 'default'; 
+            const itemType = item.type || item.variant || 'default'; // Lấy an toàn cả type hoặc variant
             
             if (!product) {
                 return res.status(404).json({ success: false, message: `Sản phẩm không tồn tại.` });
@@ -68,7 +64,6 @@ const createOrder = async (req, res) => {
                 continue; 
             }
 
-            // --- KIỂM TRA STOCK THEO ĐÚNG PHÂN LOẠI ---
             let availableStock = 0;
             let targetVariant = null;
 
@@ -96,9 +91,6 @@ const createOrder = async (req, res) => {
                 continue;
             }
 
-            // =================================================================
-            // TÍNH NĂNG MỚI: XÁC ĐỊNH NGƯỜI BÁN LÀ STORE HAY USER (PASS ĐỒ CŨ)
-            // =================================================================
             let actualSellerId = null;
             let actualSellerType = 'Store';
 
@@ -107,25 +99,23 @@ const createOrder = async (req, res) => {
                 actualSellerType = 'Store';
             } else if (product.user_id) {
                 actualSellerId = product.user_id;
-                actualSellerType = 'User'; // Đây là hàng pass đồ cũ
+                actualSellerType = 'User'; 
             } else {
                 stockErrors.push(`Sản phẩm "${product.name}" bị lỗi: Không xác định được người bán.`);
                 continue;
             }
 
-            // Tạo key nhóm giỏ hàng dựa trên loại người bán và ID người bán
             const groupKey = `${actualSellerType}_${actualSellerId.toString()}`;
             
             if (!ordersByShop[groupKey]) {
                 ordersByShop[groupKey] = {
                     seller_id: actualSellerId,
-                    seller_type: actualSellerType, // Lưu lại type để lát truyền vào DB
+                    seller_type: actualSellerType,
                     items: [],
                     total_price: 0
                 };
             }
 
-            // --- TÍNH GIÁ CHÍNH XÁC ---
             let unitPrice = product.price;
             if (targetVariant && targetVariant.price_difference) {
                 unitPrice += targetVariant.price_difference;
@@ -142,7 +132,6 @@ const createOrder = async (req, res) => {
                 type: itemType
             });
 
-            // --- TRỪ KHO ĐÚNG VỊ TRÍ ---
             if (targetVariant) {
                 targetVariant.stock = (targetVariant.stock || 0) - item.quantity;
             } else {
@@ -164,28 +153,36 @@ const createOrder = async (req, res) => {
         const shippingPerOrder = Math.round(totalShippingCost / numberOfShops);
 
         // =================================================================
-        // TRUYỀN SELLER_TYPE VÀO DB ĐỂ MONGOOSE HIỂU ĐÚNG REFPATH
+        // LOGIC "TIỀN TRAO CHÁO MÚC": THANH TOÁN ONLINE THÌ AUTO XÁC NHẬN
         // =================================================================
+        const isOnlinePayment = paymentMethod !== 'cod';
+        // Nếu trả online thì cho 'confirmed' luôn, còn 'cod' thì 'pending' (Chờ xác nhận)
+        const initialOrderStatus = isOnlinePayment ? 'confirmed' : 'pending';
+        const initialPaymentStatus = isOnlinePayment ? 'completed' : 'pending';
+        const logMessage = isOnlinePayment 
+            ? `Order created and auto-confirmed via ${paymentMethod}` 
+            : `Order created (COD) - Waiting for seller confirmation`;
+
         const orderCreationPromises = shopKeys.map(groupKey => {
             const shopOrderData = ordersByShop[groupKey];
             return Order.create({
                 customer_id: customerId,
                 seller_id: shopOrderData.seller_id,
-                seller_type: shopOrderData.seller_type, // Rất quan trọng! Lưu Store hay User
+                seller_type: shopOrderData.seller_type,
                 items: shopOrderData.items,
                 total_price: shopOrderData.total_price,
                 shipping_fee: shippingPerOrder,
                 total_amount: shopOrderData.total_price + shippingPerOrder,
                 shipping_address: finalAddress,
                 payment_method: paymentMethod,
-                payment_status: 'pending',
-                order_status: 'pending',
-                history_logs: [{ action: 'Order created', created_at: new Date() }]
+                payment_status: initialPaymentStatus, // Set theo logic ở trên
+                order_status: initialOrderStatus,     // Set theo logic ở trên
+                history_logs: [{ action: logMessage, created_at: new Date() }]
             });
         });
 
         const createdOrders = await Promise.all(orderCreationPromises);
-        console.log(`[LOG] Successfully created ${createdOrders.length} split orders.`);
+        console.log(`[LOG] Successfully created ${createdOrders.length} split orders with status ${initialOrderStatus}.`);
 
         res.status(201).json({
             success: true,
@@ -234,9 +231,10 @@ const submitPayment = async (req, res) => {
         }
 
         order.payment_status = 'completed';
-        order.order_status = 'confirmed';
+        // 👉 CHỖ NÀY CŨNG CHO AUTO XÁC NHẬN LUÔN NẾU THANH TOÁN THÀNH CÔNG BẰNG CHỨC NĂNG BỔ SUNG
+        order.order_status = 'confirmed'; 
         order.history_logs.push({
-            action: `Payment received via ${paymentMethod}`,
+            action: `Payment received via ${paymentMethod} - Order auto-confirmed`,
             created_at: new Date()
         });
         
@@ -267,7 +265,7 @@ const processPayment = (method, cardDetails, amount) => {
         if (!cardNumber || cardNumber.length < 13 || !cvv || cvv.length !== 3) {
             return { success: false, message: 'Invalid card details' };
         }
-        const isSuccess = Math.random() < 0.7;
+        const isSuccess = Math.random() < 0.7; // Tỷ lệ thành công 70% mô phỏng
         if (!isSuccess) return { success: false, message: 'Card declined. Please try another card.' };
         return { success: true, transactionId: `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` };
     }

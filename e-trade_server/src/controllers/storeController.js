@@ -6,6 +6,53 @@ const Review = require('../models/ReviewProduct');
 const SellerRegistration = require('../models/SellerRegistration');
 const mongoose = require('mongoose');
 
+// --- HELPER FUNCTIONS CHO SẢN PHẨM ---
+const getOrderCounts = async () => {
+    const stats = await Order.aggregate([
+        { $match: { order_status: 'completed' } },
+        { $unwind: "$items" },
+        { $group: { _id: "$items.product_id", totalOrders: { $sum: "$items.quantity" } } }
+    ]);
+    const map = {};
+    stats.forEach(s => { if (s._id) map[s._id.toString()] = s.totalOrders; });
+    return map;
+};
+
+const getRatingStats = async () => {
+    const stats = await Review.aggregate([
+        {
+            $group: {
+                _id: "$product_id",
+                averageRating: { $avg: "$rating" },
+                totalReviews: { $sum: 1 }
+            }
+        }
+    ]);
+    const map = {};
+    stats.forEach(s => { 
+        if (s._id) {
+            map[s._id.toString()] = {
+                rating: parseFloat(s.averageRating.toFixed(1)),
+                reviewsCount: s.totalReviews
+            };
+        }
+    });
+    return map;
+};
+
+const mapProductData = (p, orderMap, ratingMap) => {
+    // Kế thừa tồn kho từ model Product
+    p.calculated_stock = p.stock || 0;
+    p.is_in_stock = p.calculated_stock > 0 ? 1 : 0;
+    p.totalOrders = orderMap[p._id?.toString()] || 0;
+    
+    const ratingInfo = ratingMap[p._id?.toString()] || { rating: 0, reviewsCount: 0 };
+    p.averageRating = ratingInfo.rating;
+    p.totalReviews = ratingInfo.reviewsCount;
+    
+    return p;
+};
+
 // Lấy thông tin store + stats cho seller hiện tại
 exports.getMyStore = async (req, res) => {
     try {
@@ -262,9 +309,14 @@ exports.getStoreProducts = async (req, res) => {
         // Lọc và tìm kiếm
         const { search, sortBy, minPrice, maxPrice, exclude } = req.query;
 
-        // Kiểm tra xem cửa hàng có tồn tại không
-        const storeExists = await Store.findById(storeId).select('_id');
-        if (!storeExists) {
+        // Kiểm tra xem cửa hàng và owner có được phép
+        const store = await Store.findById(storeId).populate('user_id', 'status banned_until');
+        if (!store || store.status !== 'active') {
+            return res.status(404).json({ message: 'Không tìm thấy cửa hàng' });
+        }
+
+        const now = new Date();
+        if (!store.user_id || store.user_id.status !== 'active' ) {
             return res.status(404).json({ message: 'Không tìm thấy cửa hàng' });
         }
 
@@ -305,12 +357,18 @@ exports.getStoreProducts = async (req, res) => {
         }
 
         // Lấy sản phẩm với phân trang, lọc và sắp xếp
-        const products = await Product.find(filter)
+        let products = await Product.find(filter)
             .select('name main_image price original_price stock product_type store_id')
             .populate('store_id', 'shop_name') // Thêm populate để lấy tên shop
             .sort(sortOptions)
             .skip(skip)
-            .limit(limit);
+            .limit(limit)
+            .lean(); // .lean() giúp biến Object Mongoose thành Object JS thuần để gán Data
+
+        const orderMap = await getOrderCounts();
+        const ratingMap = await getRatingStats();
+
+        products = products.map(p => mapProductData(p, orderMap, ratingMap));
 
         // Lấy tổng số sản phẩm khớp với bộ lọc để phân trang
         const totalProducts = await Product.countDocuments(filter);
@@ -549,6 +607,8 @@ exports.rejectSeller = async (req, res) => {
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
     }
 };
+// ... (GIỮ NGUYÊN CÁC HÀM BÊN TRÊN CỦA ĐẠI CA) ...
+
 //admin func
 exports.getListingStoresAndRevenuesTotalOrdersFromProductOfEachStore = async (req,res) => {
     try {
@@ -583,4 +643,32 @@ exports.getListingStoresAndRevenuesTotalOrdersFromProductOfEachStore = async (re
         console.error('Lỗi khi lấy danh sách cửa hàng:', err);
         res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });    
     }
-}
+};
+
+// 👇 THÊM HÀM MỚI: Cập nhật trạng thái Store cho Admin
+exports.updateStoreStatus = async (req, res) => {
+    try {
+        const storeId = req.params.id;
+        const { status } = req.body;
+
+        // Trạng thái chỉ được phép là 'active' hoặc 'banned'
+        if (!['active', 'banned'].includes(status)) {
+            return res.status(400).json({ message: 'Trạng thái không hợp lệ' });
+        }
+
+        const store = await Store.findByIdAndUpdate(
+            storeId,
+            { status: status },
+            { new: true }
+        );
+
+        if (!store) {
+            return res.status(404).json({ message: 'Không tìm thấy cửa hàng' });
+        }
+
+        res.status(200).json({ message: 'Cập nhật trạng thái thành công', store });
+    } catch (error) {
+        console.error('Lỗi cập nhật trạng thái cửa hàng:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+    }
+};

@@ -93,7 +93,7 @@ interface OrderItem {
   price_snapshot: number;
   quantity: number;
   image_snapshot: string;
-  type?: string; // 👇 KHAI BÁO TYPE Ở ĐÂY ĐỂ TYPESCRIPT KHÔNG KÊU LỖI
+  type?: string; 
   user_review?: any;
 }
 
@@ -126,10 +126,12 @@ const OrderHistory: React.FC = () => {
   const { formatPrice } = useCurrency();
   const [selectedReviewItem, setSelectedReviewItem] = useState<any | null>(null);
 
+  // 👉 ĐÃ TÁCH TAB "ĐÃ XÁC NHẬN" VÀ "ĐANG VẬN CHUYỂN" LÀM 2
   const tabs = [
     { id: 'all', label: 'Tất cả' },
     { id: 'pending', label: 'Chờ xác nhận' },
-    { id: 'confirmed', label: 'Vận chuyển' },
+    { id: 'confirmed', label: 'Đã xác nhận' }, // Tab mới cho Credit Card
+    { id: 'shipping', label: 'Đang giao' },     // Tab cho quá trình vận chuyển
     { id: 'completed', label: 'Hoàn thành' },
     { id: 'cancelled', label: 'Đã hủy' },
   ];
@@ -151,18 +153,20 @@ const OrderHistory: React.FC = () => {
   const filteredOrders = orders.filter(order => {
     if (activeTab === 'all') return true;
     if (activeTab === 'pending') return order.order_status === 'pending';
-    if (activeTab === 'confirmed') return ['confirmed', 'shipping', 'shipped'].includes(order.order_status);
+    if (activeTab === 'confirmed') return order.order_status === 'confirmed'; // Lọc đúng confirmed
+    if (activeTab === 'shipping') return ['shipping', 'shipped'].includes(order.order_status); // Lọc đúng shipping
     if (activeTab === 'completed') return order.order_status === 'completed';
     if (activeTab === 'cancelled') return order.order_status === 'cancelled';
     return true;
   }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+  // 👉 TÁCH MÀU CHO DỄ PHÂN BIỆT
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'text-amber-500';
-      case 'confirmed': return 'text-blue-500';
-      case 'shipping': return 'text-blue-500'
-      case 'shipped': return 'text-blue-500';
+      case 'confirmed': return 'text-indigo-500'; // Đã xác nhận màu chàm
+      case 'shipping': 
+      case 'shipped': return 'text-blue-500'; // Đang giao màu xanh lam
       case 'completed': return 'text-green-500';
       case 'cancelled': return 'text-red-500';
       default: return 'text-slate-500';
@@ -172,13 +176,25 @@ const OrderHistory: React.FC = () => {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'pending': return 'Chờ xác nhận';
-      case 'confirmed':
+      case 'confirmed': return 'Đã xác nhận (Chờ lấy hàng)'; // Đổi label rõ ràng hơn
       case 'shipping':
-      case 'shipped':
-        return 'Đang vận chuyển';
+      case 'shipped': return 'Đang vận chuyển';
       case 'completed': return 'Hoàn thành';
       case 'cancelled': return 'Đã hủy';
       default: return status;
+    }
+  };
+
+  // 👉 ĐỔI ICON TƯƠNG ỨNG TỪNG TRẠNG THÁI
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending': return 'hourglass_empty';
+      case 'confirmed': return 'inventory_2'; // Icon đóng gói hàng
+      case 'shipping':
+      case 'shipped': return 'local_shipping'; // Icon xe tải
+      case 'completed': return 'check_circle';
+      case 'cancelled': return 'cancel';
+      default: return 'info';
     }
   };
 
@@ -232,22 +248,35 @@ const OrderHistory: React.FC = () => {
                         <div className="flex justify-between items-start border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-slate-500 text-xl">storefront</span>
+                              
                               {order.seller_id?._id ? (
                                 <>
-                                  <Link to={`/store/${order.seller_id._id}`} className="font-bold text-slate-900 dark:text-white hover:text-primary transition-colors">
-                                    {order.seller_id.shop_name || order.seller_id.full_name || 'Cửa hàng'}
-                                  </Link>
-                                  <Link to={`/store/${order.seller_id._id}`} className="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white flex items-center gap-1">
+                                  {order.seller_id.shop_name ? (
+                                    <>
+                                    <span className="material-symbols-outlined text-slate-500 text-xl">storefront</span>
+                                    <Link to={`/store/${order.seller_id._id}`} className="font-bold text-slate-900 dark:text-white hover:text-primary transition-colors">
+                                      {order.seller_id.shop_name}
+                                    </Link>
+                                    <Link to={`/store/${order.seller_id._id}`} className="bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs px-2 py-1 rounded hover:bg-slate-200 transition-colors dark:text-white flex items-center gap-1">
                                     <span className="material-symbols-outlined text-[14px]">store</span> Xem Shop
                                   </Link>
+                                    </>
+                                    )
+                                    : (
+                                      <>
+                                      <span className="material-symbols-outlined text-slate-500 text-xl">man</span>
+                                      <span className="font-bold text-slate-900 dark:text-white">{order.seller_id.full_name || 'Người bán'}</span>
+                                    </>
+                                    )
+                                    }
+                                  
+
                                 </>
                               ) : (
                                 <span className="font-bold dark:text-white">Cửa hàng</span>
                               )}
                             </div>
                             
-                            {/* HIỂN THỊ THỜI GIAN ĐẶT HÀNG */}
                             <div className="text-xs text-slate-500 flex items-center gap-1 font-medium mt-1">
                               <span className="material-symbols-outlined text-[14px]">schedule</span>
                               Đã đặt lúc: {formatDateTime(order.created_at)}
@@ -255,7 +284,7 @@ const OrderHistory: React.FC = () => {
                           </div>
 
                           <div className={`text-sm font-bold uppercase flex items-center gap-1 ${getStatusColor(order.order_status)}`}>
-                            <span className="material-symbols-outlined text-lg">{order.order_status === 'completed' ? 'check_circle' : 'local_shipping'}</span>
+                            <span className="material-symbols-outlined text-lg">{getStatusIcon(order.order_status)}</span>
                             {getStatusLabel(order.order_status)}
                           </div>
                         </div>
@@ -271,7 +300,6 @@ const OrderHistory: React.FC = () => {
                                   <div className="flex-1">
                                     <h3 className="font-medium line-clamp-2 dark:text-white group-hover:text-primary transition-colors">{item.name_snapshot}</h3>
                                     
-                                    {/* 👇 ĐÂY RỒI! HIỂN THỊ TYPE LÊN ĐÂY */}
                                     {item.type && (
                                         <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 inline-block rounded">
                                             Phân loại: {item.type}
@@ -312,15 +340,7 @@ const OrderHistory: React.FC = () => {
                           <div className="flex gap-3">
 
                             {order.order_status === 'completed' && firstItem?.product_id?._id && (
-                              hasReview ? (
-                                <button
-                                  onClick={() => setSelectedReviewItem(firstItem)}
-                                  className="px-6 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
-                                >
-                                  <span className="material-symbols-outlined text-[18px]">visibility</span>
-                                  Xem đánh giá
-                                </button>
-                              ) : (
+                              !hasReview ? (
                                 <Link
                                   to={`/account/feedback?productId=${firstItem.product_id._id}&orderId=${order._id}`}
                                   className="px-6 py-2 rounded-lg border border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 font-medium hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors flex items-center gap-1"
@@ -328,6 +348,22 @@ const OrderHistory: React.FC = () => {
                                   <span className="material-symbols-outlined text-[18px]">star</span>
                                   Đánh giá
                                 </Link>
+                              ) : !hasReview.is_edited ? (
+                                <button
+                                  onClick={() => setSelectedReviewItem(firstItem)}
+                                  className="px-6 py-2 rounded-lg border border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400 font-medium hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors flex items-center gap-1"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                                  Sửa đánh giá
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => setSelectedReviewItem(firstItem)}
+                                  className="px-6 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-1"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">visibility</span>
+                                  Xem đánh giá
+                                </button>
                               )
                             )}
 

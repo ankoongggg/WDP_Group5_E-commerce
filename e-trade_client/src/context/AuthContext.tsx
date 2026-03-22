@@ -2,8 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useNavigate } from 'react-router-dom';
 import { authApi, clearTokens, setOnTokenRefreshFailed } from '../services/api';
 
-import { useCart } from './CartContext'; // 1. Import useCart
-// 1. CẬP NHẬT INTERFACE: Đã thêm đầy đủ các trường dữ liệu bị thiếu
+// 🚨 ĐÃ XÓA: import { useCart } từ đây. Auth không được phép biết đến Cart.
+
 interface User {
     _id: string;
     name?: string;
@@ -24,7 +24,7 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<void>;
     register: (name: string, email: string, password: string, phone?: string, street?: string, district?: string, city?: string) => Promise<void>;
     logout: () => Promise<void>;
-    refreshUser: () => Promise<void>; // 2. BỔ SUNG HÀM refreshUser
+    refreshUser: () => Promise<void>; 
     isAuthenticated: boolean;
 }
 
@@ -42,7 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
-    const { clearCart } = useCart(); // 2. Lấy hàm clearCart
+
+    // 🚨 ĐÃ XÓA: const { clearCart } = useCart();
 
     const handleSessionExpired = useCallback(() => {
         setUser(null);
@@ -54,11 +55,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setOnTokenRefreshFailed(handleSessionExpired);
     }, [handleSessionExpired]);
 
-    // 3. THÊM HÀM NÀY: Để Profile.tsx gọi mỗi khi nhấn Save
     const refreshUser = async () => {
         try {
             const res: any = await authApi.getProfile();
-            // Lấy đúng cục "data" từ backend trả về
             setUser(res.data || res.user || res);
         } catch (error) {
             console.error("Failed to refresh user:", error);
@@ -70,7 +69,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (token) {
             authApi.getProfile()
                 .then((res: any) => {
-                    // 4. FIX LỖI CẤU TRÚC: Phải lấy res.data thay vì ôm nguyên cục res
                     setUser(res.data || res.user || res);
                 })
                 .catch(() => {
@@ -84,7 +82,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = async (email: string, password: string) => {
-        clearCart(); // 3. Xóa giỏ hàng cũ trước khi đăng nhập
         const data = await authApi.login(email, password);
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
@@ -92,10 +89,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const register = async (name: string, email: string, password: string, phone?: string, street?: string, district?: string, city?: string) => {
-        clearCart(); // Xóa giỏ hàng cũ trước khi đăng ký
         const data = await authApi.register(name, email, password, phone, street, district, city);
-        // Some backends return tokens on register, others don't. If tokens not returned,
-        // perform a login to obtain accessToken/refreshToken and user data.
+        
         if (data?.accessToken) {
             localStorage.setItem('accessToken', data.accessToken);
             localStorage.setItem('refreshToken', data.refreshToken || '');
@@ -103,7 +98,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
         }
 
-        // Fallback: call login to get tokens
         const loginRes: any = await authApi.login(email, password);
         if (loginRes?.accessToken) {
             localStorage.setItem('accessToken', loginRes.accessToken);
@@ -118,14 +112,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch {
             // Ignore errors on logout
         }
-        setUser(null);
+        setUser(null); // Khi set user = null, file CartContext sẽ TỰ ĐỘNG xóa giỏ hàng.
         clearTokens();
-        clearCart(); // 4. Xóa giỏ hàng khi đăng xuất
         navigate('/login');
     };
 
     return (
-        // Nhớ export refreshUser ra để các file khác dùng được
         <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser, isAuthenticated: !!user }}>
             {children}
         </AuthContext.Provider>

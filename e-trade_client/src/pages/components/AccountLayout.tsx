@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import { storeApi } from '../../services/api';
 import { CategoryService } from '../../services/categoryService';
 import { Layout } from './Layout';
+import { uploadToCloudinary } from '../../utils/cloudinary';
 
 interface AccountLayoutProps {
     children: React.ReactNode;
@@ -28,6 +29,7 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
     const [submittingSellerForm, setSubmittingSellerForm] = useState(false);
     const [isEditingSeller, setIsEditingSeller] = useState(false);
     const [categories, setCategories] = useState<Array<{ _id: string, name: string }>>([]);
+    const [uploadingIdCard, setUploadingIdCard] = useState(false);
 
     const [sellerForm, setSellerForm] = useState({
         shop_name: "",
@@ -71,11 +73,44 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
         }
     };
 
+    const handleIdCardImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Ảnh quá lớn. Vui lòng chọn ảnh dưới 5MB.');
+            return;
+        }
+
+        setUploadingIdCard(true);
+        try {
+            const imageUrl = await uploadToCloudinary(file);
+            setSellerForm(prev => ({ ...prev, identity_card_image: imageUrl }));
+            toast.success("Tải ảnh lên thành công!");
+        } catch (error) {
+            toast.error("Lỗi upload ảnh.");
+        } finally {
+            setUploadingIdCard(false);
+        }
+    };
+
     const onSubmitSellerForm = async () => {
         setSubmittingSellerForm(true);
         try {
-            if (!sellerForm.shop_name || !sellerForm.shop_description || !sellerForm.identity_card || !sellerForm.pickup_address || !sellerForm.business_category) {
-                toast.error("Vui lòng điền đầy đủ thông tin required");
+            if (!sellerForm.shop_name || !sellerForm.shop_description || !sellerForm.identity_card || !sellerForm.pickup_address || !sellerForm.business_category || !sellerForm.identity_card_image || !sellerForm.phone) {
+                toast.error("Vui lòng điền đầy đủ thông tin bắt buộc (bao gồm cả ảnh CMND/CCCD)");
+                setSubmittingSellerForm(false);
+                return;
+            }
+            
+            if (!/^\d{12}$/.test(sellerForm.identity_card)) {
+                toast.error("Số CMND/CCCD phải bao gồm đúng 12 chữ số");
+                setSubmittingSellerForm(false);
+                return;
+            }
+
+            if (!/^(0[3|5|7|8|9])([0-9]{8})$/.test(sellerForm.phone)) {
+                toast.error("Số điện thoại phải có 10 số và đúng định dạng (VD: 0912345678)");
                 setSubmittingSellerForm(false);
                 return;
             }
@@ -152,8 +187,14 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
                                 <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.shop_name} onChange={e => setSellerForm({...sellerForm, shop_name: e.target.value})} placeholder="Nhập tên shop của bạn" />
                             </div>
                             <div className="md:col-span-1">
-                                <label className="block font-bold mb-2 text-sm dark:text-white">Số điện thoại liên hệ</label>
-                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.phone} onChange={e => setSellerForm({...sellerForm, phone: e.target.value})} placeholder="SĐT liên hệ với shop" />
+                                <label className="block font-bold mb-2 text-sm dark:text-white">Số điện thoại liên hệ <span className="text-red-500">*</span></label>
+                                <input 
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" 
+                                    value={sellerForm.phone} 
+                                    maxLength={10}
+                                    onChange={e => setSellerForm({...sellerForm, phone: e.target.value.replace(/[^0-9]/g, '')})} 
+                                    placeholder="Nhập 10 số điện thoại" 
+                                />
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Mô tả Shop <span className="text-red-500">*</span></label>
@@ -161,11 +202,26 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
                             </div>
                             <div className="md:col-span-1">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Số CMND/CCCD <span className="text-red-500">*</span></label>
-                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.identity_card} onChange={e => setSellerForm({...sellerForm, identity_card: e.target.value})} placeholder="Nhập số định danh cá nhân" />
+                                <input 
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" 
+                                    value={sellerForm.identity_card} 
+                                    maxLength={12}
+                                    onChange={e => setSellerForm({...sellerForm, identity_card: e.target.value.replace(/[^0-9]/g, '')})} 
+                                    placeholder="Nhập 12 số định danh cá nhân" 
+                                />
                             </div>
                             <div className="md:col-span-1">
-                                <label className="block font-bold mb-2 text-sm dark:text-white">Ảnh CMND/CCCD (Link)</label>
-                                <input className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" value={sellerForm.identity_card_image} onChange={e => setSellerForm({...sellerForm, identity_card_image: e.target.value})} placeholder="https://..." />
+                                <label className="block font-bold mb-2 text-sm dark:text-white">Ảnh CMND/CCCD <span className="text-red-500">*</span></label>
+                                <div className="flex items-center gap-4 h-[48px]">
+                                    {sellerForm.identity_card_image && (
+                                        <img src={sellerForm.identity_card_image} alt="ID Card" className="w-12 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-700" />
+                                    )}
+                                    <label className={`cursor-pointer h-full px-4 flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium transition-colors dark:text-slate-300 ${uploadingIdCard ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        <span className={`material-symbols-outlined text-[18px] ${uploadingIdCard ? 'animate-spin' : ''}`}>{uploadingIdCard ? 'sync' : 'upload'}</span>
+                                        {uploadingIdCard ? 'Đang tải...' : (sellerForm.identity_card_image ? 'Đổi ảnh' : 'Tải ảnh lên')}
+                                        <input type="file" className="hidden" accept="image/*" onChange={handleIdCardImageChange} disabled={uploadingIdCard} />
+                                    </label>
+                                </div>
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Địa chỉ lấy hàng <span className="text-red-500">*</span></label>

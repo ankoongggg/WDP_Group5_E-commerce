@@ -1,13 +1,9 @@
 const mongoose = require('mongoose');
-const User = require('./User');
-const Product = require('./Product');
 
 const orderSchema = new mongoose.Schema({
     customer_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    
     seller_id: { type: mongoose.Schema.Types.ObjectId, refPath: 'seller_type', required: true },
     seller_type: { type: String, enum: ['Store', 'User'], required: true, default: 'Store' },
-    
     items: [
         {
             product_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
@@ -15,7 +11,6 @@ const orderSchema = new mongoose.Schema({
             price_snapshot: Number,
             quantity: Number,
             image_snapshot: String,
-            
             type: { type: String }, 
         },
     ],
@@ -30,6 +25,8 @@ const orderSchema = new mongoose.Schema({
     payment_method: String,
     payment_status: String,
     order_status: String,
+    cancel_reason: { type: String }, // Lưu lý do hủy
+    cancelled_by: { type: String, enum: ['customer', 'seller'] }, // Ai là người hủy
     history_logs: [
         {
             action: String,

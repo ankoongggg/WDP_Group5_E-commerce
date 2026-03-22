@@ -10,10 +10,17 @@ export interface Product {
   description?: string;
   rating?: number; // Nếu có
   sold?: number; // Nếu có
+  totalOrders?: number; // Tổng đơn hàng đã hoàn thành (nếu backend cung cấp)
   created_at?: string; // Nếu có
   updated_at?: string; // Nếu có
 }
 
+export interface ProductWithStats extends Product {
+  averageRating?: number;
+  totalReviews?: number;
+  store_id?: { shop_name: string };
+  user_id?: { name: string };
+}
 export interface Category {
   _id: string;
   name: string;

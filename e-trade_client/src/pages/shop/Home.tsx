@@ -9,13 +9,11 @@ const Home: React.FC = () => {
 
   return (
     <Layout>
-      {/* Tối ưu padding và khoảng cách các section để nội dung đẩy lên trên */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-8">
         
-        {/* 1. Hero Banner - Đã làm nhỏ lại chiều cao */}
+        {/* 1. Hero Banner */}
         <section className="relative rounded-xl overflow-hidden h-[240px] md:h-[300px] bg-slate-900 group shadow-sm">
            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070&auto=format&fit=crop')" }}></div>
-           {/* Giảm độ tối của gradient để hình ảnh tươi sáng hơn */}
            <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent flex items-center px-8 sm:px-12">
              <div className="max-w-md space-y-3">
                <span className="inline-block px-3 py-1 bg-primary text-white text-xs font-bold rounded-full uppercase tracking-widest shadow-md">
@@ -33,7 +31,7 @@ const Home: React.FC = () => {
            </div>
         </section>
 
-        {/* 2. DEEP SALE SECTION - Tách thành hàng riêng, trải dài */}
+        {/* 2. DEEP SALE SECTION */}
         <section className="bg-gradient-to-r from-orange-50 to-primary/10 dark:from-slate-800 dark:to-primary/20 rounded-xl p-4 border border-primary/20 shadow-sm">
           <div className="flex items-end justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -50,7 +48,6 @@ const Home: React.FC = () => {
             </Link>
           </div>
           
-          {/* Hiển thị 4-5 sản phẩm trên 1 hàng thay vì 2 */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {saleProducts.slice(0, 5).map((item) => (
               <ProductCard key={item._id} product={item} />
@@ -59,51 +56,61 @@ const Home: React.FC = () => {
         </section>
 
         {/* 3. GÓC PASS ĐỒ CŨ (USED PRODUCTS) */}
-<section className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
-  <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between mb-4 gap-4">
-    <div className="flex items-center gap-4">
-      <div className="flex items-center gap-2 text-slate-800 dark:text-white font-bold">
-        {/* Đổi icon cho phù hợp */}
-        <span className="material-symbols-outlined text-amber-500 text-2xl">recycling</span>
-        <h3 className="text-2xl italic uppercase tracking-tight">Góc Pass Đồ</h3>
-      </div>
-      <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-full text-xs font-bold">
-        <span className="material-symbols-outlined text-sm">verified_user</span>
-        Sản phẩm đã qua sử dụng, được duyệt trước khi đăng bán
-      </div>
-    </div>
-    
-    {/* Link dẫn đến danh sách tất cả đồ Pass */}
-    <Link to="/products?condition=Used" className="text-sm font-bold text-slate-500 hover:text-primary transition-colors flex items-center gap-1">
-      Xem tất cả <span className="material-symbols-outlined text-sm">chevron_right</span>
-    </Link>
-  </div>
-  
-  {usedProducts && usedProducts.length > 0 ? (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-      {usedProducts.map((item) => (
-        <ProductCard key={item._id} product={item} />
-      ))}
-    </div>
-  ) : (
-    <div className="text-center py-10 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-xl">
-      <span className="material-symbols-outlined text-4xl text-slate-300 block mb-2">inbox</span>
-      <p className="text-slate-500 dark:text-slate-400 font-medium">Hiện chưa có món đồ cũ nào được đăng bán.</p>
-    </div>
-  )}
-</section>
+        <section className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between mb-4 gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-slate-800 dark:text-white font-bold">
+                <span className="material-symbols-outlined text-amber-500 text-2xl">recycling</span>
+                <h3 className="text-2xl italic uppercase tracking-tight">Góc Pass Đồ</h3>
+              </div>
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-full text-xs font-bold">
+                <span className="material-symbols-outlined text-sm">verified_user</span>
+                Sản phẩm đã qua sử dụng, được duyệt trước khi đăng bán
+              </div>
+            </div>
+            
+            <Link to="/products?condition=Used" className="text-sm font-bold text-slate-500 hover:text-primary transition-colors flex items-center gap-1">
+              Xem tất cả <span className="material-symbols-outlined text-sm">chevron_right</span>
+            </Link>
+          </div>
+          
+          {usedProducts && usedProducts.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {usedProducts.map((item) => (
+                <ProductCard key={item._id} product={item} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-xl">
+              <span className="material-symbols-outlined text-4xl text-slate-300 block mb-2">inbox</span>
+              <p className="text-slate-500 dark:text-slate-400 font-medium">Hiện chưa có món đồ cũ nào được đăng bán.</p>
+            </div>
+          )}
+        </section>
 
         {/* 4. Categories - Hiển thị dạng lưới gọn gàng */}
         <section className="bg-white dark:bg-slate-900 rounded-xl p-4 md:p-6 shadow-sm border border-slate-200 dark:border-slate-800">
            <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-white uppercase">Danh Mục</h3>
            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 lg:gap-4">
+             
+             {/* 👇 CỤC "ĐỒ 2ND" MỚI THÊM VÀO ĐÂY 👇 */}
+             <Link 
+                to={`/products?condition=Used`} 
+                className="group flex flex-col items-center justify-center p-3 rounded-xl border border-transparent hover:border-amber-500/20 bg-amber-50 dark:bg-amber-900/20 transition-all duration-200 text-amber-700 dark:text-amber-400"
+             >
+                <div className="w-12 h-12 mb-2 rounded-full bg-white dark:bg-slate-800 shadow-sm border border-amber-200 dark:border-amber-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <span className="material-symbols-outlined text-amber-500">recycling</span>
+                </div>
+                <p className="text-center font-bold text-xs leading-tight line-clamp-2">Đồ 2nd (Pass)</p>
+             </Link>
+             {/* 👆 KẾT THÚC CỤC "ĐỒ 2ND" 👆 */}
+
              {categories.map((item) => ( 
                 <Link 
                   to={`/products?category=${item._id}`} 
                   key={item._id} 
                   className="group flex flex-col items-center justify-center p-3 rounded-xl border border-transparent hover:border-primary/20 bg-slate-50 dark:bg-slate-800 hover:bg-orange-50 dark:hover:bg-primary/10 transition-all duration-200 text-slate-700 dark:text-slate-300 hover:text-primary"
                 >
-                   {/* Nếu có icon/image từ DB thì đưa vào đây, tạm thời dùng hình chữ nhật xám mờ như placeholder */}
                    <div className="w-12 h-12 mb-2 rounded-full bg-white dark:bg-slate-700 shadow-sm border border-slate-100 dark:border-slate-600 flex items-center justify-center group-hover:scale-110 transition-transform">
                      <span className="material-symbols-outlined text-slate-400 group-hover:text-primary">category</span>
                    </div>
@@ -126,15 +133,14 @@ const Home: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               {(products || []).map((product) => (
-    <ProductCard key={product._id} product={product} />
-  ))}
-  
-  {/* Nếu mảng rỗng (không tìm thấy) */}
-  {(!products || products.length === 0) && !loading && (
-     <div className="col-span-full text-center py-10 text-slate-500">
-         Không có sản phẩm nào.
-     </div>
-  )}
+                <ProductCard key={product._id} product={product} />
+              ))}
+              
+              {(!products || products.length === 0) && !loading && (
+                <div className="col-span-full text-center py-10 text-slate-500">
+                    Không có sản phẩm nào.
+                </div>
+              )}
             </div>
           )}
 

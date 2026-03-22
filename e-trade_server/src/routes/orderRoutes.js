@@ -3,19 +3,18 @@ const router = express.Router();
 const orderController = require('../controllers/orderController');
 const { protect, isSeller } = require('../middlewares/auth');
 
-// Các route này yêu cầu người dùng phải đăng nhập (protect) và có vai trò 'seller' (isSeller)
+// --- CỔNG CHO NGƯỜI MUA (CUSTOMER) ---
+router.get('/my-orders', protect, orderController.getMyOrders);            // Lấy danh sách đơn
+router.get('/detail/:orderId', protect, orderController.getOrderDetail);     // Xem chi tiết đơn
+router.put('/cancel/:orderId', protect, orderController.customerCancelOrder); // Hủy đơn COD
 
-// [SELLER] GET /api/seller/dashboard - Lấy dữ liệu thống kê cho dashboard
-router.get('/dashboard', protect, isSeller, orderController.getSellerDashboardStats);
+// --- CỔNG CHO NGƯỜI BÁN (SELLER) ---
+router.get('/seller/dashboard', protect, isSeller, orderController.getSellerDashboardStats);
+router.get('/seller/orders', protect, isSeller, orderController.getSellerOrders);
+router.put('/seller/status/:orderId', protect, isSeller, orderController.updateOrderStatusBySeller);
 
-// [SELLER] GET /api/seller/orders - Lấy danh sách đơn hàng cho cửa hàng của người bán
-router.get('/orders', protect, isSeller, orderController.getSellerOrders);
-
+// --- CỔNG CHO PASS ĐỒ CŨ (2nd hand) ---
 router.get('/2nd_orders', protect, orderController.getCustomerPassedOrders);
-
-// [SELLER] PUT /api/seller/orders/:orderId/status - Xác nhận hoặc từ chối một đơn hàng
-router.put('/:orderId/status', protect, isSeller, orderController.updateOrderStatusBySeller);
-
 router.put('/update_passed_order_status/:orderId', protect, orderController.updatePassedOrderStatus);
 
 module.exports = router;

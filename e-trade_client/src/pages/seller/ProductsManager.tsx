@@ -1,10 +1,10 @@
-import React from 'react';
-import SellerLayout from './SellerLayout';
-import { useSellerProducts } from '../../hooks/seller/useSellerProducts';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../../context/CurrencyContext';
-import { ProductService } from '../../services/productService';
 import { useToast } from '../../context/ToastContext';
+import { useSellerProducts } from '../../hooks/seller/useSellerProducts';
+import { ProductService } from '../../services/productService';
+import SellerLayout from './SellerLayout';
 
 const ProductsManager: React.FC = () => {
   const {
@@ -15,10 +15,82 @@ const ProductsManager: React.FC = () => {
     search,
     setSearch,
     refresh,
+    page,
+    setPage,
+    total,
+    totalPages,
+    limit,
+    setLimit,
   } = useSellerProducts();
   const navigate = useNavigate();
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
+
+  // Local state debounce cho ô search
+  const [searchInput, setSearchInput] = useState(search);
+
+  useEffect(() => {
+    setSearchInput(search);
+  }, [search]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchInput, setSearch, setPage]);
+
+  const paginationMeta = useMemo(() => {
+    const totalItems = total || 0;
+    if (totalItems === 0) {
+      return { fromIndex: 0, toIndex: 0, totalItems };
+    }
+    const fromIndex = (page - 1) * limit + 1;
+    const toIndex = Math.min(totalItems, page * limit);
+    return { fromIndex, toIndex, totalItems };
+  }, [total, page, limit]);
+
+  const renderPaginationPages = () => {
+    if (totalPages <= 1) return null;
+
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      const left = Math.max(2, page - 1);
+      const right = Math.min(totalPages - 1, page + 1);
+      if (left > 2) pages.push('ellipsis');
+      for (let i = left; i <= right; i++) pages.push(i);
+      if (right < totalPages - 1) pages.push('ellipsis');
+      pages.push(totalPages);
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        {pages.map((p, idx) =>
+          p === 'ellipsis' ? (
+            <span key={`${p}-${idx}`} className="text-slate-400 px-1 select-none">
+              ...
+            </span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              className={`min-w-9 h-9 rounded-lg text-sm font-semibold px-2 transition-colors ${
+                p === page
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'bg-transparent border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+            >
+              {p}
+            </button>
+          )
+        )}
+      </div>
+    );
+  };
 
   const handleToggleStatus = async (id: string, currentStatus: string[] | string) => {
     const normalized = Array.isArray(currentStatus) ? currentStatus : [currentStatus];
@@ -111,15 +183,18 @@ const ProductsManager: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Tìm theo tên sản phẩm..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                   className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-primary/50 outline-none dark:text-white"
                 />
               </div>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="bg-slate-100 dark:bg-slate-800 border-none rounded-xl py-2 px-3 text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-primary/50 outline-none"
+                onChange={(e) => {
+                  setStatus(e.target.value);
+                  setPage(1);
+                }}
+                className="bg-slate-100 min-w-[150px] dark:bg-slate-800 border-none rounded-xl py-2 px-3 text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-primary/50 outline-none"
               >
                 <option value="">Tất cả trạng thái</option>
                 <option value="active">Đang hiển thị</option>
@@ -136,7 +211,6 @@ const ProductsManager: React.FC = () => {
                 <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-sm">
                   <th className="p-4 font-medium">Sản phẩm</th>
                   <th className="p-4 font-medium">Giá</th>
-                  <th className="p-4 font-medium w-32">Tồn kho</th>
                   <th className="p-4 font-medium">Trạng thái</th>
                   <th className="p-4 font-medium text-right">Hành động</th>
                 </tr>
@@ -185,25 +259,14 @@ const ProductsManager: React.FC = () => {
                         )}
                       </td>
                       
-                      {/* Cột hiển thị TỒN KHO và nút Tăng */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-700 dark:text-slate-300">
-                            {getStock(p)}
-                          </span>
-                          <button
-                            onClick={() => handleAddStock(p._id)}
-                            className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors"
-                            title="Nhập thêm hàng"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">add</span>
-                          </button>
-                        </div>
-                      </td>
+                      
 
                       <td className="p-4">{renderStatusBadge(p.status)}</td>
+                      
                       <td className="p-4">
                         <div className="flex justify-end gap-2">
+                        {!(p.status.includes('cancelled') || p.status.includes('rejected')) && (
+                          <>
                           <button
                             onClick={() => navigate(`/seller/products/${p._id}/edit`)}
                             className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1"
@@ -220,10 +283,13 @@ const ProductsManager: React.FC = () => {
                             </span>
                             {Array.isArray(p.status) ? (p.status.includes('active') ? 'Ẩn' : 'Hiển thị') : p.status === 'active' ? 'Ẩn' : 'Hiển thị'}
                           </button>
+                          </>
+               ) }
                           <button
                             onClick={() => handleSoftDelete(p._id)}
                             className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 text-red-600 hover:bg-red-50"
                           >
+                            
                             <span className="material-symbols-outlined text-[18px]">delete</span>
                             Xoá
                           </button>
@@ -233,6 +299,74 @@ const ProductsManager: React.FC = () => {
                   ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="p-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+            <div className="text-sm text-slate-600 dark:text-slate-300">
+              {paginationMeta.totalItems > 0 ? (
+                <>
+                  Hiển thị <span className="font-bold">{paginationMeta.fromIndex}</span>-
+                  <span className="font-bold">{paginationMeta.toIndex}</span> /{' '}
+                  <span className="font-bold">{paginationMeta.totalItems}</span> sản phẩm
+                </>
+              ) : (
+                <>0 sản phẩm</>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 justify-between sm:justify-end">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap">Hiển thị</span>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="bg-slate-100 min-w-[60px] dark:bg-slate-800 border-none rounded-xl py-2 px-3 text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-primary/50 outline-none"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(1)}
+                  disabled={totalPages <= 1 || page <= 1}
+                  className="min-w-10 h-9 rounded-lg text-sm font-semibold px-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  First
+                </button>
+                <button
+                  onClick={() => setPage(Math.max(1, page - 1))}
+                  disabled={totalPages <= 1 || page <= 1}
+                  className="min-w-10 h-9 rounded-lg text-sm font-semibold px-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  Prev
+                </button>
+
+                {renderPaginationPages()}
+
+                <button
+                  onClick={() => setPage(Math.min(totalPages || 1, page + 1))}
+                  disabled={totalPages <= 1 || page >= totalPages}
+                  className="min-w-10 h-9 rounded-lg text-sm font-semibold px-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  Next
+                </button>
+                <button
+                  onClick={() => setPage(totalPages)}
+                  disabled={totalPages <= 1 || page >= totalPages}
+                  className="min-w-10 h-9 rounded-lg text-sm font-semibold px-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  Last
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </main>

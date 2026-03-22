@@ -21,7 +21,7 @@ export const useSellerProducts = () => {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const limit = 20;
+  const [limit, setLimit] = useState(25);
 
   const { toast } = useToast();
 
@@ -45,7 +45,7 @@ export const useSellerProducts = () => {
   useEffect(() => {
     fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, status, search]);
+  }, [page, status, search, limit]);
 
   const refresh = () => {
     fetchProducts();
@@ -63,6 +63,7 @@ export const useSellerProducts = () => {
     total,
     totalPages,
     limit,
+    setLimit,
     refresh,
   };
 };

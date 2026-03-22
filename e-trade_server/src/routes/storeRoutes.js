@@ -35,9 +35,12 @@ router.get('/:id/products', storeController.getStoreProducts);
 // ADMIN ROUTES
 // =====================================================
 // Giả định middleware `protect` sẽ kiểm tra cả quyền admin nếu cần
-router.get('/admin/stores', protect,  storeController.getListingStoresAndRevenuesTotalOrdersFromProductOfEachStore);
+router.get('/admin/stores', protect, storeController.getListingStoresAndRevenuesTotalOrdersFromProductOfEachStore);
 router.get('/admin/pending-sellers', protect, storeController.getPendingSellers);
 router.put('/admin/approve-seller/:id', protect, storeController.approveSeller);
 router.delete('/admin/reject-seller/:id', protect, storeController.rejectSeller);
+
+// 👇 THÊM DÒNG NÀY: Mở API cho phép cập nhật trạng thái
+router.put('/admin/stores/:id/status', protect, storeController.updateStoreStatus);
 
 module.exports = router;

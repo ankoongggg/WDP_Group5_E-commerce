@@ -21,9 +21,14 @@ interface Product {
     _id: string;
     name: string;
   }[];
-  store_id: {
+  store_id?: {
     _id: string;
     shop_name: string;
+  };
+  user_id?: {
+    _id: string;
+    full_name?: string;
+    account_name?: string;
   };
   product_type?: {
     description: string;
@@ -68,6 +73,15 @@ interface RelatedProduct {
   original_price?: number;
   stock?: number;
   product_type?: { stock: number }[];
+  store_id?: {
+    shop_name: string;
+  };
+  user_id?: {
+    name: string;
+  };
+  averageRating?: number;
+  totalReviews?: number;
+  totalOrders?: number;
 }
 
 const ProductDetail: React.FC = () => {
@@ -146,6 +160,27 @@ const ProductDetail: React.FC = () => {
   }, [user, product, isAuthenticated]);
 
   const REVIEWS_PER_PAGE = 5;
+
+  const fetchWishlistStatus = async () => {
+    if (!isAuthenticated || !product?._id) {
+      setIsWishlisted(false);
+      return;
+    }
+    try {
+      const response = await authApi.getWishlist({});
+      const wishlist: string[] = response.data || [];
+      setIsWishlisted(wishlist.includes(product._id));
+    } catch (error) {
+      console.error('Failed to fetch wishlist status:', error);
+      setIsWishlisted(false);
+    }
+  };
+
+
+  useEffect(() => {
+    fetchWishlistStatus();
+  }, [isAuthenticated, product]);
+
 
   const fetchReviews = async (page: number) => {
     if (!id) return;
@@ -242,6 +277,15 @@ const ProductDetail: React.FC = () => {
       setIsTogglingWishlist(false);
     }
   };
+  // vào product detail thì tick ngay vào type còn hàng
+  useEffect(() => {
+    if (hasVariants && product?.product_type) {
+      const firstAvailableVariant = product.product_type.findIndex((v: any) => v.stock > 0);
+      if (firstAvailableVariant !== -1) {
+        setSelectedTypeIndex(firstAvailableVariant);
+      }
+    }
+  }, [hasVariants, product?.product_type]);
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -262,7 +306,7 @@ const ProductDetail: React.FC = () => {
       productId: product._id,
       type: selectedVariant ? selectedVariant.description : 'default' // ÉP TYPE VÀO ĐÂY
     };
-    addToCart(itemForCart, quantity);
+    addToCart(itemForCart, quantity, itemForCart.type);
     toast.success('Đã thêm vào giỏ hàng!');
     setQuantity(1);
   };
@@ -354,8 +398,20 @@ const ProductDetail: React.FC = () => {
 
           <div className="flex flex-col gap-6">
             <div>
-              <div className="text-sm text-slate-500 mb-2 dark:text-slate-400">
-                Bán bởi {product.store_id ? <Link to={`/store/${product.store_id._id}`} className="font-bold text-primary hover:underline">{product.store_id.shop_name}</Link> : <span className="font-bold text-slate-400">Unknown Store</span>}
+              <div className="flex items-center gap-1.5 text-sm text-slate-500 mb-2 dark:text-slate-400">
+                Bán bởi: {product.store_id?.shop_name ? (
+                  <Link to={`/store/${product.store_id._id}`} className="font-bold text-primary hover:underline flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[16px]">storefront</span>
+                    {product.store_id.shop_name}
+                  </Link>
+                ) : product.user_id ? (
+                  <span className="font-bold text-blue-500 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[16px]">person</span>
+                    {product.user_id.full_name || product.user_id.account_name || 'Người dùng'}
+                  </span>
+                ) : (
+                  <span className="font-bold text-slate-400">Không xác định</span>
+                )}
               </div>
               {product.category_id?.[0] && (
                 <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-wider mb-2">{product.category_id[0].name}</span>
@@ -374,14 +430,14 @@ const ProductDetail: React.FC = () => {
 
             <div className="flex items-baseline gap-4">
               <span className="text-4xl font-black text-primary">{formatPrice(finalPrice)}</span>
-              {product.original_price > product.price && (
+              {/* {product.original_price > product.price && (
                 <>
                   <span className="text-xl text-slate-400 line-through font-medium">{formatPrice(product.original_price)}</span>
                   {discount > 0 && (
                     <span className="text-sm font-bold text-green-600 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">Tiết kiệm {discount}%</span>
                   )}
                 </>
-              )}
+              )} */}
             </div>
 
             {hasVariants && (
@@ -433,20 +489,26 @@ const ProductDetail: React.FC = () => {
                 <button onClick={handleBuyNow} disabled={isActionDisabled} className={`flex-1 flex items-center justify-center gap-2 px-8 py-4 font-bold rounded-xl shadow-lg transition-all ${isActionDisabled ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-primary text-white shadow-primary/20 hover:bg-primary/90'}`}>
                   <span className="material-symbols-outlined">bolt</span> Mua ngay
                 </button>
-                <button
-                  onClick={handleToggleWishlist}
-                  disabled={isTogglingWishlist}
-                  className={`p-4 rounded-xl border-2 transition-colors flex items-center justify-center ${isTogglingWishlist ? 'cursor-wait' : ''
-                    } ${isWishlisted
-                      ? 'bg-red-100 border-red-200 text-red-500 hover:bg-red-200'
+                {/* IF WISHLIST fetched has product id => show red heart, else show empty heart. When click, if not logged in => navigate to login, else toggle wishlist status and update heart icon
+                 */}
+                  {isAuthenticated && (
+                    <button
+                      onClick={handleToggleWishlist}
+                      disabled={isTogglingWishlist}
+                      className={`p-4 rounded-xl border-2 transition-colors flex items-center justify-center ${isTogglingWishlist ? 'cursor-wait' : ''
+                        } ${isWishlisted
+                        ? 'bg-red-100 border-red-200 text-red-500 hover:bg-red-200'
                       : 'border-slate-300 dark:border-white/20 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5'
                     }`}
                   title={isWishlisted ? 'Bỏ yêu thích' : 'Yêu thích'}
                 >
-                  <span className={`material-symbols-outlined ${isWishlisted ? 'fill' : ''}`}>
+                  <span className={`material-symbols-outlined ${isWishlisted ? 'fill text-red-500' : ''}`}>
                     favorite
                   </span>
                 </button>
+                  )}
+
+                
               </div>
             </div>
           </div>
@@ -541,14 +603,14 @@ const ProductDetail: React.FC = () => {
           </div>
         </div>
 
-        {relatedProducts.length > 0 && (
+        {relatedProducts.length > 0 && product.store_id && (
           <section className="mt-20">
             <h2 className="text-2xl font-bold mb-6 dark:text-white border-b-2 border-primary pb-2 inline-block">
-              Sản phẩm khác từ {product.store_id.shop_name}
+              Sản phẩm khác từ {product.store_id?.shop_name}
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
               {relatedProducts.map(p => (
-                <ProductCard key={p._id} product={p} />
+                <ProductCard key={p._id} product={p as any} />
               ))}
             </div>
           </section>

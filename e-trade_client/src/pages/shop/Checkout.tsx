@@ -35,7 +35,10 @@ const Checkout: React.FC = () => {
   
   const displayItems = isBuyNowMode ? buyNowItems : cart;
   const displayTotal = isBuyNowMode 
-    ? buyNowItems.reduce((total: number, item: any) => total + (item.price * item.quantity), 0) 
+    ? buyNowItems.reduce((total: number, item: any) => {
+        const price = item.product?.price || item.price || 0;
+        return total + (price * item.quantity);
+      }, 0) 
     : cartTotal;
 
   const addresses = user?.addresses || [];
@@ -68,33 +71,35 @@ const Checkout: React.FC = () => {
 
       const orderData = {
         items: displayItems.map((item: any) => {
-          let pId = item.productId || item._id || item.product_id; 
+          // 👉 1. Lấy ID chuẩn xác
+          let pId = item.product?._id || item.productId || item._id || item.product_id; 
           
-          // --- CHỐNG LỖI MONGODB: CẮT BỎ CÁI ĐUÔI PHÂN LOẠI ĐI ---
           if (typeof pId === 'string' && pId.includes('-')) {
-              pId = pId.split('-')[0]; // Chỉ lấy đúng mã ID 24 ký tự ở đằng trước
+              pId = pId.split('-')[0];
           }
-          // --------------------------------------------------------
 
-          // --- LOGIC MOI PHÂN LOẠI SIÊU CẤP (BẮT MỌI TRƯỜNG HỢP) ---
+          // 👉 2. ĐÃ SỬA: Lấy Type chuẩn từ Giỏ Hàng (KHÔNG dùng Regex cắt tên bừa bãi nữa)
           let itemType = 'default';
-          if (item.type && item.type !== 'default') {
-              itemType = item.type;
+          
+          if (item.type !== undefined && item.type !== null) {
+              // Ưu tiên 1: Lấy từ field 'type' (từ CartContext)
+              itemType = item.type === '' ? 'default' : item.type;
+          } else if (typeof item.variant === 'string') {
+              // Ưu tiên 2: Lấy từ field 'variant' dạng chuỗi (từ Backend API trả về)
+              itemType = item.variant === '' ? 'default' : item.variant;
           } else if (item.variant?.description) {
+              // Ưu tiên 3: Dạng object
               itemType = item.variant.description;
           } else if (item._id && typeof item._id === 'string' && item._id.includes('-')) {
+              // Ưu tiên 4: Dạng dính liền ID (Vd: 12345-Red)
               itemType = item._id.split('-').slice(1).join('-');
-          } else if (item.name && item.name.includes('(') && item.name.endsWith(')')) {
-              const match = item.name.match(/\(([^)]+)\)$/);
-              if (match) itemType = match[1].trim();
           }
-          // --------------------------------------------------------
 
           return {
             productId: pId, 
             product_id: pId,  
             quantity: item.quantity,
-            type: itemType // TRUYỀN TYPE LÊN CHUẨN ĐÉT
+            type: itemType 
           };
         }),
         
@@ -256,17 +261,27 @@ const Checkout: React.FC = () => {
             <div className="bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/20 p-6 shadow-lg sticky top-24">
               <h2 className="text-lg font-bold mb-6 dark:text-white">Tóm tắt đơn hàng</h2>
               
-              <div className="space-y-4 mb-6 border-b border-slate-100 dark:border-primary/10 pb-6 max-h-64 overflow-y-auto">
-                {displayItems.map((item: any) => (
-                  <div key={item.productId || item._id} className="flex gap-3 text-sm">
-                    <img src={item.main_image} alt={item.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-slate-900 dark:text-white truncate">{item.name}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">x{item.quantity}</p>
+              <div className="space-y-4 mb-6 border-b border-slate-100 dark:border-primary/10 pb-6 max-h-64 overflow-y-auto custom-scrollbar">
+                {/* 👉 ĐÃ SỬA: Map data thông minh, hiển thị đầy đủ hình ảnh, tên và giá */}
+                {displayItems.map((item: any, index: number) => {
+                  const prod = item.product || item; 
+                  const name = prod.name || 'Sản phẩm';
+                  const image = prod.main_image || prod.image || 'https://placehold.co/100';
+                  const price = prod.price || item.price || 0;
+                  const key = item.productId || prod._id || item._id || index;
+
+                  return (
+                    <div key={key} className="flex gap-3 text-sm">
+                      <img src={image} alt={name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0 border border-slate-200 dark:border-slate-700" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-900 dark:text-white truncate">{name}</p>
+                        {item.type && <p className="text-[10px] font-medium text-primary mt-0.5 bg-primary/10 inline-block px-1.5 rounded">Loại: {item.type}</p>}
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">SL: {item.quantity}</p>
+                      </div>
+                      <p className="font-bold text-slate-900 dark:text-white whitespace-nowrap">{formatPrice(price * item.quantity)}</p>
                     </div>
-                    <p className="font-bold text-slate-900 dark:text-white whitespace-nowrap">{formatPrice(item.price * item.quantity)}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="space-y-4 text-sm border-b border-slate-100 dark:border-primary/10 pb-4 mb-4">
@@ -305,6 +320,7 @@ const Checkout: React.FC = () => {
         </div>
       </div>
 
+      {/* Address Modals */}
       {showAddressModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6">

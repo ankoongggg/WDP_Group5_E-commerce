@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import SellerLayout from './SellerLayout';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { format } from 'date-fns';
+import axios from 'axios'; // 👉 THÊM AXIOS ĐỂ GỌI API LẤY STATUS SHOP
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 
@@ -29,6 +30,27 @@ const SellerDashboard: React.FC = () => {
     const [activePeriod, setActivePeriod] = useState<'7d' | '30d' | 'custom'>('30d');
     const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
     const { toast } = useToast();
+
+    // 👇 STATE CHỨA TRẠNG THÁI CỦA SHOP HIỆN TẠI
+    const [storeStatus, setStoreStatus] = useState<string>('active');
+
+    // 👇 GỌI API LẤY TRẠNG THÁI SHOP (ĐỂ CHECK XEM CÓ BỊ BAN KHÔNG)
+    useEffect(() => {
+        const fetchStoreStatus = async () => {
+            try {
+                const token = localStorage.getItem('accessToken');
+                const res = await axios.get('http://localhost:9999/api/store/my-store', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.data?.data?.store?.status) {
+                    setStoreStatus(res.data.data.store.status);
+                }
+            } catch (e) {
+                console.error("Lỗi lấy thông tin store", e);
+            }
+        };
+        fetchStoreStatus();
+    }, []);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -106,6 +128,29 @@ const SellerDashboard: React.FC = () => {
             </header>
 
             <main className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6">
+                
+                {/* 👇 CẢNH BÁO ĐỎ NẾU SHOP BỊ BAN NẰM Ở ĐÂY 👇 */}
+                {storeStatus === 'banned' && (
+                    <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-500 rounded-xl p-6 mb-6 flex items-start gap-4 shadow-lg shadow-red-500/10 animate-in fade-in slide-in-from-top-4 duration-500">
+                        <div className="bg-red-100 dark:bg-red-800/50 p-3 rounded-full text-red-600 dark:text-red-400 shrink-0">
+                            <span className="material-symbols-outlined text-3xl">gavel</span>
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-red-700 dark:text-red-400 uppercase mb-1">
+                                Cửa hàng của bạn đã bị khóa!
+                            </h3>
+                            <p className="text-red-600 dark:text-red-300 font-medium leading-relaxed">
+                                Do vi phạm chính sách của hệ thống, cửa hàng đã bị tạm ngưng hoạt động. Các sản phẩm của bạn hiện đang bị ẩn khỏi sàn giao dịch. Vui lòng liên hệ Admin để biết thêm chi tiết và hỗ trợ mở lại.
+                            </p>
+                            <button className="mt-4 px-5 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg shadow-md transition-colors flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[18px]">support_agent</span> 
+                                Liên hệ Admin ngay
+                            </button>
+                        </div>
+                    </div>
+                )}
+                {/* 👆 KẾT THÚC CẢNH BÁO 👆 */}
+
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <StatCard

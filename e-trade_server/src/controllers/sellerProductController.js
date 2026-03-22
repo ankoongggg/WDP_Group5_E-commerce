@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const Store = require('../models/Store');
+const BlacklistKeyword = require('../models/BlacklistKeyword');
 
 // Helper: lấy store của seller hiện tại
 const getCurrentSellerStore = async (userId) => {
@@ -16,8 +17,9 @@ exports.getSellerProducts = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Bạn chưa có cửa hàng' });
         }
 
-        const page = parseInt(req.query.page, 10) || 1;
-        const limit = parseInt(req.query.limit, 10) || 20;
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const allowedLimits = [10, 25, 50, 100];
+        const limit = allowedLimits.includes(parseInt(req.query.limit, 10)) ? parseInt(req.query.limit, 10) : 25;
         const skip = (page - 1) * limit;
         const { status, search } = req.query;
 
@@ -100,8 +102,23 @@ exports.createSellerProduct = async (req, res) => {
             return res.status(400).json({ success: false, errors });
         }
 
+        
+
+        // 2. Chuẩn hoá product_type (không giới hạn stock của 2nd)
+        let finalProductType = Array.isArray(product_type) ? product_type : [];
+        if (finalProductType.length > 0) {
+            finalProductType = finalProductType.map((pt) => ({
+                description: pt.description || 'Mặc định',
+                stock: Number(pt.stock) || 0,
+                price_difference: Number(pt.price_difference) || 0,
+            }));
+        } else {
+            finalProductType = [{ description: 'Mặc định', stock: 0, price_difference: 0 }];
+        }
+
         const payload = {
             store_id: store._id,
+            user_id: userId,
             category_id,
             name: name.trim(),
             description,
@@ -109,11 +126,30 @@ exports.createSellerProduct = async (req, res) => {
             display_files: Array.isArray(display_files) ? display_files : [],
             price: Number(price),
             original_price: original_price ? Number(original_price) : undefined,
-            product_type: Array.isArray(product_type) ? product_type : [],
-            condition,
-            status: ['pending'],
+            product_type: finalProductType,
+            
+            condition: condition || 'New', // Mặc định là 'New' nếu không cung cấp
+            status: ['active'],
             is_deleted: false,
         };
+
+        // 1. Kiểm duyệt từ khóa cấm (dùng chung với pass item)
+        const blackListKeywords = await BlacklistKeyword.find();
+        const textToCheck = `${name} ${description || ''}`.toLowerCase();
+        let rejectionReason = '';
+
+        for (const item of blackListKeywords) {
+            if (textToCheck.includes(item.keyword.toLowerCase())) {
+                if (item.level === 'high' || item.level === 'critical') {
+                    return res.status(400).json({ success: false, message: `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"` });
+                }
+                if (item.level === 'medium') {
+                    rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
+                    payload.status = ['pending'];
+                    break;
+                }
+            }
+        }
 
         const created = await Product.create(payload);
         res.status(201).json({ success: true, data: created });
@@ -177,8 +213,38 @@ exports.updateSellerProduct = async (req, res) => {
         product.description = description;
         product.main_image = main_image;
         product.display_files = Array.isArray(display_files) ? display_files : [];
-        product.product_type = Array.isArray(product_type) ? product_type : [];
+
+        let updatedProductType = Array.isArray(product_type) ? product_type : [];
+        if (updatedProductType.length > 0) {
+            updatedProductType = updatedProductType.map((pt) => ({
+                description: pt.description || 'Mặc định',
+                stock: Number(pt.stock) || 0,
+                price_difference: Number(pt.price_difference) || 0,
+            }));
+        } else {
+            updatedProductType = [{ description: 'Mặc định', stock: 0, price_difference: 0 }];
+        }
+
+        product.product_type = updatedProductType;
         product.updated_at = new Date();
+
+         // 1. Kiểm duyệt từ khóa cấm (dùng chung với pass item)
+        const blackListKeywords = await BlacklistKeyword.find();
+        const textToCheck = `${name} ${description || ''}`.toLowerCase();
+        let rejectionReason = '';
+
+        for (const item of blackListKeywords) {
+            if (textToCheck.includes(item.keyword.toLowerCase())) {
+                if (item.level === 'high' || item.level === 'critical') {
+                    return res.status(400).json({ success: false, message: `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"` });
+                }
+                if (item.level === 'medium') {
+                    rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
+                    product.status = ['pending'];
+                    break;
+                }
+            }
+        }
 
         await product.save();
 

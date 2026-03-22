@@ -13,6 +13,7 @@ const ProductList: React.FC = () => {
   const keyword = searchParams.get('keyword') || '';
   const filterParam = searchParams.get('filter') || '';
   const categoryParam = searchParams.get('category') || '';
+  const conditionParam = searchParams.get('condition') || '';
 
   // Tạo mảng category ID từ URL để so sánh checkbox
   const selectedCategoryIds = categoryParam ? categoryParam.split(',').filter(Boolean) : [];
@@ -80,6 +81,19 @@ const ProductList: React.FC = () => {
     });
   };
 
+  // Hàm xử lý chọn Condition
+  const handleConditionChange = (cond: string) => {
+    setSearchParams(prev => {
+      if (prev.get('condition') === cond) {
+        prev.delete('condition');
+      } else {
+        prev.set('condition', cond);
+      }
+      prev.delete('page');
+      return prev;
+    });
+  };
+
   // ... (Giữ nguyên các hàm applyPriceRange, etc.)
 
   return (
@@ -112,6 +126,23 @@ const ProductList: React.FC = () => {
                      />
                      <span className={`text-sm transition-colors ${selectedCategoryIds.includes(cat._id) ? 'text-primary font-bold' : 'dark:text-slate-300 group-hover:text-primary'}`}>
                        {cat.name}
+                     </span>
+                   </label>
+                 ))}
+              </div>
+
+              <div className="border-t border-slate-200 dark:border-primary/10 py-6 space-y-3">
+                 <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider text-slate-400">Tình trạng</h4>
+                 {['New', 'Used'].map(cond => (
+                   <label key={cond} className="flex items-center gap-3 cursor-pointer group">
+                     <input
+                       type="checkbox"
+                       checked={conditionParam === cond}
+                       onChange={() => handleConditionChange(cond)}
+                       className="rounded border-slate-300 text-primary focus:ring-primary bg-transparent"
+                     />
+                     <span className={`text-sm transition-colors ${conditionParam === cond ? 'text-primary font-bold' : 'dark:text-slate-300 group-hover:text-primary'}`}>
+                       {cond === 'New' ? 'Hàng Mới (New)' : 'Đồ Pass (Used)'}
                      </span>
                    </label>
                  ))}

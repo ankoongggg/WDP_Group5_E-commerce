@@ -5,7 +5,7 @@ import axios from 'axios';
 const PRODUCT_API_BASE = 'http://localhost:9999/api/products';
 // order routes for sellers (including customer‑pass items) live under /api/seller
 const SELLER_API_BASE = 'http://localhost:9999/api/seller';
-
+const API_ORDER_URL = 'http://localhost:9999/api/orders';
 const getToken = () => localStorage.getItem('accessToken');
 
 export const customerPassApi = {
@@ -43,7 +43,7 @@ export const customerPassApi = {
 
     // API Lấy đơn hàng khách đặt cho các mặt hàng pass của user (seller)
     getSalesOrders: async (status?: string) => {
-        const url = status ? `${SELLER_API_BASE}/2nd_orders?status=${status}` : `${SELLER_API_BASE}/2nd_orders`;
+        const url = status ? `${API_ORDER_URL}/2nd_orders?status=${status}` : `${API_ORDER_URL}/2nd_orders`;
         const response = await axios.get(url, {
             headers: { Authorization: `Bearer ${getToken()}` }
         });
@@ -52,7 +52,7 @@ export const customerPassApi = {
 
     // API Cập nhật trạng thái đơn (Xác nhận, Hủy...)
     updateOrderStatus: async (orderId: string, status: string, reason?: string) => {
-        const response = await axios.put(`${SELLER_API_BASE}/update_passed_order_status/${orderId}`,
+        const response = await axios.put(`${API_ORDER_URL}/update_passed_order_status/${orderId}`,
             { status, reason },
             { headers: { Authorization: `Bearer ${getToken()}` } }
         );

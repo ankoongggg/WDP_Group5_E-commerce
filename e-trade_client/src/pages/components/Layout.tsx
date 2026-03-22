@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useSearch } from '../../hooks/useLayout';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -227,6 +227,16 @@ export const Navbar: React.FC = () => {
                                                 Seller Dashboard
                                             </Link>
                                         )}
+                                        {user?.role?.includes('admin') && (
+                                            <Link
+                                                to="/admin"
+                                                onClick={() => setShowDropdown(false)}
+                                                className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                                            >
+                                                <span className="material-symbols-outlined text-lg">admin_panel_settings</span>
+                                                Admin Dashboard
+                                            </Link>
+                                        )}
                                         <div className="border-t border-slate-100 dark:border-white/10 mt-1 pt-1">
                                             <button
                                                 onClick={() => { setShowDropdown(false); logout().then(() => toast.success('Logged out successfully')); }}
@@ -300,6 +310,16 @@ export const Footer: React.FC = () => {
 };
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { user, isAuthenticated } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    useEffect(() => {
+        if (isAuthenticated && user?.role?.includes('admin') && !location.pathname.startsWith('/admin')) {
+            navigate('/admin', { replace: true });
+        }
+    }, [isAuthenticated, user, location.pathname, navigate]);
+
     return (
         <div className="flex flex-col min-h-screen relative overflow-x-hidden">
             <Navbar />

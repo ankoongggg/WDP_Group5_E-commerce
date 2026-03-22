@@ -261,7 +261,7 @@ const getFollowingStores = async (req, res) => {
 // Admin User functions
 const getUserList = async (req, res) => {
     try {
-        const { search = '', page = 1, limit = 20, role, status } = req.query;
+        const { search = '', page = 1, limit = 25, role, status } = req.query;
         const query = {};
 
         if (search.trim()) {
@@ -277,14 +277,18 @@ const getUserList = async (req, res) => {
             query.status = status;
         }
 
-        const skip = (Number(page) - 1) * Number(limit);
+        const pageNumber = Math.max(1, parseInt(String(page), 10) || 1);
+        const allowedLimits = [10, 25, 50, 100];
+        const limitNumber = allowedLimits.includes(Number(limit)) ? Number(limit) : 25;
+
+        const skip = (pageNumber - 1) * limitNumber;
 
         const [users, total] = await Promise.all([
             User.find(query)
                 .select('full_name email phone role status created_at ban_reason banned_until')
                 .sort({ created_at: -1 })
                 .skip(skip)
-                .limit(Number(limit)),
+                .limit(limitNumber),
             User.countDocuments(query),
         ]);
 
@@ -292,10 +296,10 @@ const getUserList = async (req, res) => {
             success: true,
             data: users,
             pagination: {
-                page: Number(page),
-                limit: Number(limit),
+                page: pageNumber,
+                limit: limitNumber,
                 total,
-                totalPages: Math.ceil(total / Number(limit)),
+                totalPages: Math.ceil(total / limitNumber),
             },
         });
     } catch (err) {
@@ -368,6 +372,8 @@ const banAccount = async (req, res) => {
             user.banned_until = bannedUntilDate;
         } else if (action === 'unban') {
             user.status = 'active';
+            user.ban_reason = null;
+            user.banned_until = null;
             // Giữ lại ban_reason và banned_until theo yêu cầu
         } else {
             return res.status(400).json({ success: false, message: 'Hành động không hợp lệ' });
