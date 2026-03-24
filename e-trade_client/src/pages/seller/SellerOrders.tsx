@@ -4,12 +4,10 @@ import { storeApi } from '../../services/api';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useToast } from '../../context/ToastContext';
 
-// --- MODAL CHI TIẾT ĐƠN HÀNG (PHIÊN BẢN PHẪU THUẬT TRIỆT ĐỂ) ---
 const OrderDetailModal = ({ order, onClose }: { order: any, onClose: () => void }) => {
     const { formatPrice } = useCurrency();
     if (!order) return null;
 
-    // Kiểm tra trạng thái hủy (không phân biệt hoa thường)
     const isCancelled = order.order_status?.toLowerCase() === 'cancelled';
 
     return (
@@ -25,7 +23,6 @@ const OrderDetailModal = ({ order, onClose }: { order: any, onClose: () => void 
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     
-                    {/* 🚨 🚨 KHỐI LÝ DO HỦY: HIỆN CHÌNH ÌNH NGAY ĐẦU MODAL 🚨 🚨 */}
                     {isCancelled && (
                         <div className="col-span-full p-5 bg-red-50 dark:bg-red-900/30 border-2 border-red-200 dark:border-red-800 rounded-2xl shadow-sm mb-2">
                             <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-black uppercase text-sm mb-2">
