@@ -8,7 +8,7 @@ const SellerLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         { path: '/seller/dashboard', icon: 'dashboard', label: 'Dashboard' },
         { path: '/seller/orders', icon: 'receipt_long', label: 'Đơn hàng' },
         { path: '/seller/products', icon: 'inventory_2', label: 'Sản phẩm' },
-        { path: '/seller/settings', icon: 'settings', label: 'Store Management' },
+        { path: '/seller/settings', icon: 'settings', label: 'Quản lý cửa hàng' },
     ];
 
     return (
