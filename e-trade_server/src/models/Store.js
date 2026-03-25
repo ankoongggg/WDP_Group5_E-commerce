@@ -12,6 +12,7 @@ const storeSchema = new mongoose.Schema({
   logo: String, // URL logo cửa hàng
   contact_email: String, // Email liên hệ riêng của cửa hàng (nếu khác email user)
   phone: String, // Số điện thoại cửa hàng
+  tax_code: String, // Mã số thuế
   // Trạng thái hoạt động của cửa hàng (chủ yếu do admin/quy trình hệ thống quyết định)
   status: {
     type: String,

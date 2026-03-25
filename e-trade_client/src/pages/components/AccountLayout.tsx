@@ -38,7 +38,8 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
         identity_card_image: "",
         pickup_address: "",
         phone: "",
-        business_category: ""
+        business_category: "",
+        tax_code: ""
     });
 
     useEffect(() => {
@@ -97,8 +98,8 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
     const onSubmitSellerForm = async () => {
         setSubmittingSellerForm(true);
         try {
-            if (!sellerForm.shop_name || !sellerForm.shop_description || !sellerForm.identity_card || !sellerForm.pickup_address || !sellerForm.business_category || !sellerForm.identity_card_image || !sellerForm.phone) {
-                toast.error("Vui lòng điền đầy đủ thông tin bắt buộc (bao gồm cả ảnh CMND/CCCD)");
+            if (!sellerForm.shop_name || !sellerForm.shop_description || !sellerForm.identity_card || !sellerForm.pickup_address || !sellerForm.business_category || !sellerForm.identity_card_image || !sellerForm.phone || !sellerForm.tax_code) {
+                toast.error("Vui lòng điền đầy đủ thông tin bắt buộc (bao gồm cả ảnh CCCD và Mã số thuế)");
                 setSubmittingSellerForm(false);
                 return;
             }
@@ -126,7 +127,7 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
             setShowSellerModal(false);
             setIsEditingSeller(false);
             setSellerForm({
-                shop_name: "", shop_description: "", identity_card: "", identity_card_image: "", pickup_address: "", phone: "", business_category: ""
+                shop_name: "", shop_description: "", identity_card: "", identity_card_image: "", pickup_address: "", phone: "", business_category: "", tax_code: ""
             });
             checkSellerRegistrationStatus();
         } catch (e: any) {
@@ -145,7 +146,8 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
             identity_card_image: sellerRegistrationStatus.identity_card_image || "",
             pickup_address: sellerRegistrationStatus.pickup_address || "",
             phone: sellerRegistrationStatus.phone || "",
-            business_category: sellerRegistrationStatus.business_category || ""
+            business_category: sellerRegistrationStatus.business_category || "",
+            tax_code: sellerRegistrationStatus.tax_code || ""
         });
         setIsEditingSeller(true);
         setShowSellerModal(true);
@@ -211,6 +213,15 @@ export const AccountLayout: React.FC<AccountLayoutProps> = ({ children }) => {
                                 />
                             </div>
                             <div className="md:col-span-1">
+                                <label className="block font-bold mb-2 text-sm dark:text-white">Mã số thuế <span className="text-red-500">*</span></label>
+                                <input 
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" 
+                                    value={sellerForm.tax_code} 
+                                    onChange={e => setSellerForm({...sellerForm, tax_code: e.target.value.replace(/[^0-9-]/g, '')})} 
+                                    placeholder="Nhập mã số thuế cá nhân/doanh nghiệp" 
+                                />
+                            </div>
+                            <div className="md:col-span-2">
                                 <label className="block font-bold mb-2 text-sm dark:text-white">Ảnh CMND/CCCD <span className="text-red-500">*</span></label>
                                 <div className="flex items-center gap-4 h-[48px]">
                                     {sellerForm.identity_card_image && (
