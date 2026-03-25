@@ -14,13 +14,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => 
   // Danh sách menu admin được tổng hợp từ cả 2 nhánh conflict
   const navItems = useMemo(
     () => [
-      { path: '/admin', icon: 'dashboard', label: 'Dashboard' },
-      { path: '/admin/products', icon: 'inventory_2', label: 'Products' },
-      { path: '/admin/categories', icon: 'category', label: 'Categories' },
-      { path: '/admin/seller-requests', icon: 'store', label: 'Seller Requests' },
-      { path: '/admin/reports', icon: 'analytics', label: 'Reports' },
-      { path: '/admin/users', icon: 'group', label: 'Users' },
-      { path: '/admin/blacklist', icon: 'block', label: 'Blacklist' },
+      { path: '/admin', icon: 'dashboard', label: 'Bảng điều khiển' },
+      { path: '/admin/products', icon: 'inventory_2', label: 'Sản phẩm' },
+      { path: '/admin/categories', icon: 'category', label: 'Danh mục' },
+      { path: '/admin/seller-requests', icon: 'store', label: 'Yêu cầu của người bán' },
+      { path: '/admin/reports', icon: 'analytics', label: 'Báo cáo' },
+      { path: '/admin/users', icon: 'group', label: 'Người dùng' },
+      { path: '/admin/blacklist', icon: 'block', label: 'Danh sách đen' },
     ],
     [],
   );
@@ -57,7 +57,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => 
         <div className="p-4 border-t border-slate-200 dark:border-slate-700">
             <button onClick={logout} className="flex items-center gap-3 px-4 py-3 w-full text-slate-500 hover:text-red-500 transition-colors font-medium rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10">
                 <span className="material-symbols-outlined">logout</span>
-                Logout
+                Đăng xuất
             </button>
         </div>
       </aside>
