@@ -624,22 +624,33 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
         let deepSaleProducts = products.filter(p => p.discount_numeric >= 50);
         let finalResult = [];
         let strategyUsed = '';
+        
+        // 1. Ưu tiên lấy các sản phẩm Deep Sale (>= 50% giảm giá)
+        deepSaleProducts.sort((a, b) => a.random_sort - b.random_sort); // Randomize deep sale products
+        finalResult = deepSaleProducts.slice(0, limit);
+        strategyUsed = 'deep_sale_priority';
 
-        if (deepSaleProducts.length >= limit / 2) {
-            // Nếu có nhiều hàng Deep Sale -> Trộn ngẫu nhiên và lấy ra đủ số lượng
-            strategyUsed = 'random_deep_sale';
-            // Sort theo random_sort (giúp các sản phẩm của các Shop khác nhau nằm xen kẽ)
-            finalResult = deepSaleProducts.sort((a, b) => a.random_sort - b.random_sort).slice(0, limit);
-        } else {
-            // Nếu ít hàng Deep Sale -> Lấy Top những mặt hàng giảm giá cao nhất (Bất kể % là bao nhiêu)
-            strategyUsed = 'highest_available';
-            finalResult = products.sort((a, b) => {
-                // Ưu tiên 1: % Giảm giá cao hơn
-                if (b.discount_numeric !== a.discount_numeric) return b.discount_numeric - a.discount_numeric;
-                // Ưu tiên 2: Nếu bằng % giảm giá thì Random để đa dạng Shop
-                return a.random_sort - b.random_sort;
-            }).slice(0, limit);
+        // 2. Nếu chưa đủ số lượng, bổ sung bằng các sản phẩm giảm giá cao nhất khác
+        if (finalResult.length < limit) {
+            const remainingSlots = limit - finalResult.length;
+            const existingProductIds = new Set(finalResult.map(p => p._id.toString()));
+
+            const otherHighlyDiscountedProducts = products
+                .filter(p => !existingProductIds.has(p._id.toString())) // Loại bỏ sản phẩm đã có
+                .sort((a, b) => {
+                    // Ưu tiên 1: % Giảm giá cao hơn
+                    if (b.discount_numeric !== a.discount_numeric) return b.discount_numeric - a.discount_numeric;
+                    // Ưu tiên 2: Nếu bằng % giảm giá thì Random để đa dạng Shop
+                    return a.random_sort - b.random_sort;
+                })
+                .slice(0, remainingSlots);
+            
+            finalResult = [...finalResult, ...otherHighlyDiscountedProducts];
+            strategyUsed += (strategyUsed ? ' + ' : '') + 'fill_with_highest_discount';
         }
+
+        // Đảm bảo không vượt quá giới hạn cuối cùng
+        finalResult = finalResult.slice(0, limit);
 
         // 5. POPULATE THÔNG TIN CHỦ SHOP
         await Product.populate(finalResult, [

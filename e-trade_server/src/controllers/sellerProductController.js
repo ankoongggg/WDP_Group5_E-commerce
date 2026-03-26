@@ -134,7 +134,8 @@ exports.createSellerProduct = async (req, res) => {
         };
 
         // 1. Kiểm duyệt từ khóa cấm (dùng chung với pass item)
-        const blackListKeywords = await BlacklistKeyword.find();
+        const blackListKeywords = await BlacklistKeyword.find().lean();
+        let finalStatus = ['active']; // Default status
         const textToCheck = `${name} ${description || ''}`.toLowerCase();
         let rejectionReason = '';
 
@@ -142,17 +143,19 @@ exports.createSellerProduct = async (req, res) => {
             if (textToCheck.includes(item.keyword.toLowerCase())) {
                 if (item.level === 'high' || item.level === 'critical') {
                     return res.status(400).json({ success: false, message: `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"` });
-                }
-                if (item.level === 'medium') {
-                    rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
-                    payload.status = ['pending'];
+                } else if (item.level === 'medium') {
+                    rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa nhạy cảm: "${item.keyword}"`;
+                    finalStatus = ['rejected']; // Set to rejected for medium level as well
                     break;
                 }
             }
         }
+        
+        payload.status = finalStatus;
+        payload.rejection_reason = rejectionReason;
 
         const created = await Product.create(payload);
-        res.status(201).json({ success: true, data: created });
+        res.status(201).json({ success: true, data: created, message: 'Sản phẩm đã được tạo thành công.' });
     } catch (err) {
         console.error('createSellerProduct error:', err);
         res.status(500).json({ success: false, message: 'Lỗi máy chủ nội bộ' });
@@ -228,27 +231,36 @@ exports.updateSellerProduct = async (req, res) => {
         product.product_type = updatedProductType;
         product.updated_at = new Date();
 
-         // 1. Kiểm duyệt từ khóa cấm (dùng chung với pass item)
-        const blackListKeywords = await BlacklistKeyword.find();
+        // 1. Kiểm duyệt từ khóa cấm (dùng chung với pass item)
+        const blackListKeywords = await BlacklistKeyword.find().lean();
+        let finalStatus = ['active']; // Default status
         const textToCheck = `${name} ${description || ''}`.toLowerCase();
         let rejectionReason = '';
 
         for (const item of blackListKeywords) {
             if (textToCheck.includes(item.keyword.toLowerCase())) {
                 if (item.level === 'high' || item.level === 'critical') {
-                    return res.status(400).json({ success: false, message: `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"` });
-                }
-                if (item.level === 'medium') {
-                    rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
-                    product.status = ['pending'];
+                    rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
+                    finalStatus = ['rejected'];
+                    break;
+                } else if (item.level === 'medium') {
+                    rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa nhạy cảm: "${item.keyword}"`;
+                    finalStatus = ['rejected']; // Set to rejected for medium level as well
                     break;
                 }
             }
         }
+        
+        product.status = finalStatus;
+        product.rejection_reason = rejectionReason;
 
         await product.save();
 
-        res.json({ success: true, data: product });
+        if (product.status.includes('rejected')) {
+            return res.status(400).json({ success: false, message: 'Món hàng không hợp lệ: ' + product.rejection_reason, data: product });
+        } else {
+            res.json({ success: true, data: product, message: 'Sản phẩm đã được cập nhật thành công.' });
+        }
     } catch (err) {
         console.error('updateSellerProduct error:', err);
         res.status(500).json({ success: false, message: 'Lỗi máy chủ nội bộ' });

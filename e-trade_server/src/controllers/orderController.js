@@ -468,12 +468,23 @@ exports.getMyOrders = async (req, res) => {
 
         // Gắn đánh giá vào từng item trong order
         const formattedOrders = orders.map(order => {
+            const isCompleted = order.order_status === 'completed';
+
             order.items = order.items.map(item => {
                 const review = userReviews.find(r => 
                     r.order_id.toString() === order._id.toString() && 
                     r.product_id.toString() === (item.product_id?._id || item.product_id).toString()
                 );
-                if (review) item.user_review = review;
+                
+                item.user_review = review || null;
+
+                if (!isCompleted) {
+                    item.review_status = 'NOT_ELIGIBLE'; // Chưa hoàn thành, không được đánh giá
+                } else if (review) {
+                    item.review_status = review.is_edited ? 'EDITED' : 'REVIEWED';
+                } else {
+                    item.review_status = 'PENDING_REVIEW';
+                }
                 return item;
             });
             return order;
@@ -502,11 +513,21 @@ exports.getOrderDetail = async (req, res) => {
 
         // Lấy các đánh giá của user cho đơn hàng này
         const userReviews = await ReviewProduct.find({ user_id: userId, order_id: orderId }).lean();
-        
+        const isCompleted = order.order_status === 'completed';
+
         // Gắn đánh giá vào từng item
         order.items = order.items.map(item => {
             const review = userReviews.find(r => r.product_id.toString() === (item.product_id?._id || item.product_id).toString());
-            if (review) item.user_review = review;
+            
+            item.user_review = review || null;
+
+            if (!isCompleted) {
+                item.review_status = 'NOT_ELIGIBLE';
+            } else if (review) {
+                item.review_status = review.is_edited ? 'EDITED' : 'REVIEWED';
+            } else {
+                item.review_status = 'PENDING_REVIEW';
+            }
             return item;
         });
 
