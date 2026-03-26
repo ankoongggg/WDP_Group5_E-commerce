@@ -1,8 +1,6 @@
 import axios from 'axios';
 import { api } from './api'; // IMPORT VŨ KHÍ BÍ MẬT VÀO ĐÂY
 import { ProductResponse } from '../types/home';
-import { getInterestsParams } from '../utils/tracker';
-import { trackInterest } from '../utils/tracker';
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:9999/api';
 
 export const ProductService = {
@@ -18,14 +16,12 @@ export const ProductService = {
   },
 
   // Gọi GỢI Ý ở Homepage
-  getRecommendations: async (limit: number = 18): Promise<ProductResponse> => {
-      const interestParams = getInterestsParams(); // Nó sẽ trả về object { interests: '...', category_interests: '...' }
+  getRecommendations: async (limit: number = 18): Promise<ProductResponse> => { // Nó sẽ trả về object { interests: '...', category_interests: '...' }
       
       // Gọi chung hàm getProducts nhưng truyền thêm params gợi ý
       const response = await axios.get(API_BASE_URL + '/products/home', { 
           params: { 
               limit, 
-              ...interestParams 
           } 
       });
       return response.data;

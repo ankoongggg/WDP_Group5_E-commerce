@@ -32,6 +32,7 @@ const userSchema = new mongoose.Schema({
     providerId: { type: String, default: null }, // Google sub/id
     role: [String],
     status: String,
+    keyword: [String], //new
     ban_reason: String,
     banned_until: Date,
     created_at: { type: Date, default: Date.now },

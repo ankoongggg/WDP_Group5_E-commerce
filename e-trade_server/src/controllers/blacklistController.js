@@ -67,6 +67,28 @@ exports.getPendingProductsWithBlacklistedKeywords = async (req, res) => {
 
 }
 
+exports.getRejectedProductsWithBlacklistedKeywords = async (req, res) => {
+    try{
+        const getRejectedProductsAndProductGotCreateBefore30Days = await Product.find({
+            $or:[
+            {status: 'rejected'},
+            {created_at: { $lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }},
+
+            ]
+            // populate thông tin cửa hàng
+        }).populate('store_id', 'shop_name')
+    .populate('user_id', 'full_name email phone status avatar')
+    .populate('category_id', 'name')
+    .sort({ created_at: -1 });
+
+        res.status(200).json({ products: getRejectedProductsAndProductGotCreateBefore30Days });
+    }catch (err){
+        console.error('Error fetching products with blacklisted keywords: ', err);
+        res.status(500).json({ message: 'Lỗi server', error: err.message });
+    }
+
+}
+
 exports.UpdateStatusForProductWithBlacklistedKeyword = async (req, res) => {
     try{
         const { productId, status } = req.body;

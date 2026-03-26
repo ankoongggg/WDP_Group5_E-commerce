@@ -28,3 +28,4 @@ logs
 *.sst
 /e-trade_client/.next/dev/cache/turbopack
 /e-trade_client/.next
+e-trade_server/.env
