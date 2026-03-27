@@ -951,7 +951,7 @@ exports.updateCustomerPassedProduct = async (req, res) => {
         const textToCheck = `${name} ${description || ''}`.toLowerCase();
         
         // TRẢ LẠI TÊN CHO EM: LUÔN PENDING CHỜ ADMIN DUYỆT!
-        let finalStatus = 'active'; 
+        let finalStatus = 'active';
         let rejectionReason = '';
 
         for (const item of blackListKeywords) {
@@ -959,22 +959,28 @@ exports.updateCustomerPassedProduct = async (req, res) => {
                 if (item.level === 'high' || item.level === 'critical') {
                     rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
 
-                    finalStatus='rejected'
+                    finalStatus = 'rejected'
                     break;
                 }
                 if (item.level === 'medium') {
                     rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
                     finalStatus='rejected'
-                    break; 
+                    break;
                 }
             }
         }
 
         product.updated_at = new Date();
         product.product_type = finalProductType;
-        product.status = finalStatus;
-        await product.save();
-        res.status(200).json({ success: true, data: product, message: 'Đã cập nhật sản phẩm.' });
+        product.status = finalStatus; // Cập nhật trạng thái
+        product.rejection_reason = rejectionReason; // Cập nhật lý do từ chối
+        const updatedProduct = await product.save();
+
+        if (updatedProduct.status === 'rejected') {
+            return res.status(400).json({ success: false, message: 'Cập nhật không thành công: ' + updatedProduct.rejection_reason, data: updatedProduct });
+        } else {
+            res.status(200).json({ success: true, data: updatedProduct, message: 'Đã cập nhật sản phẩm.' });
+        }
     } catch (error) {
         console.error('Error updating passed product:', error);
         res.status(500).json({ message: 'Lỗi server', error: error.message });
@@ -1062,24 +1068,24 @@ exports.createPassing2ndProduct = async (req, res) => {
         const textToCheck = `${name} ${safeDescription}`.toLowerCase();
         
         // TRẢ LẠI TÊN CHO EM: LUÔN Active CHỜ ADMIN DUYỆT!
-        let finalStatus = 'active'; 
+        let finalStatus = ['active'];
         let rejectionReason = '';
 
         for (const item of blackListKeywords) {
             if (textToCheck.includes(item.keyword.toLowerCase())) {
                 if (item.level === 'high' || item.level === 'critical') {
                     rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
-                    finalStatus = 'rejected'
-                    break;
+                    finalStatus = ['rejected'];
+                    break; // Dừng lại sau khi tìm thấy từ khóa cấm đầu tiên
                 }
                 if (item.level === 'medium') {
                     rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
-                    finalStatus = 'rejected'
-                    break; 
+                    finalStatus = ['rejected'];
+                    break; // Dừng lại sau khi tìm thấy từ khóa cấm đầu tiên
                 }
             }
         }
-        
+
         // 4. Tạo sản phẩm cá nhân (Tuyệt đối không có store_id)
         const newProduct = new Product({
             store_id: undefined, 
@@ -1097,13 +1103,22 @@ exports.createPassing2ndProduct = async (req, res) => {
             rejection_reason: rejectionReason
         });
 
-        await newProduct.save();
+        const savedProduct = await newProduct.save();
 
-        res.status(201).json({
-            success: true,
-            message: 'Đăng bán thành công! Sản phẩm đang chờ Admin phê duyệt.',
-            data: newProduct
-        });
+        // Kiểm tra trạng thái cuối cùng của sản phẩm để trả về thông báo phù hợp
+        if (savedProduct.status.includes('rejected')) {
+            return res.status(400).json({
+                success: false,
+                message: 'Đăng bán không thành công: ' + savedProduct.rejection_reason,
+                data: savedProduct // Vẫn trả về dữ liệu sản phẩm để client có thể xem chi tiết
+            });
+        } else {
+            res.status(201).json({
+                success: true,
+                message: 'Đăng bán thành công! Sản phẩm đang chờ Admin phê duyệt.',
+                data: savedProduct
+            });
+        }
 
     } catch (error) {
         console.error('Lỗi tạo sản phẩm:', error);
