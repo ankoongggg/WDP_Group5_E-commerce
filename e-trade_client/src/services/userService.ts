@@ -95,10 +95,10 @@ export const UserService = {
     return response.data;
   },
 
-  getSearchKeywords: async () => {
+  getSearchKeywords: async (limit: number = 5) => {
     const token = localStorage.getItem('accessToken');
     const response = await axios.get(`${API_BASE_URL}/users/keywords`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}`, limit }
     });
     return response.data;
   }

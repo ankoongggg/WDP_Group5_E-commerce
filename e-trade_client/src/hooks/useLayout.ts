@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ProductService } from '../services/productService';
+import { UserService } from '../services/userService';
 import { removeVietnameseTones } from '../utils/format'; // Import hàm mới
 import { trackInterest } from '../utils/tracker';
 import React from 'react';
@@ -10,7 +11,7 @@ export const useSearch = () => {
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [allProducts, setAllProducts] = useState<any[]>([]);
-    
+    const [userKeywords, setUserKeywords] = useState<string[]>([]);
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -36,7 +37,24 @@ export const useSearch = () => {
 
     // Logic gợi ý (Dùng removeVietnameseTones)
     useEffect(() => {
-        if (showSuggestions && search.trim().length > 0) {
+        if (showSuggestions && search.trim().length === 0) {
+            const fetchUserKeywords = async () => {
+                try {
+                    const res = await UserService.getSearchKeywords(5);
+                    // Bóc tách mảng keyword từ dữ liệu trả về của API
+                    const keywords = res.data || res.keyword || (Array.isArray(res) ? res : []);
+                    
+                    if (Array.isArray(keywords)) {
+                        setUserKeywords(keywords);
+                        setSuggestions(keywords.slice(0, 5)); // Đưa vào suggestions để hiển thị (tối đa 10 từ khóa)
+                    }
+                } catch (error) {
+                    console.error("Lỗi lấy từ khóa tìm kiếm cũ:", error);
+                }
+            };
+            fetchUserKeywords();
+        }
+        else if (showSuggestions && search.trim().length > 0) {
             const keywordRaw = search.toLowerCase();
             const keywordNoTone = removeVietnameseTones(keywordRaw); // Xóa dấu keyword
             const uniqueSuggestions = new Set<string>();
