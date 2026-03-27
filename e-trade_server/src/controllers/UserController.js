@@ -456,6 +456,69 @@ const getTotalUsersNumberAndComparison = async (req,res) => {
     }
 }
 
+const saveUserSearchKeyword = async (req, res) => {
+    try {
+        const userId = req.user.id; 
+        const { keyword } = req.body;
+
+        if (!keyword || typeof keyword !== 'string') {
+            return res.status(400).json({ success: false, message: 'Keyword is required' });
+        }
+
+        const cleanKeyword = keyword.trim();
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        let currentKeywords = user.keyword || [];
+
+        // Lọc bỏ keyword trùng lặp
+        currentKeywords = currentKeywords.filter(k => k.toLowerCase() !== cleanKeyword.toLowerCase());
+
+        // Thêm keyword mới lên đầu
+        currentKeywords.unshift(cleanKeyword);
+
+        // Giữ tối đa 10 keyword
+        currentKeywords = currentKeywords.slice(0, 10);
+
+        // Update vào Database
+        await User.findByIdAndUpdate(
+            userId, 
+            { $set: { keyword: currentKeywords } },
+            { new: true } 
+        );
+
+        // ==========================================
+        // DÒNG LOG BẠN YÊU CẦU THÊM VÀO ĐÂY:
+        // ==========================================
+        const userNameLog = user.account_name || user.full_name || userId;
+        // console.log(`\n[Lưu Keyword] 👤 User: ${userNameLog} | 🔤 Vừa gõ: "${cleanKeyword}"`);
+        // console.log(`[Danh sách Keyword DB]:`, currentKeywords, `\n`);
+
+        res.status(200).json({ 
+            success: true, 
+            message: 'Đã lưu từ khóa',
+            data: currentKeywords 
+        });
+
+    } catch (error) {
+        console.error("[Lỗi Save Keyword]", error.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+// Hàm phụ (Optional): Nếu bạn cần API trả về list keyword của User
+const getUserKeywords = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('keyword').lean();
+        res.json({ success: true, data: user?.keyword || [] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -469,5 +532,7 @@ module.exports = {
   toggleWishlist,
   toggleFollowStore,
   getWishlist,
-  getFollowingStores
+  getFollowingStores,
+  saveUserSearchKeyword,
+  getUserKeywords
 };

@@ -76,4 +76,30 @@ export const UserService = {
             body: JSON.stringify(payload),
         });
     },
+   saveSearchKeyword: async (keyword: string) => {
+    // 1. Kiểm tra xem bạn lưu token dưới tên key là gì? 
+    // (Thay 'accessToken' bằng 'token' nếu lúc Login bạn setItem('token', ...))
+    const token = localStorage.getItem('accessToken'); 
+
+    // 2. Gửi request kèm Header chứa Bearer Token
+    const response = await axios.post(
+      `${API_BASE_URL}/users/keywords`, 
+      { keyword },
+      {
+        headers: {
+          Authorization: `Bearer ${token}` // Bắt buộc phải có dòng này để qua ải verifyToken
+        }
+      }
+    );
+    
+    return response.data;
+  },
+
+  getSearchKeywords: async () => {
+    const token = localStorage.getItem('accessToken');
+    const response = await axios.get(`${API_BASE_URL}/users/keywords`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  }
 };

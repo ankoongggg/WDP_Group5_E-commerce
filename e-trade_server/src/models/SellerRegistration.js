@@ -33,6 +33,10 @@ const sellerRegistrationSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    tax_code: {
+        type: String,
+        required: true
+    },
     status: {
         type: String,
         enum: ['pending', 'approved', 'rejected'],

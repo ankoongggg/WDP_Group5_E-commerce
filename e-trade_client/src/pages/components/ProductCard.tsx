@@ -2,6 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCurrency } from '../../context/CurrencyContext';
+import { trackInterest } from '../../utils/tracker';
 
 export interface ProductWithStats {
   _id: string;
@@ -45,9 +46,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     );
   };
 
+  const handleProductClick = () => {
+    trackInterest(product.name);
+  };
+
   return (
     <div className="group relative flex flex-col h-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm transition-all hover:shadow-lg">
-      <Link to={`/products/${product._id}`} className="block relative">
+      <Link to={`/products/${product._id}`} className="block relative" onClick={handleProductClick}>
         {/* 1. KHỐI HÌNH ẢNH: Ép cứng tỷ lệ (aspect-square) để 100% hình ảnh cao bằng nhau */}
         <div className="relative w-full pt-[100%] overflow-hidden bg-slate-100 dark:bg-slate-900">
           <img
@@ -90,7 +95,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
         {/* 3. TÊN SẢN PHẨM: Ép cứng chiều cao 2 dòng */}
         <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-2 leading-snug line-clamp-2 h-10 group-hover:text-primary transition-colors">
-          <Link to={`/products/${product._id}`} title={product.name}>
+          <Link to={`/products/${product._id}`} title={product.name} onClick={handleProductClick}>
             {product.name}
           </Link>
         </h3>
@@ -133,7 +138,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
 <div className="mt-auto pt-4">
 
-<Link to={`/products/${product._id}`} className="w-full text-center block rounded-lg py-2.5 px-4 text-sm font-bold transition-all bg-primary/10 text-primary hover:bg-primary hover:text-white">
+<Link to={`/products/${product._id}`} className="w-full text-center block rounded-lg py-2.5 px-4 text-sm font-bold transition-all bg-primary/10 text-primary hover:bg-primary hover:text-white" onClick={handleProductClick}>
 
 Xem chi tiết
 

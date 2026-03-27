@@ -13,6 +13,9 @@ const {
     toggleFollowStore,
     getWishlist,
     getFollowingStores,
+    saveUserSearchKeyword,
+    getUserKeywords,
+
 } = require('../controllers/UserController');
 const { createProductReview, getProductReviewByUser } = require('../controllers/reviewController');
 const { protect, isAdmin } = require('../middlewares/auth');
@@ -41,5 +44,8 @@ router.post('/wishlist/toggle', protect, toggleWishlist);
 router.post('/follow/toggle', protect, toggleFollowStore);
 router.get('/wishlist', protect, getWishlist);
 router.get('/following', protect, getFollowingStores);
+
+router.post('/keywords', protect, saveUserSearchKeyword);
+router.get('/keywords', protect, getUserKeywords);
 
 module.exports = router;

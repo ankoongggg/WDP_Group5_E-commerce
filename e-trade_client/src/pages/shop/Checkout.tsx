@@ -71,47 +71,55 @@ const Checkout: React.FC = () => {
 
       const orderData = {
         items: displayItems.map((item: any) => {
+          const prod = item.product || item;
+
           // 👉 1. Lấy ID chuẩn xác
-          let pId = item.product?._id || item.productId || item._id || item.product_id; 
+          let pId = prod.productId || prod.product_id || item.productId || item.product_id || prod._id || item._id; 
           
-          if (typeof pId === 'string' && pId.includes('-')) {
+          if (pId && typeof pId === 'object' && pId._id) {
+              pId = pId._id;
+          }
+          
+          pId = String(pId || '');
+          if (pId.includes('-')) {
               pId = pId.split('-')[0];
           }
 
-          // 👉 2. ĐÃ SỬA: Lấy Type chuẩn từ Giỏ Hàng (KHÔNG dùng Regex cắt tên bừa bãi nữa)
-          let itemType = 'default';
+          // 👉 2. Lấy Type chuẩn từ Giỏ Hàng
+          let itemType = item.type || prod.type || 'default';
           
-          if (item.type !== undefined && item.type !== null) {
-              // Ưu tiên 1: Lấy từ field 'type' (từ CartContext)
-              itemType = item.type === '' ? 'default' : item.type;
-          } else if (typeof item.variant === 'string') {
-              // Ưu tiên 2: Lấy từ field 'variant' dạng chuỗi (từ Backend API trả về)
-              itemType = item.variant === '' ? 'default' : item.variant;
+          if (typeof item.variant === 'string' && item.variant) {
+              itemType = item.variant;
           } else if (item.variant?.description) {
-              // Ưu tiên 3: Dạng object
               itemType = item.variant.description;
+          } else if (typeof prod.variant === 'string' && prod.variant) {
+              itemType = prod.variant;
+          } else if (prod.variant?.description) {
+              itemType = prod.variant.description;
+          } else if (prod._id && typeof prod._id === 'string' && prod._id.includes('-')) {
+              itemType = prod._id.split('-').slice(1).join('-');
           } else if (item._id && typeof item._id === 'string' && item._id.includes('-')) {
-              // Ưu tiên 4: Dạng dính liền ID (Vd: 12345-Red)
               itemType = item._id.split('-').slice(1).join('-');
           }
 
           return {
             productId: pId, 
             product_id: pId,  
-            quantity: item.quantity,
-            type: itemType 
+            quantity: Number(item.quantity || prod.quantity || 1),
+            type: itemType,
+            price_snapshot: Number(prod.price || item.price || 0),
+            name_snapshot: String(prod.name || item.name || 'Sản phẩm')
           };
         }),
         
         shipping_address: { 
-            recipient_name: user?.full_name || user?.account_name || 'Khách hàng',
-            phone: user?.phone || '',
+            recipient_name: currentAddress?.recipient_name || user?.full_name || user?.account_name || 'Khách hàng',
+            phone: currentAddress?.phone || user?.phone || '0900000000',
             full_address: `${currentAddress.street}, ${currentAddress.district}, ${currentAddress.city}`
         },
         shippingMethod,
         paymentMethod,
         shippingCost,
-        clientTotal: displayTotal, // Gửi tổng tiền mong đợi để Backend đối chiếu
       };
 
       console.log('SENDING ORDER DATA:', orderData);
@@ -276,7 +284,7 @@ const Checkout: React.FC = () => {
                       <img src={image} alt={name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0 border border-slate-200 dark:border-slate-700" />
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-slate-900 dark:text-white truncate">{name}</p>
-                        {item.type && <p className="text-[10px] font-medium text-primary mt-0.5 bg-primary/10 inline-block px-1.5 rounded">Loại: {item.type}</p>}
+                        {(item.type || prod.type) && <p className="text-[10px] font-medium text-primary mt-0.5 bg-primary/10 inline-block px-1.5 rounded">Loại: {item.type || prod.type}</p>}
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">SL: {item.quantity}</p>
                       </div>
                       <p className="font-bold text-slate-900 dark:text-white whitespace-nowrap">{formatPrice(price * item.quantity)}</p>

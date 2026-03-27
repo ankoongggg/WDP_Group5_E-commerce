@@ -65,9 +65,9 @@ const Cart: React.FC = () => {
                                    </div>
                                    <div>
                                      <h3 className="font-bold line-clamp-2">{prod.name || 'Sản phẩm lỗi'}</h3>
-                                     {item.type && (
+                                     {(item.type || prod.type) && (
                                        <p className="text-xs text-primary font-medium mt-1 bg-primary/10 inline-block px-2 py-0.5 rounded">
-                                         Loại: {item.type}
+                                         Loại: {item.type || prod.type}
                                        </p>
                                      )}
                                      <p className="text-xs text-slate-500 mt-1 uppercase">

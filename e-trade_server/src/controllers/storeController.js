@@ -390,7 +390,7 @@ exports.getStoreProducts = async (req, res) => {
 exports.registerSeller = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { shop_name, shop_description, identity_card, identity_card_image, pickup_address, phone, business_category } = req.body;
+        const { shop_name, shop_description, identity_card, identity_card_image, pickup_address, phone, business_category, tax_code } = req.body;
 
         // Kiểm tra user đã có store chưa
         const existingStore = await Store.findOne({ user_id: userId });
@@ -408,8 +408,8 @@ exports.registerSeller = async (req, res) => {
         }
 
         // Validate input (bao gồm phone vì schema yêu cầu)
-        if (!shop_name || !shop_description || !identity_card || !pickup_address || !business_category || !phone) {
-            return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin' });
+        if (!shop_name || !shop_description || !identity_card || !pickup_address || !business_category || !phone || !tax_code) {
+            return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin, bao gồm cả Mã số thuế' });
         }
 
         // Tạo đơn đăng kí
@@ -422,6 +422,7 @@ exports.registerSeller = async (req, res) => {
             pickup_address,
             phone,
             business_category,
+            tax_code,
             status: 'pending'
         });
 
@@ -474,7 +475,7 @@ exports.getSellerRegistrationStatus = async (req, res) => {
 exports.updateSellerRegistration = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { shop_name, shop_description, identity_card, identity_card_image, pickup_address, phone, business_category } = req.body;
+        const { shop_name, shop_description, identity_card, identity_card_image, pickup_address, phone, business_category, tax_code } = req.body;
 
         // Tìm đơn đăng kí gần nhất
         const registration = await SellerRegistration.findOne({ user_id: userId }).sort({ created_at: -1 });
@@ -496,6 +497,7 @@ exports.updateSellerRegistration = async (req, res) => {
         if (pickup_address) registration.pickup_address = pickup_address;
         if (phone) registration.phone = phone;
         if (business_category) registration.business_category = business_category;
+        if (tax_code) registration.tax_code = tax_code;
 
         // Nếu đơn bị từ chối, khi sửa lại sẽ reset về pending để admin duyệt lại
         if (registration.status === 'rejected') {
@@ -558,6 +560,7 @@ exports.approveSeller = async (req, res) => {
             identity_card: registration.identity_card,
             pickup_address: registration.pickup_address,
             phone: registration.phone,
+            tax_code: registration.tax_code,
             status: 'active' // Cửa hàng mới được active ngay
         });
 

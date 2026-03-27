@@ -135,17 +135,55 @@ export const AdminReports: React.FC = () => {
         {/* Modal Chi Tiết */}
         {selectedShop && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl">
-              <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between">
-                <h3 className="text-xl font-bold dark:text-white">Chi tiết: {selectedShop.shop_name}</h3>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-3xl flex flex-col max-h-[90vh] overflow-hidden shadow-2xl animate-fade-in-up">
+              <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center sticky top-0 z-10 bg-white dark:bg-slate-900">
+                <h3 className="text-xl font-bold dark:text-white flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">store</span>
+                    Chi tiết cửa hàng
+                </h3>
                 <button onClick={() => setSelectedShop(null)}><span className="material-symbols-outlined hover:text-red-500">close</span></button>
               </div>
-              <div className="p-6 space-y-4">
-                 <div className="p-6 bg-blue-50 dark:bg-blue-500/10 rounded-xl text-center border border-blue-100 dark:border-blue-500/20">
-                    <p className="text-sm text-slate-500 font-bold mb-2">TỔNG HOA HỒNG THU ĐƯỢC TỪ SHOP NÀY</p>
-                    <p className="text-4xl font-extrabold text-blue-600">{formatPrice(selectedShop.platform_fee || 0)}</p>
-                 </div>
-                 {/* ... (Giữ phần thông tin user_id, identity_card như cũ) ... */}
+              
+              <div className="p-6 space-y-6 overflow-y-auto">
+                {/* Header Shop Info */}
+                <div className="flex gap-4 items-center">
+                    <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0">
+                        {(selectedShop as any).logo ? <img src={(selectedShop as any).logo} alt="logo" className="w-full h-full object-cover" /> : <span className="material-symbols-outlined text-3xl text-slate-400">storefront</span>}
+                    </div>
+                    <div>
+                        <h4 className="text-2xl font-bold text-slate-800 dark:text-white">{selectedShop.shop_name}</h4>
+                        <p className="mt-1">{renderStatus(selectedShop.status)}</p>
+                    </div>
+                </div>
+
+                {/* Analytics */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-500/10 rounded-xl text-center border border-blue-100 dark:border-blue-500/20">
+                        <p className="text-xs text-slate-500 font-bold mb-1 uppercase">Tổng hoa hồng sàn</p>
+                        <p className="text-2xl font-extrabold text-blue-600">{formatPrice(selectedShop.platform_fee || 0)}</p>
+                    </div>
+                    <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl text-center border border-emerald-100 dark:border-emerald-500/20">
+                        <p className="text-xs text-slate-500 font-bold mb-1 uppercase">Tổng đơn hàng</p>
+                        <p className="text-2xl font-extrabold text-emerald-600">{selectedShop.total_orders || 0}</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-slate-700 dark:text-slate-300">
+                    <div className="space-y-4">
+                        <h5 className="font-bold text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">Thông tin liên lạc Shop</h5>
+                        <div><span className="text-slate-500 block text-xs">Mô tả</span> <span className="font-medium whitespace-pre-wrap">{(selectedShop as any).description || 'Không có mô tả'}</span></div>
+                        <div><span className="text-slate-500 block text-xs">Email Shop</span> <span className="font-medium">{(selectedShop as any).contact_email || 'N/A'}</span></div>
+                        <div><span className="text-slate-500 block text-xs">Điện thoại Shop</span> <span className="font-medium">{(selectedShop as any).phone || 'N/A'}</span></div>
+                        <div><span className="text-slate-500 block text-xs">Địa chỉ kho / Lấy hàng</span> <span className="font-medium">{selectedShop.pickup_address || 'N/A'}</span></div>
+                    </div>
+                    <div className="space-y-4">
+                        <h5 className="font-bold text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2">Chủ sở hữu & Pháp lý</h5>
+                        <div><span className="text-slate-500 block text-xs">Người đại diện / Tài khoản</span> <span className="font-medium">{(selectedShop as any).user_id?.full_name || 'N/A'} ({(selectedShop as any).user_id?.email})</span></div>
+                        <div><span className="text-slate-500 block text-xs">CCCD / CMND</span> <span className="font-medium">{(selectedShop as any).identity_card || 'N/A'}</span></div>
+                        <div><span className="text-slate-500 block text-xs">Mã số thuế</span> <span className="font-medium">{(selectedShop as any).tax_code || 'N/A'}</span></div>
+                        <div><span className="text-slate-500 block text-xs">Ngày đăng ký (trên hệ thống)</span> <span className="font-medium">{new Date((selectedShop as any).created_at).toLocaleDateString('vi-VN') || 'N/A'}</span></div>
+                    </div>
+                </div>
               </div>
             </div>
           </div>

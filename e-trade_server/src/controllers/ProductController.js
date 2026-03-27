@@ -23,6 +23,12 @@ const getActiveStoreIds = async (activeUserIds) => {
     return activeStores.map(s => s._id);
 };
 
+const getKeywordFromUser = async (userId) =>{
+    const keyword = await User.find({userId}).select('keyword').lean();
+    console.log(keyword);
+    return keyword;
+}
+
 
 // ==========================================
 // CÁC HÀM CỦA TÚ (Quản lý tìm kiếm, lọc)
@@ -118,26 +124,32 @@ const getOrderCounts = async () => {
     return map;
 };
 
+//fix 25/3/2026: thay keyword local storage bang cach luu keyword tim kiem vao mot truong keyword tren db
+// dua vao name product trong order history gan nhat
+// dua vao order co nhieu luot mua nhat
+// Trong controllers/productController.js
 exports.getProductsOnHomePage = async (req, res) => {
     try {
-        const { interests, category_interests, limit = 18 } = req.query;
+        const { limit = 18 } = req.query; 
 
-        const interestWords = interests ? interests.replace(/,/g, ' ').trim() : null;
-        let catIds = [];
-        if (category_interests) {
-            catIds = category_interests.split(',')
-                .map(id => id.trim())
-                .filter(id => mongoose.Types.ObjectId.isValid(id))
-                .map(id => new mongoose.Types.ObjectId(id));
-        }
-
-        // 1. PRE-FETCH ACTIVE USERS & STORES (active user + store-owner active)
+        // 1. PRE-FETCH ACTIVE USERS & STORES
         const activeUserIds = await getActiveUserIds();
         const activeStoreIds = await getActiveStoreIds(activeUserIds);
 
+        // 2. LẤY KEYWORD TỪ DATABASE CỦA USER (Bỏ qua Lịch sử Order)
+        let suggestionKeywords = [];
+        if (req.user && req.user.id) {
+            const user = await User.findById(req.user.id).select('keyword').lean();
+            if (user && user.keyword && user.keyword.length > 0) {
+                // Chuyển toàn bộ keyword về in thường để dễ so sánh
+                suggestionKeywords = user.keyword.map(k => k.toLowerCase().trim());
+            }
+        }
+
+        // 3. TÌM TOÀN BỘ SẢN PHẨM HỢP LỆ
         let matchStage = {
             $and: [
-                { status: 'active' },
+                { status: { $in: ['active', 'Active'] } },
                 { is_deleted: { $ne: true } },
                 {
                     $or: [
@@ -148,51 +160,99 @@ exports.getProductsOnHomePage = async (req, res) => {
             ]
         };
 
-        // Tìm tất cả sản phẩm hợp lệ
+        // Nhớ populate 'category_id' để check trùng tên danh mục
         let products = await Product.find(matchStage)
             .populate('store_id', 'shop_name')
-            .populate('user_id', 'full_name')
+            .populate('user_id', 'full_name account_name')
+            .populate('category_id', 'name') 
             .lean();
 
-            
-        // gán ordercount và rating count
-        const orderMap = await getOrderCounts();
-        const ratingMap = await getRatingStats();
+        // 4. THUẬT TOÁN PHÂN NHÓM (BUCKETING V2.0)
+        let exactMatches = [];      // Giỏ 1: Khớp tuyệt đối 100% nguyên chuỗi
+        let highPartialMatches = [];// Giỏ 2: Chứa trọn vẹn cụm keyword
+        let categoryMatches = [];   // Giỏ 3: Khớp Category
+        let randomOthers = [];      // Giỏ 4: Không liên quan (Random)
 
-        products = products.map(p => {
-            const mappedP = mapProductData(p, orderMap, ratingMap);
+        // Lọc bỏ những keyword quá ngắn (ví dụ chữ "s") để tránh làm nhiễu hệ thống
+        const validKeywords = suggestionKeywords.filter(kw => kw.trim().length > 1);
 
-            // Tính điểm Relevance dựa vào LocalStorage của User
-            let score = 0;
-            if (catIds.length > 0 && catIds.some(id => mappedP.category_id.some(c => c.toString() === id.toString()))) {
-                score += 50; // Trúng Category đã xem
+        products.forEach(p => {
+            // Tính Stock
+            let totalStock = 0;
+            if (Array.isArray(p.product_type) && p.product_type.length > 0) {
+                totalStock = p.product_type.reduce((sum, pt) => sum + (Number(pt.stock) || 0), 0);
+            } else {
+                totalStock = Number(p.stock) || 0;
             }
-            
-            if (interestWords) {
-                try {
-                    const safeWords = interestWords.split(/\s+/)
-                        .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) // Thoát ký tự đặc biệt cho Regex
-                        .filter(Boolean)
-                        .join('|');
-                    if (safeWords && new RegExp(safeWords, 'i').test(mappedP.name)) {
-                        score += 30; // Trúng Keyword đã xem
-                    }
-                } catch (e) {}
-            }
-            mappedP.match_score = score;
+            p.calculated_stock = totalStock;
+            p.is_in_stock = totalStock > 0 ? 1 : 0;
+            if (p.user_id) p.user_id.name = p.user_id.full_name || p.user_id.account_name;
 
-            return mappedP;
+            // Nếu không có keyword hợp lệ -> Ném thẳng vào giỏ Random
+            if (validKeywords.length === 0) {
+                randomOthers.push(p);
+                return;
+            }
+
+            const pName = (p.name || "").toLowerCase();
+            const pCategories = Array.isArray(p.category_id) 
+                ? p.category_id.map(c => (c.name || "").toLowerCase()) 
+                : [];
+
+            // A. CHECK KHỚP TUYỆT ĐỐI (100% nguyên chuỗi)
+            if (validKeywords.some(kw => pName === kw)) {
+                exactMatches.push(p);
+                return;
+            }
+
+            // B. CHECK KHỚP TƯƠNG ĐỐI CAO (Tên SP chứa nguyên 1 cụm Keyword, VD: "Máy tính Dell" chứa "máy tính")
+            // Hoặc ngược lại (Keyword chứa Tên SP)
+            const isHighPartial = validKeywords.some(kw => pName.includes(kw) || kw.includes(pName));
+            if (isHighPartial) {
+                highPartialMatches.push(p);
+                return;
+            }
+
+            // C. CHECK KHỚP CATEGORY
+            const isCategoryMatch = pCategories.some(cat => validKeywords.some(kw => cat.includes(kw) || kw.includes(cat)));
+            if (isCategoryMatch) {
+                categoryMatches.push(p);
+                return;
+            }
+
+            // D. NẾU KHÔNG LIÊN QUAN -> VÀO GIỎ RANDOM
+            randomOthers.push(p);
         });
 
-        // SORT GỢI Ý: Còn hàng -> Trúng sở thích -> Nhiều Order -> Mới nhất
-        products.sort((a, b) => {
-            if (a.is_in_stock !== b.is_in_stock) return b.is_in_stock - a.is_in_stock;
-            if (a.match_score !== b.match_score) return b.match_score - a.match_score;
-            if (a.totalOrders !== b.totalOrders) return b.totalOrders - a.totalOrders;
-            return new Date(b.created_at) - new Date(a.created_at);
-        });
+        // 5. XỬ LÝ TRONG TỪNG GIỎ
+        // Khác với bản cũ, giỏ 1 và giỏ 2 ta KHÔNG RANDOM (Để ưu tiên hàng hiển thị cố định theo độ chính xác)
+        // Ta chỉ sắp xếp đẩy hàng hết kho xuống dưới, và đẩy hàng mới lên trên.
+        
+        const sortExactAndHighPartial = (arr) => {
+            return arr.sort((a, b) => {
+                if (a.is_in_stock !== b.is_in_stock) return b.is_in_stock - a.is_in_stock;
+                return new Date(b.created_at) - new Date(a.created_at); // Hàng mới đăng lên trước
+            });
+        };
 
-        const finalProducts = products.slice(0, parseInt(limit));
+        const shuffleAndSortStock = (arr) => {
+            arr.sort(() => 0.5 - Math.random()); // Random
+            arr.sort((a, b) => b.is_in_stock - a.is_in_stock); // Đẩy hết hàng xuống đáy
+            return arr;
+        };
+
+        exactMatches = sortExactAndHighPartial(exactMatches);
+        highPartialMatches = sortExactAndHighPartial(highPartialMatches);
+        
+        // Giỏ Category và Random thì nên Shuffle để tạo sự đa dạng khi lướt Home
+        categoryMatches = shuffleAndSortStock(categoryMatches);
+        randomOthers = shuffleAndSortStock(randomOthers);
+
+        // 6. GỘP 4 GIỎ LẠI THEO ĐÚNG THỨ TỰ ƯU TIÊN
+        const finalSortedProducts = [...exactMatches, ...highPartialMatches, ...categoryMatches, ...randomOthers];
+
+        // 7. CẮT LẤY SỐ LƯỢNG CẦN THIẾT
+        const finalProducts = finalSortedProducts.slice(0, parseInt(limit));
 
         res.json({
             success: true,
@@ -564,22 +624,33 @@ exports.getRandomProductsgotSaleMoreThan50Percent = async (req, res) => {
         let deepSaleProducts = products.filter(p => p.discount_numeric >= 50);
         let finalResult = [];
         let strategyUsed = '';
+        
+        // 1. Ưu tiên lấy các sản phẩm Deep Sale (>= 50% giảm giá)
+        deepSaleProducts.sort((a, b) => a.random_sort - b.random_sort); // Randomize deep sale products
+        finalResult = deepSaleProducts.slice(0, limit);
+        strategyUsed = 'deep_sale_priority';
 
-        if (deepSaleProducts.length >= limit / 2) {
-            // Nếu có nhiều hàng Deep Sale -> Trộn ngẫu nhiên và lấy ra đủ số lượng
-            strategyUsed = 'random_deep_sale';
-            // Sort theo random_sort (giúp các sản phẩm của các Shop khác nhau nằm xen kẽ)
-            finalResult = deepSaleProducts.sort((a, b) => a.random_sort - b.random_sort).slice(0, limit);
-        } else {
-            // Nếu ít hàng Deep Sale -> Lấy Top những mặt hàng giảm giá cao nhất (Bất kể % là bao nhiêu)
-            strategyUsed = 'highest_available';
-            finalResult = products.sort((a, b) => {
-                // Ưu tiên 1: % Giảm giá cao hơn
-                if (b.discount_numeric !== a.discount_numeric) return b.discount_numeric - a.discount_numeric;
-                // Ưu tiên 2: Nếu bằng % giảm giá thì Random để đa dạng Shop
-                return a.random_sort - b.random_sort;
-            }).slice(0, limit);
+        // 2. Nếu chưa đủ số lượng, bổ sung bằng các sản phẩm giảm giá cao nhất khác
+        if (finalResult.length < limit) {
+            const remainingSlots = limit - finalResult.length;
+            const existingProductIds = new Set(finalResult.map(p => p._id.toString()));
+
+            const otherHighlyDiscountedProducts = products
+                .filter(p => !existingProductIds.has(p._id.toString())) // Loại bỏ sản phẩm đã có
+                .sort((a, b) => {
+                    // Ưu tiên 1: % Giảm giá cao hơn
+                    if (b.discount_numeric !== a.discount_numeric) return b.discount_numeric - a.discount_numeric;
+                    // Ưu tiên 2: Nếu bằng % giảm giá thì Random để đa dạng Shop
+                    return a.random_sort - b.random_sort;
+                })
+                .slice(0, remainingSlots);
+            
+            finalResult = [...finalResult, ...otherHighlyDiscountedProducts];
+            strategyUsed += (strategyUsed ? ' + ' : '') + 'fill_with_highest_discount';
         }
+
+        // Đảm bảo không vượt quá giới hạn cuối cùng
+        finalResult = finalResult.slice(0, limit);
 
         // 5. POPULATE THÔNG TIN CHỦ SHOP
         await Product.populate(finalResult, [
@@ -878,20 +949,22 @@ exports.updateCustomerPassedProduct = async (req, res) => {
          // 3. Kiểm duyệt từ khóa cấm
         const blackListKeywords = await BlacklistKeyword.find();
         const textToCheck = `${name} ${description || ''}`.toLowerCase();
-        
+
         // TRẢ LẠI TÊN CHO EM: LUÔN PENDING CHỜ ADMIN DUYỆT!
-        let finalStatus = 'pending'; 
+        let finalStatus = ['active']; // Khởi tạo là một mảng
         let rejectionReason = '';
 
         for (const item of blackListKeywords) {
             if (textToCheck.includes(item.keyword.toLowerCase())) {
                 if (item.level === 'high' || item.level === 'critical') {
                     rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
-                    return res.status(400).json({ success: false, message: rejectionReason });
+                    finalStatus = ['rejected']; // Gán là một mảng
+                    break;
                 }
                 if (item.level === 'medium') {
                     rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
-                    break; 
+                    finalStatus = ['rejected']; // Gán là một mảng
+                    break;
                 }
             }
         }
@@ -899,8 +972,14 @@ exports.updateCustomerPassedProduct = async (req, res) => {
         product.updated_at = new Date();
         product.product_type = finalProductType;
         product.status = finalStatus;
-        await product.save();
-        res.status(200).json({ success: true, data: product, message: 'Đã cập nhật sản phẩm.' });
+        product.rejection_reason = rejectionReason; // Cập nhật lý do từ chối
+        const updatedProduct = await product.save();
+
+        if (updatedProduct.status.includes('rejected')) { // Kiểm tra mảng có chứa 'rejected'
+            return res.status(400).json({ success: false, message: 'Cập nhật không thành công: ' + updatedProduct.rejection_reason, data: updatedProduct });
+        } else {
+            res.status(200).json({ success: true, data: updatedProduct, message: 'Đã cập nhật sản phẩm.' });
+        }
     } catch (error) {
         console.error('Error updating passed product:', error);
         res.status(500).json({ message: 'Lỗi server', error: error.message });
@@ -987,23 +1066,25 @@ exports.createPassing2ndProduct = async (req, res) => {
         const blackListKeywords = await BlacklistKeyword.find();
         const textToCheck = `${name} ${safeDescription}`.toLowerCase();
         
-        // TRẢ LẠI TÊN CHO EM: LUÔN PENDING CHỜ ADMIN DUYỆT!
-        let finalStatus = 'pending'; 
+        // TRẢ LẠI TÊN CHO EM: LUÔN Active CHỜ ADMIN DUYỆT!
+        let finalStatus = ['active'];
         let rejectionReason = '';
 
         for (const item of blackListKeywords) {
             if (textToCheck.includes(item.keyword.toLowerCase())) {
                 if (item.level === 'high' || item.level === 'critical') {
                     rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
-                    return res.status(400).json({ success: false, message: rejectionReason });
+                    finalStatus = ['rejected'];
+                    break; // Dừng lại sau khi tìm thấy từ khóa cấm đầu tiên
                 }
                 if (item.level === 'medium') {
                     rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
-                    break; 
+                    finalStatus = ['rejected'];
+                    break; // Dừng lại sau khi tìm thấy từ khóa cấm đầu tiên
                 }
             }
         }
-        
+
         // 4. Tạo sản phẩm cá nhân (Tuyệt đối không có store_id)
         const newProduct = new Product({
             store_id: undefined, 
@@ -1021,13 +1102,22 @@ exports.createPassing2ndProduct = async (req, res) => {
             rejection_reason: rejectionReason
         });
 
-        await newProduct.save();
+        const savedProduct = await newProduct.save();
 
-        res.status(201).json({
-            success: true,
-            message: 'Đăng bán thành công! Sản phẩm đang chờ Admin phê duyệt.',
-            data: newProduct
-        });
+        // Kiểm tra trạng thái cuối cùng của sản phẩm để trả về thông báo phù hợp
+        if (savedProduct.status.includes('rejected')) {
+            return res.status(400).json({
+                success: false,
+                message: 'Đăng bán không thành công: ' + savedProduct.rejection_reason,
+                data: savedProduct // Vẫn trả về dữ liệu sản phẩm để client có thể xem chi tiết
+            });
+        } else {
+            res.status(201).json({
+                success: true,
+                message: 'Đăng bán thành công! Sản phẩm đang chờ Admin phê duyệt.',
+                data: savedProduct
+            });
+        }
 
     } catch (error) {
         console.error('Lỗi tạo sản phẩm:', error);
