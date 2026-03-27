@@ -135,16 +135,20 @@ exports.getProductsOnHomePage = async (req, res) => {
         // 1. PRE-FETCH ACTIVE USERS & STORES
         const activeUserIds = await getActiveUserIds();
         const activeStoreIds = await getActiveStoreIds(activeUserIds);
+        const userId = req.user?.id || null;
 
-        // 2. LẤY KEYWORD TỪ DATABASE CỦA USER (Bỏ qua Lịch sử Order)
+        // 2. LẤY KEYWORD TỪ DATABASE CỦA USER
         let suggestionKeywords = [];
-        if (req.user && req.user.id) {
-            const user = await User.findById(req.user.id).select('keyword').lean();
+        if (userId) {
+            const user = await User.findById(userId).select('keyword').lean();
             if (user && user.keyword && user.keyword.length > 0) {
-                // Chuyển toàn bộ keyword về in thường để dễ so sánh
+                // Chuyển toàn bộ keyword về in thường để dễ so sánh, lọc bỏ khoảng trắng
                 suggestionKeywords = user.keyword.map(k => k.toLowerCase().trim());
             }
         }
+
+        // Lọc bỏ những keyword quá ngắn để tránh làm nhiễu hệ thống
+        const validKeywords = suggestionKeywords.filter(kw => kw.length > 1);
 
         // 3. TÌM TOÀN BỘ SẢN PHẨM HỢP LỆ
         let matchStage = {
@@ -160,37 +164,34 @@ exports.getProductsOnHomePage = async (req, res) => {
             ]
         };
 
-        // Nhớ populate 'category_id' để check trùng tên danh mục
         let products = await Product.find(matchStage)
             .populate('store_id', 'shop_name')
             .populate('user_id', 'full_name account_name')
             .populate('category_id', 'name') 
             .lean();
 
-        // 4. THUẬT TOÁN PHÂN NHÓM (BUCKETING V2.0)
+        // 4. MAP DỮ LIỆU: TÍNH STOCK, ORDER COUNT, VÀ RATING
+        const orderMap = await getOrderCounts();
+        const ratingMap = await getRatingStats();
+
+        products = products.map(p => {
+            // Sử dụng chung hàm mapProductData để tính stock, gán Order và Rating
+            const mappedP = mapProductData(p, orderMap, ratingMap);
+            // Gán thêm random factor để xáo trộn những món bằng điểm nhau
+            mappedP.random_factor = Math.random(); 
+            return mappedP;
+        });
+
+        // 5.PHÂN NHÓM (BUCKETING V3.0)
         let exactMatches = [];      // Giỏ 1: Khớp tuyệt đối 100% nguyên chuỗi
         let highPartialMatches = [];// Giỏ 2: Chứa trọn vẹn cụm keyword
         let categoryMatches = [];   // Giỏ 3: Khớp Category
-        let randomOthers = [];      // Giỏ 4: Không liên quan (Random)
-
-        // Lọc bỏ những keyword quá ngắn (ví dụ chữ "s") để tránh làm nhiễu hệ thống
-        const validKeywords = suggestionKeywords.filter(kw => kw.trim().length > 1);
+        let popularOthers = [];     // Giỏ 4: Không liên quan xep theo Order & Rating
 
         products.forEach(p => {
-            // Tính Stock
-            let totalStock = 0;
-            if (Array.isArray(p.product_type) && p.product_type.length > 0) {
-                totalStock = p.product_type.reduce((sum, pt) => sum + (Number(pt.stock) || 0), 0);
-            } else {
-                totalStock = Number(p.stock) || 0;
-            }
-            p.calculated_stock = totalStock;
-            p.is_in_stock = totalStock > 0 ? 1 : 0;
-            if (p.user_id) p.user_id.name = p.user_id.full_name || p.user_id.account_name;
-
-            // Nếu không có keyword hợp lệ -> Ném thẳng vào giỏ Random
+            // NẾU KHÁCH CHƯA TÌM KIẾM BAO GIỜ HOẶC KHÔNG CÓ KEYWORD HỢP LỆ
             if (validKeywords.length === 0) {
-                randomOthers.push(p);
+                popularOthers.push(p);
                 return;
             }
 
@@ -206,7 +207,6 @@ exports.getProductsOnHomePage = async (req, res) => {
             }
 
             // B. CHECK KHỚP TƯƠNG ĐỐI CAO (Tên SP chứa nguyên 1 cụm Keyword, VD: "Máy tính Dell" chứa "máy tính")
-            // Hoặc ngược lại (Keyword chứa Tên SP)
             const isHighPartial = validKeywords.some(kw => pName.includes(kw) || kw.includes(pName));
             if (isHighPartial) {
                 highPartialMatches.push(p);
@@ -219,39 +219,48 @@ exports.getProductsOnHomePage = async (req, res) => {
                 categoryMatches.push(p);
                 return;
             }
-
-            // D. NẾU KHÔNG LIÊN QUAN -> VÀO GIỎ RANDOM
-            randomOthers.push(p);
+            popularOthers.push(p);
         });
 
-        // 5. XỬ LÝ TRONG TỪNG GIỎ
-        // Khác với bản cũ, giỏ 1 và giỏ 2 ta KHÔNG RANDOM (Để ưu tiên hàng hiển thị cố định theo độ chính xác)
-        // Ta chỉ sắp xếp đẩy hàng hết kho xuống dưới, và đẩy hàng mới lên trên.
         
+        // Hàm sắp xếp cơ bản cho Giỏ 1 & 2: Ưu tiên còn hàng -> Mới nhất đăng lên trước
         const sortExactAndHighPartial = (arr) => {
             return arr.sort((a, b) => {
                 if (a.is_in_stock !== b.is_in_stock) return b.is_in_stock - a.is_in_stock;
-                return new Date(b.created_at) - new Date(a.created_at); // Hàng mới đăng lên trước
+                return new Date(b.created_at) - new Date(a.created_at); 
             });
         };
 
-        const shuffleAndSortStock = (arr) => {
-            arr.sort(() => 0.5 - Math.random()); // Random
-            arr.sort((a, b) => b.is_in_stock - a.is_in_stock); // Đẩy hết hàng xuống đáy
-            return arr;
+        // Hàm sắp xếp cho Giỏ 3 (Category) & Giỏ 4 (Popular): Ưu tiên độ Hot (Giống ProductList)
+        const sortPopularAndCategory = (arr) => {
+            return arr.sort((a, b) => {
+                // Ưu tiên 1: Còn hàng lên trước
+                if (a.is_in_stock !== b.is_in_stock) return b.is_in_stock - a.is_in_stock;
+                
+                // Ưu tiên 2: Nhiều đơn hàng hơn (Top Sales)
+                if (a.totalOrders !== b.totalOrders) return b.totalOrders - a.totalOrders;
+                
+                // Ưu tiên 3: Điểm đánh giá cao hơn (Rating)
+                if (a.averageRating !== b.averageRating) return b.averageRating - a.averageRating;
+                
+                // Ưu tiên 4: Random đan xen (để các SP 0 đơn 0 sao không bị đứng im 1 chỗ)
+                return b.random_factor - a.random_factor;
+            });
         };
 
         exactMatches = sortExactAndHighPartial(exactMatches);
         highPartialMatches = sortExactAndHighPartial(highPartialMatches);
-        
-        // Giỏ Category và Random thì nên Shuffle để tạo sự đa dạng khi lướt Home
-        categoryMatches = shuffleAndSortStock(categoryMatches);
-        randomOthers = shuffleAndSortStock(randomOthers);
+        categoryMatches = sortPopularAndCategory(categoryMatches);
+        popularOthers = sortPopularAndCategory(popularOthers);
 
-        // 6. GỘP 4 GIỎ LẠI THEO ĐÚNG THỨ TỰ ƯU TIÊN
-        const finalSortedProducts = [...exactMatches, ...highPartialMatches, ...categoryMatches, ...randomOthers];
-
-        // 7. CẮT LẤY SỐ LƯỢNG CẦN THIẾT
+        // 7. GỘP 4 GIỎ LẠI THEO ĐÚNG THỨ TỰ ƯU TIÊN
+        const finalSortedProducts = [
+            ...exactMatches, 
+            ...highPartialMatches, 
+            ...categoryMatches, 
+            ...popularOthers
+        ];
+        //take homepage limit
         const finalProducts = finalSortedProducts.slice(0, parseInt(limit));
 
         res.json({

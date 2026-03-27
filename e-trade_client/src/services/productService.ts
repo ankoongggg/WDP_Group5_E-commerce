@@ -7,7 +7,14 @@ export const ProductService = {
   // Lấy danh sách sản phẩm (có hỗ trợ filter, search, page)
   // Lấy danh sách sản phẩm 
   getOnHomePage: async (params: { page?: number; limit?: number; keyword?: string; category?: string }): Promise<ProductResponse> => {
-    const response = await axios.get(API_BASE_URL + '/products/home', { params });
+    const token = localStorage.getItem('accessToken'); 
+    
+    // 2. Nếu có token thì nhét vào Header, không có thì để trống
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    
+    const response = await axios.get(API_BASE_URL + '/products/home', { params,
+      headers: headers
+     });
     return response.data;
   },
   getOnProductList: async (params: { page?: number; limit?: number; keyword?: string; category?: string; filter?: string; condition?: string}): Promise<ProductResponse> => {
@@ -17,12 +24,15 @@ export const ProductService = {
 
   // Gọi GỢI Ý ở Homepage
   getRecommendations: async (limit: number = 18): Promise<ProductResponse> => { // Nó sẽ trả về object { interests: '...', category_interests: '...' }
-      
+      const token = localStorage.getItem('accessToken');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
       // Gọi chung hàm getProducts nhưng truyền thêm params gợi ý
       const response = await axios.get(API_BASE_URL + '/products/home', { 
           params: { 
               limit, 
-          } 
+          },
+          headers: headers
       });
       return response.data;
   },

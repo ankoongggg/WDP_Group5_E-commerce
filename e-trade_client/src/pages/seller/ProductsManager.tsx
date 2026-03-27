@@ -265,15 +265,15 @@ const ProductsManager: React.FC = () => {
                       
                       <td className="p-4">
                         <div className="flex justify-end gap-2">
-                        {!(p.status.includes('cancelled') || p.status.includes('rejected')) && (
+                        {!(p.status.includes('cancelled') || p.status.includes('rejected') || p.status.includes('pending'))  && (
                           <>
-                          <button
+                          {/* <button
                             onClick={() => navigate(`/seller/products/${p._id}/edit`)}
                             className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1"
                           >
                             <span className="material-symbols-outlined text-[18px]">edit</span>
                             Sửa
-                          </button>
+                          </button> */}
                           <button
                             onClick={() => handleToggleStatus(p._id, p.status)}
                             className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
@@ -284,7 +284,14 @@ const ProductsManager: React.FC = () => {
                             {Array.isArray(p.status) ? (p.status.includes('active') ? 'Ẩn' : 'Hiển thị') : p.status === 'active' ? 'Ẩn' : 'Hiển thị'}
                           </button>
                           </>
-               ) }
+
+               ) }        <button
+                            onClick={() => navigate(`/seller/products/${p._id}/edit`)}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                            Sửa
+                          </button>
                           <button
                             onClick={() => handleSoftDelete(p._id)}
                             className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 text-red-600 hover:bg-red-50"
