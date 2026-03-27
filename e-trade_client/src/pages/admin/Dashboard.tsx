@@ -30,6 +30,7 @@ interface PendingProduct {
     avatar?: string;
   };
   category_id: { _id: string; name: string }[];
+  rejection_reason?: string;
 }
 
 const ProductDetailModal = ({ product, onClose, onViewSeller }: { product: PendingProduct, onClose: () => void, onViewSeller: () => void }) => {
@@ -44,6 +45,13 @@ const ProductDetailModal = ({ product, onClose, onViewSeller }: { product: Pendi
           <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><span className="material-symbols-outlined">close</span></button>
         </div>
         <div className="p-6 space-y-6">
+          {/* Rejection Reason */}
+          {product.rejection_reason && (
+            <div className="p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl">
+              <p className="font-bold text-red-600 dark:text-red-400 text-sm">Lý do bị từ chối:</p>
+              <p className="text-sm text-red-800 dark:text-red-300 mt-1">{product.rejection_reason}</p>
+            </div>
+          )}
           {/* Images */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <img src={product.main_image} alt="Main" className="w-full aspect-square object-cover rounded-lg border dark:border-slate-700" />
@@ -216,9 +224,9 @@ const AdminDashboard: React.FC = () => {
             colorClass="bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20"
           />
           <StatCard 
-            title="Sản phẩm chờ duyệt" 
+            title="Sản phẩm bị từ chối" 
             value={loadingPending ? "..." : pendingProducts.length} 
-            icon="inventory_2" 
+            icon="gavel" 
             trend={null}
             isPositive={true} 
             colorClass="bg-amber-100 text-amber-600 dark:bg-amber-500/20"
@@ -248,7 +256,7 @@ const AdminDashboard: React.FC = () => {
                 <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-red-50/50 dark:bg-red-900/10">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
                         <span className="material-symbols-outlined text-red-500">gavel</span>
-                        Sản phẩm chờ kiểm duyệt
+                        Sản phẩm bị từ chối
                     </h3>
                     <Link to="/admin/products" className="text-primary text-sm font-medium hover:underline">Xem tất cả</Link>
                 </div>
@@ -266,7 +274,7 @@ const AdminDashboard: React.FC = () => {
                             {loadingPending ? (
                                 <tr><td colSpan={4} className="p-8 text-center text-slate-500">Đang tải...</td></tr>
                             ) : pendingProducts.length === 0 ? (
-                                <tr><td colSpan={4} className="p-8 text-center text-emerald-500 font-medium">Hiện không có sản phẩm nào vi phạm chờ duyệt!</td></tr>
+                                <tr><td colSpan={4} className="p-8 text-center text-emerald-500 font-medium">Tuyệt vời! Không có sản phẩm nào bị từ chối.</td></tr>
                             ) : (
                                 pendingProducts.slice(0, 4).map((item) => (
                                     <tr key={item._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
@@ -303,12 +311,6 @@ const AdminDashboard: React.FC = () => {
                                             <div className="flex justify-end gap-2">
                                                 <button onClick={() => handleViewProduct(item)} className="p-1.5 rounded-md text-blue-600 hover:bg-blue-50 transition-colors" title="Xem chi tiết">
                                                     <span className="material-symbols-outlined text-[20px]">visibility</span>
-                                                </button>
-                                                <button onClick={() => handleApproveProduct(item._id)} className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-50 transition-colors" title="Duyệt">
-                                                    <span className="material-symbols-outlined text-[20px]">check_circle</span>
-                                                </button>
-                                                <button onClick={() => handleRejectProduct(item._id)} className="p-1.5 rounded-md text-red-600 hover:bg-red-50 transition-colors" title="Từ chối">
-                                                    <span className="material-symbols-outlined text-[20px]">cancel</span>
                                                 </button>
                                             </div>
                                         </td>

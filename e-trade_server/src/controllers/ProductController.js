@@ -949,22 +949,21 @@ exports.updateCustomerPassedProduct = async (req, res) => {
          // 3. Kiểm duyệt từ khóa cấm
         const blackListKeywords = await BlacklistKeyword.find();
         const textToCheck = `${name} ${description || ''}`.toLowerCase();
-        
+
         // TRẢ LẠI TÊN CHO EM: LUÔN PENDING CHỜ ADMIN DUYỆT!
-        let finalStatus = 'active';
+        let finalStatus = ['active']; // Khởi tạo là một mảng
         let rejectionReason = '';
 
         for (const item of blackListKeywords) {
             if (textToCheck.includes(item.keyword.toLowerCase())) {
                 if (item.level === 'high' || item.level === 'critical') {
                     rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
-
-                    finalStatus = 'rejected'
+                    finalStatus = ['rejected']; // Gán là một mảng
                     break;
                 }
                 if (item.level === 'medium') {
                     rejectionReason = `Hệ thống cảnh báo từ khóa nhạy cảm: "${item.keyword}"`;
-                    finalStatus='rejected'
+                    finalStatus = ['rejected']; // Gán là một mảng
                     break;
                 }
             }
@@ -972,11 +971,11 @@ exports.updateCustomerPassedProduct = async (req, res) => {
 
         product.updated_at = new Date();
         product.product_type = finalProductType;
-        product.status = finalStatus; // Cập nhật trạng thái
+        product.status = finalStatus;
         product.rejection_reason = rejectionReason; // Cập nhật lý do từ chối
         const updatedProduct = await product.save();
 
-        if (updatedProduct.status === 'rejected') {
+        if (updatedProduct.status.includes('rejected')) { // Kiểm tra mảng có chứa 'rejected'
             return res.status(400).json({ success: false, message: 'Cập nhật không thành công: ' + updatedProduct.rejection_reason, data: updatedProduct });
         } else {
             res.status(200).json({ success: true, data: updatedProduct, message: 'Đã cập nhật sản phẩm.' });

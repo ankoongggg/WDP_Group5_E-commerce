@@ -29,6 +29,7 @@ interface PendingProduct {
     avatar?: string;
   };
   category_id: { _id: string; name: string }[];
+  rejection_reason?: string;
 }
 
 // --- MODAL COMPONENTS ---
@@ -45,6 +46,13 @@ const ProductDetailModal = ({ product, onClose, onViewSeller }: { product: Pendi
           <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><span className="material-symbols-outlined">close</span></button>
         </div>
         <div className="p-6 space-y-6">
+          {/* Rejection Reason */}
+          {product.rejection_reason && (
+            <div className="p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl">
+              <p className="font-bold text-red-600 dark:text-red-400 text-sm">Lý do bị từ chối:</p>
+              <p className="text-sm text-red-800 dark:text-red-300 mt-1">{product.rejection_reason}</p>
+            </div>
+          )}
           {/* Images */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <img src={product.main_image} alt="Main" className="w-full aspect-square object-cover rounded-lg border dark:border-slate-700" />
@@ -218,7 +226,7 @@ export const AdminProducts: React.FC = () => {
             onClick={() => setActiveTab('pending')}
             className={`pb-3 font-bold text-sm border-b-2 transition-colors ${activeTab === 'pending' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
           >
-            Duyệt sản phẩm
+            Sản phẩm bị từ chối
           </button>
           <button 
             onClick={() => setActiveTab('categories')}
@@ -263,7 +271,7 @@ export const AdminProducts: React.FC = () => {
                       <tr><td colSpan={4} className="p-8 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
                    ) : paginatedProducts.length === 0 ? (
                       <tr><td colSpan={4} className="p-8 text-center text-emerald-500 font-medium">
-                        {searchTerm ? 'Không tìm thấy sản phẩm nào phù hợp.' : 'Tuyệt vời! Không có sản phẩm nào vi phạm chờ duyệt.'}
+                        {searchTerm ? 'Không tìm thấy sản phẩm nào phù hợp.' : 'Tuyệt vời! Không có sản phẩm nào bị từ chối.'}
                       </td></tr>
                    ) : (
                      paginatedProducts.map((product) => (
@@ -307,20 +315,6 @@ export const AdminProducts: React.FC = () => {
                                title="Xem chi tiết"
                              >
                                <span className="material-symbols-outlined text-[18px]">visibility</span> Chi tiết
-                             </button>
-                             <button 
-                               onClick={() => handleApproveProduct(product._id)}
-                               className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-bold hover:bg-emerald-500 hover:text-white transition-colors flex items-center gap-1"
-                               title="Cho phép hiển thị"
-                             >
-                               <span className="material-symbols-outlined text-[18px]">check_circle</span> Duyệt
-                             </button>
-                             <button 
-                               onClick={() => handleRejectProduct(product._id)}
-                               className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-500 hover:text-white transition-colors flex items-center gap-1"
-                               title="Khóa sản phẩm"
-                             >
-                               <span className="material-symbols-outlined text-[18px]">block</span> Từ chối
                              </button>
                            </div>
                          </td>

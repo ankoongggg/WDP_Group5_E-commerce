@@ -134,22 +134,31 @@ exports.createSellerProduct = async (req, res) => {
         };
 
         // 1. Kiểm duyệt từ khóa cấm (dùng chung với pass item)
+        let finalStatus = ['active']; // Mặc định là active
+        let rejectionReason = '';
         const blackListKeywords = await BlacklistKeyword.find().lean();
-        const textToCheck = `${name} ${description || ''}`.toLowerCase();
+        const textToCheck = `${name} ${description || ''}`.toLowerCase(); // Sử dụng name và description từ request body
         for (const item of blackListKeywords) {
             if (textToCheck.includes(item.keyword.toLowerCase())) {
-                let rejectionMessage = '';
                 if (item.level === 'high' || item.level === 'critical') {
-                    rejectionMessage = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
+                    rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa cấm: "${item.keyword}"`;
                 } else if (item.level === 'medium') {
-                    rejectionMessage = `Sản phẩm bị từ chối vì chứa từ khóa nhạy cảm: "${item.keyword}"`;
+                    rejectionReason = `Sản phẩm bị từ chối vì chứa từ khóa nhạy cảm: "${item.keyword}"`;
                 }
-                return res.status(400).json({ success: false, message: rejectionMessage });
+                finalStatus = ['rejected']; // Đặt trạng thái là rejected
+                break; // Dừng lại sau khi tìm thấy từ khóa cấm đầu tiên
             }
         }
         
+        payload.status = finalStatus;
+        payload.rejection_reason = rejectionReason;
         const created = await Product.create(payload);
-        res.status(201).json({ success: true, data: created, message: 'Sản phẩm đã được tạo thành công.' });
+
+        if (created.status.includes('rejected')) {
+            return res.status(400).json({ success: false, message: 'Đăng bán không thành công: ' + created.rejection_reason, data: created });
+        } else {
+            res.status(201).json({ success: true, data: created, message: 'Sản phẩm đã được tạo thành công.' });
+        }
     } catch (err) {
         console.error('createSellerProduct error:', err);
         res.status(500).json({ success: false, message: 'Lỗi máy chủ nội bộ' });
