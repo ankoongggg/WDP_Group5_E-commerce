@@ -198,10 +198,10 @@ const AdminDashboard: React.FC = () => {
                     </button>
                 </div>
 
-                <button className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-xl font-bold transition-colors flex items-center gap-2 shadow-lg shadow-primary/20">
+                {/* <button className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-xl font-bold transition-colors flex items-center gap-2 shadow-lg shadow-primary/20">
                     <span className="material-symbols-outlined">download</span>
                     Xuất báo cáo
-                </button>
+                </button> */}
             </div>
         </div>
 

@@ -40,7 +40,7 @@ const SellerProductForm: React.FC = () => {
           form.setField('category_id', found.category_id || []);
           form.setField('price', found.price);
           form.setField('original_price', found.original_price ?? '');
-          form.setField('condition', found.condition || '');
+          form.setField('condition', found.condition || 'New');
           form.setField('description', found.description || '');
           form.setField('main_image', found.main_image || '');
           form.setField('display_files', found.display_files || []);
@@ -122,6 +122,22 @@ const SellerProductForm: React.FC = () => {
 
   const pageTitle = isEdit ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới';
 
+  // Helper function to format number with thousands separator
+  const formatNumberWithThousandsSeparator = (value: number | string | ''): string => {
+    if (value === '' || value === null || value === undefined) return '';
+    const num = Number(value);
+    if (isNaN(num)) return String(value);
+    return new Intl.NumberFormat('vi-VN').format(num);
+  };
+
+  // Helper function to parse formatted string back to number
+  const parseFormattedNumber = (value: string): number | '' => {
+    if (value === '') return '';
+    const cleanValue = value.replace(/\./g, ''); // Remove thousand separators
+    const num = Number(cleanValue);
+    return isNaN(num) ? '' : num;
+  };
+
   return (
     <SellerLayout>
       <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a110c] px-6 flex items-center justify-between">
@@ -147,35 +163,18 @@ const SellerProductForm: React.FC = () => {
 
           {!loadingInitial && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
-                    Tên sản phẩm <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={form.values.name}
-                    onChange={(e) => form.setField('name', e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/60"
-                    placeholder="Nhập tên sản phẩm"
-                  />
-                  {form.errors.name && <p className="text-xs text-red-500 mt-1">{form.errors.name}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
-                    Tình trạng <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={form.values.condition}
-                    onChange={(e) => form.setField('condition', e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/60"
-                  >
-                    <option value="">Chọn tình trạng</option>
-                    <option value="New">Mới</option>
-                    
-                  </select>
-                  {form.errors.condition && <p className="text-xs text-red-500 mt-1">{form.errors.condition}</p>}
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
+                  Tên sản phẩm <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.values.name}
+                  onChange={(e) => form.setField('name', e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/60"
+                  placeholder="Nhập tên sản phẩm"
+                />
+                {form.errors.name && <p className="text-xs text-red-500 mt-1">{form.errors.name}</p>}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -184,10 +183,10 @@ const SellerProductForm: React.FC = () => {
                     Giá bán (VND) <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     min={0}
-                    value={form.values.price}
-                    onChange={(e) => form.setField('price', e.target.value === '' ? '' : Number(e.target.value))}
+                    value={formatNumberWithThousandsSeparator(form.values.price)}
+                    onChange={(e) => form.setField('price', parseFormattedNumber(e.target.value))}
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/60"
                     placeholder="0"
                   />
@@ -198,12 +197,10 @@ const SellerProductForm: React.FC = () => {
                     Giá trước khuyến mãi (nếu có)
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     min={0}
-                    value={form.values.original_price}
-                    onChange={(e) =>
-                      form.setField('original_price', e.target.value === '' ? '' : Number(e.target.value))
-                    }
+                    value={formatNumberWithThousandsSeparator(form.values.original_price)}
+                    onChange={(e) => form.setField('original_price', parseFormattedNumber(e.target.value))}
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/60"
                     placeholder="0"
                   />
@@ -291,12 +288,12 @@ const SellerProductForm: React.FC = () => {
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Chênh lệch giá</label>
                       <input
-                        type="number"
+                        type="text"
                         min={0}
-                        value={pt.price_difference}
+                        value={formatNumberWithThousandsSeparator(pt.price_difference)}
                         onChange={(e) => {
                           const next = [...form.values.product_type];
-                          next[idx].price_difference = e.target.value === '' ? '' : Number(e.target.value);
+                          next[idx].price_difference = parseFormattedNumber(e.target.value);
                           form.setField('product_type', next);
                         }}
                         className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/60"
@@ -413,4 +410,3 @@ const SellerProductForm: React.FC = () => {
 };
 
 export default SellerProductForm;
-

@@ -391,62 +391,12 @@ const OrderManagement: React.FC = () => {
                                             {updatingStatus ? 'Đang xử lý...' : 'Hoàn thành đơn'}
                                         </button>
                                     )}
-
-                                    {selectedOrder.order_status === 'pending' && (
-                                        <button
-                                            onClick={openRejectModal}
-                                            disabled={updatingStatus}
-                                            className="flex-1 px-6 py-3 rounded-xl font-bold text-sm bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60 transition-all disabled:opacity-50"
-                                        >
-                                            Từ chối / Hủy đơn
-                                        </button>
-                                    )}
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
-            )}
-
-            {/* Reject Reason Modal */}
-            {isRejectModalOpen && selectedOrder && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white dark:bg-[#2d1e16] rounded-3xl shadow-2xl p-8 w-full max-w-md relative animate-in zoom-in duration-200">
-                        <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <span className="material-symbols-outlined text-3xl">cancel</span>
-                        </div>
-                        <h3 className="text-2xl font-black text-center dark:text-white mb-2">Từ chối đơn hàng?</h3>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center">Vui lòng cung cấp lý do từ chối. Khách hàng sẽ nhận được thông báo này.</p>
-                        <textarea
-                            value={rejectionReason}
-                            onChange={(e) => setRejectionReason(e.target.value)}
-                            placeholder="Ví dụ: Sản phẩm đã hết hàng, không thể liên lạc với khách hàng..."
-                            className="w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none resize-none h-32"
-                        />
-                        <div className="mt-6 flex gap-4">
-                            <button
-                                onClick={() => { setIsRejectModalOpen(false); setIsDetailModalOpen(true); }}
-                                className="flex-1 px-6 py-3 rounded-xl font-bold text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all"
-                            >
-                                Quay lại
-                            </button>
-                            <button
-                                onClick={() => {
-                                    if (!rejectionReason.trim()) {
-                                        toast.error('Vui lòng nhập lý do từ chối.');
-                                        return;
-                                    }
-                                    handleUpdateStatus(selectedOrder._id, 'cancelled', rejectionReason);
-                                }}
-                                disabled={updatingStatus}
-                                className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-70 shadow-lg shadow-red-500/30"
-                            >
-                                {updatingStatus ? 'Đang xử lý...' : 'Xác nhận hủy'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            )}            
         </SellerLayout>
     );
 };

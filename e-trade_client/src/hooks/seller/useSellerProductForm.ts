@@ -20,7 +20,7 @@ export const useSellerProductForm = (initial?: Partial<SellerProductFormValues>,
     category_id: initial?.category_id || [],
     price: initial?.price ?? '',
     original_price: initial?.original_price ?? '',
-    condition: initial?.condition || '',
+    condition: initial?.condition || 'New',
     description: initial?.description || '',
     main_image: initial?.main_image || '',
     display_files: initial?.display_files || [],
@@ -41,7 +41,6 @@ export const useSellerProductForm = (initial?: Partial<SellerProductFormValues>,
     if (!values.name.trim()) newErrors.name = 'Tên sản phẩm là bắt buộc';
     if (!values.category_id.length) newErrors.category_id = 'Vui lòng chọn ít nhất một danh mục';
     if (values.price === '' || Number(values.price) <= 0) newErrors.price = 'Giá bán phải lớn hơn 0';
-    if (!values.condition.trim()) newErrors.condition = 'Vui lòng chọn tình trạng';
     if (values.original_price !== '' && Number(values.original_price) < Number(values.price)) {
       newErrors.original_price = 'Giá gốc phải lớn hơn hoặc bằng giá bán';
     }
@@ -69,6 +68,7 @@ export const useSellerProductForm = (initial?: Partial<SellerProductFormValues>,
     try {
       const payload = {
         ...values,
+        condition: values.condition || 'New',
         price: Number(values.price),
         original_price: values.original_price === '' ? undefined : Number(values.original_price),
         product_type: values.product_type.map((pt) => ({
@@ -104,4 +104,3 @@ export const useSellerProductForm = (initial?: Partial<SellerProductFormValues>,
     submit,
   };
 };
-
